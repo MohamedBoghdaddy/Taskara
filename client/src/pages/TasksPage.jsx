@@ -1,0 +1,193 @@
+import React, { useState, useEffect } from 'react';
+import { getTasks, createTask, updateTask, deleteTask } from '../api/tasks';
+import Button from '../components/common/Button';
+import Badge from '../components/common/Badge';
+import Modal from '../components/common/Modal';
+import Input from '../components/common/Input';
+import toast from 'react-hot-toast';
+import { format } from 'date-fns';
+
+const STATUSES = ['inbox','todo','in_progress','blocked','done'];
+const PRIORITIES = ['low','medium','high','urgent'];
+
+export default function TasksPage() {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('list');
+  const [filters, setFilters] = useState({ status: '', priority: '' });
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '' });
+  const [selectedTask, setSelectedTask] = useState(null);
+
+  useEffect(() => { loadTasks(); }, [filters]);
+
+  const loadTasks = async () => {
+    setLoading(true);
+    try { const d = await getTasks(filters); setTasks(d.tasks || []); }
+    catch { toast.error('Failed to load tasks'); }
+    finally { setLoading(false); }
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      const task = await createTask({ ...form, dueDate: form.dueDate || undefined });
+      setTasks(prev => [task, ...prev]);
+      setShowCreate(false); setForm({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '' });
+      toast.success('Task created');
+    } catch { toast.error('Failed to create task'); }
+  };
+
+  const handleStatusChange = async (task, newStatus) => {
+    try {
+      const updated = await updateTask(task._id, { status: newStatus });
+      setTasks(ts => ts.map(t => t._id === task._id ? updated : t));
+    } catch { toast.error('Failed to update'); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete task?')) return;
+    try { await deleteTask(id); setTasks(ts => ts.filter(t => t._id !== id)); toast.success('Deleted'); }
+    catch { toast.error('Failed to delete'); }
+  };
+
+  const grouped = view === 'board' ? STATUSES.reduce((acc, s) => ({ ...acc, [s]: tasks.filter(t => t.status === s) }), {}) : null;
+
+  return (
+    <div style={{ padding: '32px', maxWidth: '1100px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: '700' }}>Tasks</h1>
+        <Button onClick={() => setShowCreate(true)}>+ New Task</Button>
+      </div>
+
+      {/* View switcher + filters */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+          {[['list','List'],['board','Board']].map(([v, l]) => (
+            <button key={v} onClick={() => setView(v)} style={{ padding: '6px 14px', border: 'none', cursor: 'pointer', fontSize: '13px', background: view === v ? 'var(--primary)' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text-secondary)' }}>{l}</button>
+          ))}
+        </div>
+        <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}>
+          <option value="">All statuses</option>
+          {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+        </select>
+        <select value={filters.priority} onChange={e => setFilters(f => ({ ...f, priority: e.target.value }))} style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}>
+          <option value="">All priorities</option>
+          {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
+
+      {loading ? <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>Loading...</div> : (
+        <>
+          {view === 'list' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {tasks.length === 0 && <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>No tasks. Create one!</div>}
+              {tasks.map(task => <TaskListRow key={task._id} task={task} onStatusChange={handleStatusChange} onDelete={handleDelete} onClick={setSelectedTask} />)}
+            </div>
+          )}
+          {view === 'board' && (
+            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px' }}>
+              {STATUSES.map(status => (
+                <div key={status} style={{ minWidth: '220px', flex: '0 0 220px' }}>
+                  <div style={{ padding: '8px 12px', fontWeight: '600', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--surface-alt)', borderRadius: 'var(--radius)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{status.replace('_',' ').toUpperCase()}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{grouped[status]?.length || 0}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(grouped[status] || []).map(task => (
+                      <div key={task._id} style={{ padding: '10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '13px' }} onClick={() => setSelectedTask(task)}>
+                        <div style={{ fontWeight: '500', marginBottom: '4px' }}>{task.title}</div>
+                        <Badge type={task.priority} label={task.priority} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Create modal */}
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Task">
+        <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <Input label="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Task title" required />
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Description</label>
+            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optional description" rows={3} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Priority</label>
+              <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }}>
+                {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <Input label="Due date" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+            <Button variant="secondary" onClick={() => setShowCreate(false)} type="button">Cancel</Button>
+            <Button type="submit">Create Task</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Task detail modal */}
+      {selectedTask && <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} onUpdate={updated => { setTasks(ts => ts.map(t => t._id === updated._id ? updated : t)); setSelectedTask(updated); }} />}
+    </div>
+  );
+}
+
+function TaskListRow({ task, onStatusChange, onDelete, onClick }) {
+  const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer' }}
+      onClick={() => onClick(task)}>
+      <input type="checkbox" checked={task.status === 'done'} onClick={e => e.stopPropagation()} onChange={() => onStatusChange(task, task.status === 'done' ? 'todo' : 'done')} style={{ accentColor: 'var(--primary)', width: '15px', height: '15px' }} />
+      <span style={{ flex: 1, fontSize: '14px', textDecoration: task.status === 'done' ? 'line-through' : 'none', color: task.status === 'done' ? 'var(--text-muted)' : 'var(--text-primary)' }}>{task.title}</span>
+      {overdue && <span style={{ fontSize: '11px', color: 'var(--error)', fontWeight: '600' }}>OVERDUE</span>}
+      {task.dueDate && !overdue && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{format(new Date(task.dueDate), 'MMM d')}</span>}
+      <Badge type={task.priority} label={task.priority} />
+      <Badge type={task.status} label={task.status.replace('_',' ')} />
+      <button onClick={e => { e.stopPropagation(); onDelete(task._id); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 6px', fontSize: '14px' }}>✕</button>
+    </div>
+  );
+}
+
+function TaskDetailModal({ task, onClose, onUpdate }) {
+  const [form, setForm] = useState({ title: task.title, description: task.description || '', status: task.status, priority: task.priority, dueDate: task.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : '' });
+  const handleSave = async () => {
+    try { const updated = await updateTask(task._id, { ...form, dueDate: form.dueDate || undefined }); onUpdate(updated); onClose(); toast.success('Saved'); }
+    catch { toast.error('Failed to save'); }
+  };
+  return (
+    <Modal open onClose={onClose} title="Task Details" width="560px">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <Input label="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+        <div>
+          <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Description</label>
+          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={4} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Status</label>
+            <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}>
+              {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Priority</label>
+            <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={{ width: '100%', padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}>
+              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <Input label="Due date" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave}>Save</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
