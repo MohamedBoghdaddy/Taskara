@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { getTaskAnalytics, getFocusAnalytics } from '../api/index';
 import toast from 'react-hot-toast';
+import FeatureGuide from '../components/common/FeatureGuide';
+import {
+  AnalyticsIcon, TimerIcon, TrophyIcon, FireIcon,
+  TrendUpIcon, CheckCircleIcon, LineChartIcon,
+} from '../components/common/Icons';
 
 export default function AnalyticsPage() {
   const [taskStats, setTaskStats] = useState(null);
@@ -27,7 +32,9 @@ export default function AnalyticsPage() {
   return (
     <div style={{ padding: '32px', maxWidth: '1000px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: '700' }}>Analytics</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <AnalyticsIcon color="var(--primary)" /> Analytics
+        </h1>
         <div style={{ display: 'flex', gap: '4px' }}>
           {['7d','30d','90d'].map(r => (
             <button key={r} onClick={() => setRange(r)} style={{ padding: '6px 14px', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '13px', background: range === r ? 'var(--primary)' : 'var(--surface-alt)', color: range === r ? '#fff' : 'var(--text-secondary)', fontWeight: range === r ? '600' : '400' }}>{r}</button>
@@ -35,17 +42,48 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      <FeatureGuide
+        storageKey="analytics-guide"
+        title="Analytics"
+        icon={<AnalyticsIcon />}
+        description="Track your productivity over time — focus hours, task completion rates, and daily streaks."
+        steps={[
+          {
+            icon: <LineChartIcon />,
+            title: 'Focus charts',
+            body: 'The bar chart shows daily focus minutes from Pomodoro sessions. Taller bars = more deep work.',
+          },
+          {
+            icon: <TrendUpIcon />,
+            title: 'Task completion trend',
+            body: 'The status breakdown shows how tasks are distributed. Aim for a high Completed percentage.',
+          },
+          {
+            icon: <FireIcon />,
+            title: 'Streak & totals',
+            body: 'Focus stats at the top show total hours, sessions, and average session length for the period.',
+          },
+        ]}
+        tips={[
+          'Switch to 30d or 90d to see longer trends',
+          'Consistent short sessions beat occasional long ones',
+          'Completion % above 80% is excellent — keep it up',
+        ]}
+        accentColor="var(--primary)"
+      />
+
       {loading ? <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>Loading...</div> : (
         <>
           {/* Task stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '28px' }}>
             {[
-              { label: 'Total tasks', value: taskStats?.total || 0 },
-              { label: 'Completed', value: taskStats?.completed || 0, color: 'var(--success)' },
-              { label: 'Overdue', value: taskStats?.overdue || 0, color: taskStats?.overdue ? 'var(--error)' : 'var(--text-muted)' },
-              { label: 'Completion %', value: taskStats?.total ? `${Math.round((taskStats.completed/taskStats.total)*100)}%` : '0%', color: 'var(--primary)' },
+              { label: 'Total tasks', value: taskStats?.total || 0, icon: <CheckCircleIcon /> },
+              { label: 'Completed', value: taskStats?.completed || 0, color: 'var(--success)', icon: <TrophyIcon /> },
+              { label: 'Overdue', value: taskStats?.overdue || 0, color: taskStats?.overdue ? 'var(--error)' : 'var(--text-muted)', icon: <FireIcon /> },
+              { label: 'Completion %', value: taskStats?.total ? `${Math.round((taskStats.completed/taskStats.total)*100)}%` : '0%', color: 'var(--primary)', icon: <TrendUpIcon /> },
             ].map(s => (
               <div key={s.label} style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', textAlign: 'center' }}>
+                <div style={{ marginBottom: '6px', color: s.color || 'var(--text-muted)' }}>{s.icon}</div>
                 <div style={{ fontSize: '32px', fontWeight: '700', color: s.color || 'var(--text-primary)' }}>{s.value}</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{s.label}</div>
               </div>
@@ -55,11 +93,12 @@ export default function AnalyticsPage() {
           {/* Focus stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '28px' }}>
             {[
-              { label: 'Total focus time', value: `${Math.round((focusStats?.totalMinutes || 0) / 60 * 10) / 10}h`, color: 'var(--primary)' },
-              { label: 'Sessions', value: focusStats?.totalSessions || 0, color: 'var(--primary)' },
-              { label: 'Avg session', value: `${focusStats?.averageSessionMinutes || 0}m` },
+              { label: 'Total focus time', value: `${Math.round((focusStats?.totalMinutes || 0) / 60 * 10) / 10}h`, color: 'var(--primary)', icon: <TimerIcon /> },
+              { label: 'Sessions', value: focusStats?.totalSessions || 0, color: 'var(--primary)', icon: <AnalyticsIcon /> },
+              { label: 'Avg session', value: `${focusStats?.averageSessionMinutes || 0}m`, icon: <TimerIcon /> },
             ].map(s => (
               <div key={s.label} style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', textAlign: 'center' }}>
+                <div style={{ marginBottom: '6px', color: s.color || 'var(--text-muted)' }}>{s.icon}</div>
                 <div style={{ fontSize: '32px', fontWeight: '700', color: s.color || 'var(--text-primary)' }}>{s.value}</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{s.label}</div>
               </div>
@@ -69,7 +108,9 @@ export default function AnalyticsPage() {
           {/* Focus chart */}
           {focusDaily.length > 0 && (
             <div style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: '24px' }}>
-              <h3 style={{ fontWeight: '600', fontSize: '14px', marginBottom: '16px' }}>Daily Focus Time</h3>
+              <h3 style={{ fontWeight: '600', fontSize: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <LineChartIcon color="var(--primary)" /> Daily Focus Time
+              </h3>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '120px' }}>
                 {focusDaily.map(([day, val]) => (
                   <div key={day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
@@ -84,7 +125,9 @@ export default function AnalyticsPage() {
           {/* Task status breakdown */}
           {taskStats?.byStatus?.length > 0 && (
             <div style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-              <h3 style={{ fontWeight: '600', fontSize: '14px', marginBottom: '16px' }}>Tasks by Status</h3>
+              <h3 style={{ fontWeight: '600', fontSize: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AnalyticsIcon color="var(--primary)" /> Tasks by Status
+              </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {taskStats.byStatus.map(({ _id, count }) => (
                   <div key={_id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
