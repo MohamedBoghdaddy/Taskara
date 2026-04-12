@@ -11,7 +11,7 @@ import {
   SprintIcon, CollapseIcon, ExpandSideIcon, LogoutIcon, UserIcon,
   LogoIcon, ChevronDown, ChevronUp, BoardIcon, AddIcon,
   DueDateIcon, NoteFilledIcon, BreakIcon, ProjectFilledIcon, FocusIcon,
-  BrainIcon, TeamIcon,
+  BrainIcon, TeamIcon, FlashIcon, TrophyIcon, PlugIcon,
 } from './Icons';
 
 const NAV_GROUPS = [
@@ -28,7 +28,9 @@ const NAV_GROUPS = [
     items: [
       { to: '/tasks',        Icon: TaskIcon,          label: 'Tasks',        tip: 'Kanban board + task list' },
       { to: '/boards',       Icon: BoardIcon,         label: 'Boards',       tip: 'Trello-style project boards' },
+      { to: '/sprints',      Icon: SprintIcon,        label: 'Sprints',      tip: 'Scrum sprints + burndown' },
       { to: '/backlog',      Icon: BacklogIcon,       label: 'Backlog',      tip: 'Sprint backlog & planning' },
+      { to: '/timeline',     Icon: CalendarIcon,      label: 'Timeline',     tip: 'Gantt / roadmap view' },
       { to: '/projects',     Icon: ProjectIcon,       label: 'Projects',     tip: 'Project workspaces' },
       { to: '/calendar',     Icon: CalendarIcon,      label: 'Calendar',     tip: 'Due dates & reminders' },
     ],
@@ -52,9 +54,24 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: 'Create',
+    items: [
+      { to: '/canvas',       Icon: BrainIcon,         label: 'Canvas',       tip: 'Freeform whiteboard & mindmap' },
+    ],
+  },
+  {
     label: 'Team',
     items: [
       { to: '/collaboration', Icon: UsersIcon,        label: 'Team',         tip: 'Members, roles & invites' },
+      { to: '/automations',   Icon: FlashIcon,        label: 'Automations',  tip: 'Trigger → action rules' },
+      { to: '/webhooks',      Icon: TeamIcon,         label: 'Webhooks',     tip: 'Outbound event delivery' },
+      { to: '/integrations',  Icon: PlugIcon,         label: 'Integrations', tip: 'Todoist, Slack & more' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { to: '/pricing',      Icon: TrophyIcon,        label: 'Upgrade Plan', tip: 'View plans & pricing' },
     ],
   },
 ];
