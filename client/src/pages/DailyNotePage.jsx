@@ -4,6 +4,12 @@ import { getDailyNote, generateDailyNote, updateNote } from '../api/notes';
 import { getTodayTasks } from '../api/tasks';
 import { getHistory } from '../api/pomodoro';
 import Button from '../components/common/Button';
+import FeatureGuide from '../components/common/FeatureGuide';
+import Tooltip from '../components/common/Tooltip';
+import {
+  CalendarIcon, ChevronLeft, ChevronRight, SaveIcon, CheckCircleIcon,
+  TimerIcon, TaskIcon, NoteIcon, CheckIcon,
+} from '../components/common/Icons';
 import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -47,18 +53,86 @@ export default function DailyNotePage() {
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Top bar */}
         <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--surface)' }}>
-          <button onClick={prevDay} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '18px' }}>←</button>
-          <span style={{ fontWeight: '600' }}>{format(parsed, 'EEEE, MMMM d, yyyy')}</span>
-          <button onClick={nextDay} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '18px' }}>→</button>
+          <Tooltip content="Previous day" placement="bottom">
+            <button
+              onClick={prevDay}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+            >
+              <ChevronLeft />
+            </button>
+          </Tooltip>
+          <span style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <CalendarIcon size="sm" style={{ color: 'var(--primary)' }} />
+            {format(parsed, 'EEEE, MMMM d, yyyy')}
+          </span>
+          <Tooltip content="Next day" placement="bottom">
+            <button
+              onClick={nextDay}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+            >
+              <ChevronRight />
+            </button>
+          </Tooltip>
           <span style={{ flex: 1 }} />
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{saving ? '💾 Saving...' : 'Auto-saved'}</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {saving ? <><SaveIcon size="xs" /> Saving...</> : 'Auto-saved'}
+          </span>
         </div>
+
+        {/* Editor area */}
         <div style={{ flex: 1, overflow: 'auto', padding: '32px 48px' }}>
-          <textarea value={content} onChange={handleChange} style={{ width: '100%', minHeight: '70vh', border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: '15px', outline: 'none', resize: 'none', lineHeight: 1.7, fontFamily: 'inherit' }} placeholder="Write your daily note here..." />
+          <FeatureGuide
+            storageKey="daily-note-page"
+            title="Daily Note"
+            icon={<CalendarIcon />}
+            description="A daily journal tied to a specific date — automatically generated each day. Use it to plan your day, reflect on progress, and record what happened."
+            steps={[
+              {
+                icon: <NoteIcon />,
+                title: 'Write freely',
+                body: 'Type your plans, reflections, or notes for the day. Markdown is fully supported.',
+              },
+              {
+                icon: <SaveIcon />,
+                title: 'Autosave',
+                body: 'Your daily note saves automatically 1 second after you stop typing.',
+              },
+              {
+                icon: <ChevronLeft />,
+                title: 'Navigate days',
+                body: 'Use the left and right arrows in the toolbar to browse to any past or future day.',
+              },
+              {
+                icon: <TaskIcon />,
+                title: 'See today\'s tasks',
+                body: 'The sidebar shows all tasks due today with their completion status at a glance.',
+              },
+              {
+                icon: <TimerIcon />,
+                title: 'Focus sessions',
+                body: 'Pomodoro sessions logged on this day appear in the sidebar with duration totals.',
+              },
+            ]}
+            tips={[
+              'Start each morning by writing 3 intentions for the day',
+              'Use the evening to reflect on what you accomplished',
+              'Focus minutes help you see how productive the day was',
+              'Navigate to any past date to review your history',
+            ]}
+            accentColor="var(--success)"
+          />
+          <textarea
+            value={content}
+            onChange={handleChange}
+            style={{ width: '100%', minHeight: '70vh', border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: '15px', outline: 'none', resize: 'none', lineHeight: 1.7, fontFamily: 'inherit' }}
+            placeholder="Write your daily note here..."
+          />
         </div>
       </div>
 
+      {/* Right sidebar */}
       <div style={{ width: '260px', borderLeft: '1px solid var(--border)', background: 'var(--surface)', overflow: 'auto', padding: '20px' }}>
         <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '16px' }}>Day Summary</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
@@ -66,21 +140,31 @@ export default function DailyNotePage() {
           <StatCard label="Focus mins" value={focusMinutes} color="var(--primary)" />
         </div>
 
-        <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '8px', color: 'var(--text-secondary)' }}>Tasks</div>
-        {tasks.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>No tasks today</div> :
+        <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '8px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <TaskIcon size="xs" /> Tasks
+        </div>
+        {tasks.length === 0 ? (
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>No tasks today</div>
+        ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '16px' }}>
             {tasks.slice(0, 6).map(t => (
               <div key={t._id} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0' }}>
-                <span style={{ color: t.status === 'done' ? 'var(--success)' : 'var(--text-muted)' }}>{t.status === 'done' ? '✓' : '○'}</span>
-                <span style={{ textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-muted)' : 'var(--text-primary)' }}>{t.title}</span>
+                <span style={{ color: t.status === 'done' ? 'var(--success)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+                  {t.status === 'done' ? <CheckIcon size="xs" /> : <span style={{ fontSize: '10px' }}>○</span>}
+                </span>
+                <span style={{ textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                  {t.title}
+                </span>
               </div>
             ))}
           </div>
-        }
+        )}
 
         {sessions.length > 0 && (
           <>
-            <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '8px', color: 'var(--text-secondary)' }}>Focus sessions</div>
+            <div style={{ fontWeight: '500', fontSize: '13px', marginBottom: '8px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <TimerIcon size="xs" /> Focus sessions
+            </div>
             {sessions.map(s => (
               <div key={s._id} style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '3px 0', display: 'flex', justifyContent: 'space-between' }}>
                 <span>{s.taskId?.title || 'General focus'}</span>
