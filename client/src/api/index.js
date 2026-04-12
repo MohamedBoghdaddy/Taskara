@@ -1,34 +1,73 @@
 import client from './client';
-export const search = q => client.get('/search', { params: { q } }).then(r => r.data);
-export const getTags = () => client.get('/tags').then(r => r.data);
-export const createTag = d => client.post('/tags', d).then(r => r.data);
-export const updateTag = (id, d) => client.patch(`/tags/${id}`, d).then(r => r.data);
-export const deleteTag = id => client.delete(`/tags/${id}`).then(r => r.data);
-export const getReminders = p => client.get('/reminders', { params: p }).then(r => r.data);
-export const createReminder = d => client.post('/reminders', d).then(r => r.data);
-export const updateReminder = (id, d) => client.patch(`/reminders/${id}`, d).then(r => r.data);
-export const getTemplates = p => client.get('/templates', { params: p }).then(r => r.data);
-export const createTemplate = d => client.post('/templates', d).then(r => r.data);
-export const updateTemplate = (id, d) => client.patch(`/templates/${id}`, d).then(r => r.data);
-export const deleteTemplate = id => client.delete(`/templates/${id}`).then(r => r.data);
-export const getDatabases = () => client.get('/databases').then(r => r.data);
-export const createDatabase = d => client.post('/databases', d).then(r => r.data);
-export const getDatabase = id => client.get(`/databases/${id}`).then(r => r.data);
-export const updateDatabase = (id, d) => client.patch(`/databases/${id}`, d).then(r => r.data);
-export const getRecords = (id, p) => client.get(`/databases/${id}/records`, { params: p }).then(r => r.data);
-export const createRecord = (id, d) => client.post(`/databases/${id}/records`, d).then(r => r.data);
-export const updateRecord = (dbId, recId, d) => client.patch(`/databases/${dbId}/records/${recId}`, d).then(r => r.data);
-export const deleteRecord = (dbId, recId) => client.delete(`/databases/${dbId}/records/${recId}`).then(r => r.data);
-export const getActivity = p => client.get('/collaboration/activity', { params: p }).then(r => r.data);
-export const getComments = p => client.get('/collaboration/comments', { params: p }).then(r => r.data);
-export const addComment = d => client.post('/collaboration/comments', d).then(r => r.data);
-export const inviteMember = (wsId, d) => client.post(`/collaboration/workspaces/${wsId}/invite`, d).then(r => r.data);
-export const getDashboardStats = () => client.get('/collaboration/analytics/dashboard').then(r => r.data);
-export const getTaskAnalytics = p => client.get('/collaboration/analytics/tasks', { params: p }).then(r => r.data);
-export const getFocusAnalytics = p => client.get('/collaboration/analytics/focus', { params: p }).then(r => r.data);
+
+// ── Search & Tags ─────────────────────────────────────────────────────────────
+export const search     = q  => client.get('/search', { params: { q } }).then(r => r.data);
+export const getTags    = () => client.get('/tags').then(r => r.data);
+export const createTag  = d  => client.post('/tags', d).then(r => r.data);
+export const updateTag  = (id, d) => client.patch(`/tags/${id}`, d).then(r => r.data);
+export const deleteTag  = id => client.delete(`/tags/${id}`).then(r => r.data);
+
+// ── Reminders ────────────────────────────────────────────────────────────────
+export const getReminders    = p      => client.get('/reminders', { params: p }).then(r => r.data);
+export const createReminder  = d      => client.post('/reminders', d).then(r => r.data);
+export const updateReminder  = (id,d) => client.patch(`/reminders/${id}`, d).then(r => r.data);
+export const deleteReminder  = id     => client.delete(`/reminders/${id}`).then(r => r.data);
+
+// ── Templates ────────────────────────────────────────────────────────────────
+export const getTemplates    = p      => client.get('/templates', { params: p }).then(r => r.data);
+export const createTemplate  = d      => client.post('/templates', d).then(r => r.data);
+export const updateTemplate  = (id,d) => client.patch(`/templates/${id}`, d).then(r => r.data);
+export const deleteTemplate  = id     => client.delete(`/templates/${id}`).then(r => r.data);
+
+// ── Databases ────────────────────────────────────────────────────────────────
+export const getDatabases   = ()       => client.get('/databases').then(r => r.data);
+export const createDatabase = d        => client.post('/databases', d).then(r => r.data);
+export const getDatabase    = id       => client.get(`/databases/${id}`).then(r => r.data);
+export const updateDatabase = (id, d)  => client.patch(`/databases/${id}`, d).then(r => r.data);
+export const deleteDatabase = id       => client.delete(`/databases/${id}`).then(r => r.data);
+export const getRecords     = (id, p)  => client.get(`/databases/${id}/records`, { params: p }).then(r => r.data);
+export const createRecord   = (id, d)  => client.post(`/databases/${id}/records`, d).then(r => r.data);
+export const updateRecord   = (db, rec, d) => client.patch(`/databases/${db}/records/${rec}`, d).then(r => r.data);
+export const deleteRecord   = (db, rec)    => client.delete(`/databases/${db}/records/${rec}`).then(r => r.data);
+
+// ── Collaboration ────────────────────────────────────────────────────────────
+export const getActivity    = p      => client.get('/collaboration/activity', { params: p }).then(r => r.data);
+export const getComments    = p      => client.get('/collaboration/comments', { params: p }).then(r => r.data);
+export const addComment     = d      => client.post('/collaboration/comments', d).then(r => r.data);
+export const inviteMember   = (wsId,d) => client.post(`/collaboration/workspaces/${wsId}/invite`, d).then(r => r.data);
+
+// ── Analytics (legacy paths, now route to /analytics) ────────────────────────
+export const getDashboardStats  = ()  => client.get('/analytics/dashboard').then(r => r.data);
+export const getTaskAnalytics   = p   => client.get('/analytics/tasks', { params: p }).then(r => r.data);
+export const getFocusAnalytics  = p   => client.get('/analytics/focus', { params: p }).then(r => r.data);
+export const getFocusScore      = ()  => client.get('/analytics/focus-score').then(r => r.data);
+export const getBurnout         = ()  => client.get('/analytics/burnout').then(r => r.data);
+export const getWeeklyTrend     = ()  => client.get('/analytics/weekly-trend').then(r => r.data);
+export const getAnalyticsHabits = (days) => client.get('/analytics/habits', { params: { days } }).then(r => r.data);
+
+// ── Graph ────────────────────────────────────────────────────────────────────
 export const getGraph = () => client.get('/links/graph').then(r => r.data);
-export const aiSummarize = d => client.post('/ai/summarize-note', d).then(r => r.data);
+
+// ── AI ───────────────────────────────────────────────────────────────────────
+export const aiSummarize    = d => client.post('/ai/summarize-note', d).then(r => r.data);
 export const aiExtractTasks = d => client.post('/ai/extract-tasks', d).then(r => r.data);
-export const aiRewrite = d => client.post('/ai/rewrite', d).then(r => r.data);
-export const aiPlanToday = d => client.post('/ai/plan-today', d).then(r => r.data);
-export const aiAnswer = d => client.post('/ai/answer-from-workspace', d).then(r => r.data);
+export const aiRewrite      = d => client.post('/ai/rewrite', d).then(r => r.data);
+export const aiPlanToday    = d => client.post('/ai/plan-today', d).then(r => r.data);
+export const aiAnswer       = d => client.post('/ai/answer-from-workspace', d).then(r => r.data);
+export const aiPrioritize   = d => client.post('/ai/prioritize-tasks', d).then(r => r.data);
+export const aiMeetingNotes = d => client.post('/ai/meeting-to-tasks', d).then(r => r.data);
+export const aiVoiceToTask  = d => client.post('/ai/voice-to-task', d).then(r => r.data);
+
+// ── Habits ───────────────────────────────────────────────────────────────────
+export const getHabitHistory = (days) => client.get('/habits', { params: { days } }).then(r => r.data);
+export const getStreak       = ()     => client.get('/habits/streak').then(r => r.data);
+
+// ── Subscriptions ────────────────────────────────────────────────────────────
+export const getCurrentPlan  = ()      => client.get('/subscriptions/current').then(r => r.data);
+export const getAllPlans      = ()      => client.get('/subscriptions/plans').then(r => r.data);
+export const upgradePlan     = (plan)  => client.post('/subscriptions/upgrade', { plan }).then(r => r.data);
+export const checkFeature    = (feat)  => client.get(`/subscriptions/check/${feat}`).then(r => r.data);
+
+// ── Note Versions ────────────────────────────────────────────────────────────
+export const getNoteVersions  = (noteId)       => client.get(`/note-versions/${noteId}`).then(r => r.data);
+export const restoreNoteVersion = (noteId, ver) => client.post(`/note-versions/${noteId}/restore/${ver}`).then(r => r.data);
