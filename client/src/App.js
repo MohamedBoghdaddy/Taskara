@@ -17,6 +17,9 @@ import TodayPage from './pages/TodayPage';
 import TasksPage from './pages/TasksPage';
 import BoardPage from './pages/BoardPage';
 import BacklogPage from './pages/BacklogPage';
+import SprintsPage from './pages/SprintsPage';
+import SprintDetailPage from './pages/SprintDetailPage';
+import TimelinePage from './pages/TimelinePage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import PomodoroPage from './pages/PomodoroPage';
@@ -30,6 +33,11 @@ import GraphPage from './pages/GraphPage';
 import CollaborationPage from './pages/CollaborationPage';
 import SettingsPage from './pages/SettingsPage';
 import AIPage from './pages/AIPage';
+import AutomationsPage from './pages/AutomationsPage';
+import WebhooksPage from './pages/WebhooksPage';
+import PricingPage from './pages/PricingPage';
+import CanvasPage from './pages/CanvasPage';
+import IntegrationsPage from './pages/IntegrationsPage';
 
 const PrivateRoute = ({ children }) => {
   const { token } = useAuthStore();
@@ -44,10 +52,9 @@ const PublicRoute = ({ children }) => {
 export default function App() {
   const { preferences } = useAuthStore();
 
-  // Apply theme
   useEffect(() => {
     const theme =
-      preferences?.theme === 'dark' ? 'dark' :
+      preferences?.theme === 'dark'  ? 'dark' :
       preferences?.theme === 'light' ? 'light' :
       window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
@@ -68,7 +75,7 @@ export default function App() {
       />
       <Routes>
         {/* Public */}
-        <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
+        <Route path="/"         element={<PublicRoute><LandingPage /></PublicRoute>} />
         <Route path="/login"    element={<PublicRoute><AuthLayout><LoginPage /></AuthLayout></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><AuthLayout><RegisterPage /></AuthLayout></PublicRoute>} />
 
@@ -89,6 +96,9 @@ export default function App() {
           <Route path="/tasks"             element={<TasksPage />} />
           <Route path="/boards"            element={<BoardPage />} />
           <Route path="/backlog"           element={<BacklogPage />} />
+          <Route path="/sprints"           element={<SprintsPage />} />
+          <Route path="/sprints/:id"       element={<SprintDetailPage />} />
+          <Route path="/timeline"          element={<TimelinePage />} />
 
           {/* Projects */}
           <Route path="/projects"          element={<ProjectsPage />} />
@@ -108,12 +118,19 @@ export default function App() {
           <Route path="/databases/:id"     element={<DatabaseDetailPage />} />
           <Route path="/graph"             element={<GraphPage />} />
 
+          {/* Canvas */}
+          <Route path="/canvas"            element={<CanvasPage />} />
+
           {/* AI + Team */}
           <Route path="/ai"                element={<AIPage />} />
           <Route path="/collaboration"     element={<CollaborationPage />} />
+          <Route path="/automations"       element={<AutomationsPage />} />
+          <Route path="/webhooks"          element={<WebhooksPage />} />
+          <Route path="/integrations"      element={<IntegrationsPage />} />
 
-          {/* Settings */}
+          {/* Settings + Pricing */}
           <Route path="/settings"          element={<SettingsPage />} />
+          <Route path="/pricing"           element={<PricingPage />} />
 
           {/* Fallback */}
           <Route path="*"                  element={<Navigate to="/today" replace />} />
