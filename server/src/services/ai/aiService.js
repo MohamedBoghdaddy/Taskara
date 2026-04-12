@@ -105,4 +105,98 @@ const answerFromWorkspace = async (workspaceId, userId, question) => {
   return { answer, question, aiGenerated: true };
 };
 
-module.exports = { summarizeNote, extractTasks, rewriteNote, planToday, answerFromWorkspace };
+/**
+ * Convert meeting notes text into structured tasks.
+ */
+const meetingNotesToTasks = async (workspaceId, userId, text) => {
+  const prompt = `You are an expert at extracting action items from meeting notes.
+Extract all action items, decisions, and follow-ups from the following meeting notes.
+Return a JSON array of objects with: title, assignee (string name or null), dueDate (ISO date or null), priority (low/medium/high), notes (brief context).
+Return ONLY valid JSON.
+
+Meeting notes:
+${text.substring(0, 5000)}`;
+
+  const raw = await callGemini(prompt);
+  let tasks = [];
+  try {
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (match) tasks = JSON.parse(match[0]);
+  } catch (_) {}
+
+  await AiLog.create({ workspaceId, userId, feature: 'meeting_to_tasks', response: { tasks } });
+  return { tasks, aiGenerated: true };
+};
+
+/**
+ * Smart task prioritization based on context.
+ */
+const prioritizeTasks = async (workspaceId, userId, tasks) => {
+  const list = tasks.map((t, i) => `${i+1}. ${t.title} | priority:${t.priority} | due:${t.dueDate || 'none'} | pomodoros:${t.estimatedPomodoros || 0}`).join('\n');
+  const prompt = `You are a productivity expert. Given these tasks, provide a smart prioritization order for today.
+For each task, explain in one sentence WHY it should be done in that order.
+Return JSON: array of objects { id, title, rank, reason, suggestedTime }
+
+Tasks:
+${list}`;
+
+  const raw = await callGemini(prompt, 'You are a productivity expert focused on deep work and task sequencing.');
+  let result = [];
+  try {
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (match) result = JSON.parse(match[0]);
+  } catch (_) {}
+
+  await AiLog.create({ workspaceId, userId, feature: 'prioritization', response: { result } });
+  return { prioritized: result, aiGenerated: true };
+};
+
+/**
+ * Voice transcript → task (process transcribed text).
+ */
+const voiceToTask = async (workspaceId, userId, transcript) => {
+  const prompt = `Convert the following spoken text into a structured task.
+Extract: title, description, priority (low/medium/high), dueDate (ISO or null), tags (array of strings).
+Return ONLY valid JSON object (not array).
+
+Spoken text: "${transcript}"`;
+
+  const raw = await callGemini(prompt);
+  let task = null;
+  try {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (match) task = JSON.parse(match[0]);
+  } catch (_) {}
+
+  if (!task) task = { title: transcript, priority: 'medium', description: '', dueDate: null, tags: [] };
+
+  await AiLog.create({ workspaceId, userId, feature: 'voice_to_task', response: { transcript, task } });
+  return { task, aiGenerated: true };
+};
+
+/**
+ * Generate smart daily brief: what to focus on, burnout risk summary, motivation.
+ */
+const dailyBrief = async (workspaceId, userId, { tasks, focusScore, streak, burnoutRisk }) => {
+  const taskList = (tasks || []).slice(0, 10).map(t => `- ${t.title} (${t.priority})`).join('\n');
+  const prompt = `You are a personal productivity coach. Generate a motivating daily brief.
+
+User data:
+- Focus score today: ${focusScore || 'unknown'}/100
+- Streak: ${streak || 0} days
+- Burnout risk: ${burnoutRisk || 'none'}
+- Today's tasks:
+${taskList || '- No tasks yet'}
+
+Write a brief 3-4 sentence daily brief that:
+1. Acknowledges their current state
+2. Suggests what to tackle first and why
+3. Ends with a motivating insight or tip.
+Keep it personal and energetic, not generic.`;
+
+  const brief = await callGemini(prompt, 'You are an upbeat, pragmatic productivity coach.');
+  await AiLog.create({ workspaceId, userId, feature: 'daily_brief', response: { brief } });
+  return { brief, aiGenerated: true };
+};
+
+module.exports = { summarizeNote, extractTasks, rewriteNote, planToday, answerFromWorkspace, meetingNotesToTasks, prioritizeTasks, voiceToTask, dailyBrief };
