@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getActive, startSession, stopSession, getHistory } from '../api/pomodoro';
+import { getActive, startSession, stopSession, getHistory, getAdaptiveRecommendations } from '../api/pomodoro';
+import { getStreak } from '../api/index';
 import { getTasks } from '../api/tasks';
 import Button from '../components/common/Button';
 import FeatureGuide from '../components/common/FeatureGuide';
@@ -10,7 +11,7 @@ import {
   TimerIcon, PlayIcon, PauseIcon, StopIcon, ResetIcon, BreakIcon,
   FocusIcon, SoundIcon, MuteIcon, TaskIcon, SettingsIcon, SliderIcon,
   CheckCircleIcon, CloseIcon, SkipIcon, FireIcon, StreakIcon, AlarmFilledIcon,
-  MusicIcon, MoreIcon,
+  MusicIcon, MoreIcon, BrainIcon,
 } from '../components/common/Icons';
 
 const DEFAULT_MODES = {
@@ -48,6 +49,9 @@ export default function PomodoroPage() {
   const [muted, setMuted]           = useState(false);
   const [customMinutes, setCustomMinutes] = useState({ focus: 25, short_break: 5, long_break: 15 });
   const [pomodoroCount, setPomodoroCount] = useState(0);
+  const [streak, setStreak]             = useState(null);
+  const [adaptive, setAdaptive]         = useState(null);
+  const [showAdaptive, setShowAdaptive] = useState(false);
   const intervalRef = useRef(null);
 
   const MODES = {
@@ -62,6 +66,8 @@ export default function PomodoroPage() {
     getActive().then(s => {
       if (s) { setSession(s); setRunning(true); setMode(s.type); }
     });
+    getStreak().catch(() => null).then(d => d && setStreak(d));
+    getAdaptiveRecommendations().catch(() => null).then(d => d && setAdaptive(d));
   }, []);
 
   useEffect(() => {
@@ -122,6 +128,37 @@ export default function PomodoroPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
         <TimerIcon style={{ fontSize: '20px', color: 'var(--primary)' }} />
         <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>Focus Timer</h1>
+
+        {/* Streak badge */}
+        {streak && streak.currentStreak > 0 && (
+          <Tooltip content={`${streak.currentStreak}-day streak! Best: ${streak.bestStreak} days`}>
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              fontSize: '13px', fontWeight: '700',
+              color: '#f97316',
+              background: '#f9731615', border: '1px solid #f9731640',
+              padding: '3px 9px', borderRadius: '12px', cursor: 'default',
+            }}>
+              🔥 {streak.currentStreak}d
+            </span>
+          </Tooltip>
+        )}
+
+        {/* Adaptive timer button */}
+        <Tooltip content="AI-recommended timer settings">
+          <button
+            onClick={() => setShowAdaptive(s => !s)}
+            style={{
+              background: showAdaptive ? 'var(--primary)18' : 'none',
+              border: showAdaptive ? '1px solid var(--primary)44' : 'none',
+              cursor: 'pointer', color: showAdaptive ? 'var(--primary)' : 'var(--text-muted)',
+              padding: '4px 6px', borderRadius: 'var(--radius)',
+            }}
+          >
+            <BrainIcon />
+          </button>
+        </Tooltip>
+
         <Tooltip content="Timer settings">
           <button
             onClick={() => setShowSettings(s => !s)}
@@ -139,6 +176,101 @@ export default function PomodoroPage() {
           </button>
         </Tooltip>
       </div>
+
+      {/* Adaptive recommendations panel */}
+      {showAdaptive && adaptive && (
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--primary)44',
+          borderRadius: 'var(--radius)', padding: '16px', marginBottom: '20px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <BrainIcon style={{ color: 'var(--primary)' }} />
+            <span style={{ fontWeight: '600', fontSize: '14px' }}>AI-Recommended Settings</span>
+            <span style={{
+              fontSize: '10px', fontWeight: '600', padding: '2px 7px',
+              background: adaptive.confidence === 'high' ? 'var(--success)18' : adaptive.confidence === 'medium' ? 'var(--warning, #f59e0b)18' : 'var(--surface-alt)',
+              color: adaptive.confidence === 'high' ? 'var(--success)' : adaptive.confidence === 'medium' ? 'var(--warning, #f59e0b)' : 'var(--text-muted)',
+              borderRadius: '10px',
+            }}>
+              {adaptive.confidence} confidence
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>
+              {adaptive.sessionsAnalyzed} sessions analyzed
+            </span>
+            <button onClick={() => setShowAdaptive(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+              <CloseIcon size="xs" />
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '12px' }}>
+            {[
+              { label: 'Focus', val: adaptive.recommendedWork, key: 'focus' },
+              { label: 'Short Break', val: adaptive.recommendedShortBreak, key: 'short_break' },
+              { label: 'Long Break', val: adaptive.recommendedLongBreak, key: 'long_break' },
+            ].map(({ label, val, key }) => (
+              <button
+                key={key}
+                onClick={() => { if (!running) setCustomMinutes(p => ({ ...p, [key]: val })); }}
+                disabled={running}
+                style={{
+                  padding: '10px', background: 'var(--surface-alt)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)', cursor: running ? 'not-allowed' : 'pointer',
+                  textAlign: 'center', transition: 'all 120ms',
+                }}
+                title={running ? 'Stop current session to apply' : `Apply ${val} min`}
+              >
+                <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--primary)' }}>{val}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{label} min</div>
+              </button>
+            ))}
+          </div>
+
+          {adaptive.insight && (
+            <div style={{
+              fontSize: '13px', color: 'var(--text-secondary)',
+              background: 'var(--surface-alt)', padding: '10px 14px',
+              borderRadius: 'var(--radius)', borderLeft: '3px solid var(--primary)',
+            }}>
+              💡 {adaptive.insight}
+            </div>
+          )}
+
+          {adaptive.bestHours?.length > 0 && (
+            <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span>Best hours:</span>
+              {adaptive.bestHours.map(h => (
+                <span key={h} style={{
+                  padding: '2px 8px', borderRadius: '10px',
+                  background: adaptive.isGoodTime && (new Date().getHours() === h || new Date().getHours() === h - 1) ? 'var(--primary)18' : 'var(--surface-alt)',
+                  color: adaptive.isGoodTime && (new Date().getHours() === h || new Date().getHours() === h - 1) ? 'var(--primary)' : 'var(--text-secondary)',
+                  fontWeight: '500', border: '1px solid var(--border)',
+                }}>
+                  {h}:00
+                </span>
+              ))}
+              {adaptive.completionRate !== null && (
+                <span style={{ marginLeft: 'auto' }}>
+                  Completion rate: <strong style={{ color: adaptive.completionRate >= 80 ? 'var(--success)' : adaptive.completionRate >= 60 ? 'var(--warning, #f59e0b)' : 'var(--error)' }}>
+                    {adaptive.completionRate}%
+                  </strong>
+                </span>
+              )}
+            </div>
+          )}
+
+          {!running && (
+            <div style={{ marginTop: '12px' }}>
+              <Button
+                variant="secondary"
+                onClick={() => setCustomMinutes({ focus: adaptive.recommendedWork, short_break: adaptive.recommendedShortBreak, long_break: adaptive.recommendedLongBreak })}
+                style={{ fontSize: '12px', padding: '6px 14px' }}
+              >
+                Apply all recommendations
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <FeatureGuide
         storageKey="pomodoro"
