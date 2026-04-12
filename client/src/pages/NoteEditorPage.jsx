@@ -6,6 +6,12 @@ import { createTask } from '../api/tasks';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import Badge from '../components/common/Badge';
+import FeatureGuide from '../components/common/FeatureGuide';
+import Tooltip from '../components/common/Tooltip';
+import {
+  ArrowLeft, SaveIcon, DeleteIcon, AIIcon, BrainIcon, TaskIcon,
+  WandIcon, BacklinkIcon, AddIcon, NoteIcon, CheckIcon, SparkIcon,
+} from '../components/common/Icons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
@@ -25,7 +31,11 @@ export default function NoteEditorPage() {
 
   useEffect(() => {
     Promise.all([
-      getNote(id).then(n => { setNote(n); setTitle(n.title); setContent(typeof n.content === 'string' ? n.content : JSON.stringify(n.content, null, 2)); }),
+      getNote(id).then(n => {
+        setNote(n);
+        setTitle(n.title);
+        setContent(typeof n.content === 'string' ? n.content : JSON.stringify(n.content, null, 2));
+      }),
       getBacklinks(id).then(setBacklinks),
     ]).catch(() => toast.error('Failed to load note'));
   }, [id]);
@@ -50,18 +60,31 @@ export default function NoteEditorPage() {
   };
 
   const handleAI = async (action) => {
-    setAiLoading(true); setAiResult(null); setExtractedTasks([]);
+    setAiLoading(true);
+    setAiResult(null);
+    setExtractedTasks([]);
     try {
-      if (action === 'summarize') { const r = await aiSummarize({ noteId: id }); setAiResult({ type: 'summary', text: r.summary }); }
-      else if (action === 'extract') { const r = await aiExtractTasks({ noteId: id }); setExtractedTasks(r.tasks || []); setAiResult({ type: 'tasks', tasks: r.tasks }); }
-      else if (action === 'rewrite') { const r = await aiRewrite({ noteId: id, content, format: 'concise' }); setAiResult({ type: 'rewrite', text: r.rewritten }); }
+      if (action === 'summarize') {
+        const r = await aiSummarize({ noteId: id });
+        setAiResult({ type: 'summary', text: r.summary });
+      } else if (action === 'extract') {
+        const r = await aiExtractTasks({ noteId: id });
+        setExtractedTasks(r.tasks || []);
+        setAiResult({ type: 'tasks', tasks: r.tasks });
+      } else if (action === 'rewrite') {
+        const r = await aiRewrite({ noteId: id, content, format: 'concise' });
+        setAiResult({ type: 'rewrite', text: r.rewritten });
+      }
     } catch (e) { toast.error(e.response?.data?.error || 'AI unavailable'); }
     setAiLoading(false);
   };
 
   const createExtractedTask = async (task) => {
-    try { await createTask({ title: task.title, priority: task.priority || 'medium', estimateMinutes: task.estimateMinutes || 0 }); toast.success(`Task created: ${task.title}`); setExtractedTasks(ts => ts.filter(t => t !== task)); }
-    catch { toast.error('Failed to create task'); }
+    try {
+      await createTask({ title: task.title, priority: task.priority || 'medium', estimateMinutes: task.estimateMinutes || 0 });
+      toast.success(`Task created: ${task.title}`);
+      setExtractedTasks(ts => ts.filter(t => t !== task));
+    } catch { toast.error('Failed to create task'); }
   };
 
   if (!note) return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>;
@@ -72,21 +95,88 @@ export default function NoteEditorPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Toolbar */}
         <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--surface)', flexShrink: 0 }}>
-          <button onClick={() => navigate('/notes')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '20px' }}>←</button>
-          <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-muted)' }}>
-            {saving ? '💾 Saving...' : `Saved ${format(new Date(note.updatedAt), 'HH:mm')}`}
+          <Tooltip content="Back to notes" placement="right">
+            <button
+              onClick={() => navigate('/notes')}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '18px' }}
+            >
+              <ArrowLeft />
+            </button>
+          </Tooltip>
+          <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            {saving ? (
+              <><SaveIcon size="xs" /> Saving...</>
+            ) : (
+              `Saved ${format(new Date(note.updatedAt), 'HH:mm')}`
+            )}
           </span>
-          <Button size="sm" variant="secondary" onClick={() => setAiPanel(p => !p)}>✨ AI</Button>
-          <Button size="sm" variant="ghost" onClick={handleDelete} style={{ color: 'var(--error)' }}>Delete</Button>
+          <FeatureGuide
+            storageKey="note-editor-page"
+            title="Note Editor"
+            icon={<NoteIcon />}
+            description="A distraction-free Markdown editor with autosave, AI assistance, and backlink tracking."
+            steps={[
+              {
+                icon: <NoteIcon />,
+                title: 'Write in Markdown',
+                body: 'Use # headings, **bold**, *italic*, - lists, and ``` code blocks in the editor.',
+              },
+              {
+                icon: <SaveIcon />,
+                title: 'Autosave',
+                body: 'Your note saves automatically 800ms after you stop typing — no manual save needed.',
+              },
+              {
+                icon: <BrainIcon />,
+                title: 'Summarize with AI',
+                body: 'Open the AI panel and click "Summarize" to get a concise summary of your note.',
+              },
+              {
+                icon: <TaskIcon />,
+                title: 'Extract tasks',
+                body: 'AI can detect action items in your note and convert them to real tasks with one click.',
+              },
+              {
+                icon: <WandIcon />,
+                title: 'Rewrite with AI',
+                body: 'Let AI rewrite your note in a more concise style, then apply the result if you like it.',
+              },
+              {
+                icon: <BacklinkIcon />,
+                title: 'Backlinks',
+                body: 'Other notes that reference this one appear in the Backlinks panel on the right.',
+              },
+            ]}
+            tips={[
+              'Markdown is rendered when you preview; write naturally and freely',
+              'Use the AI panel to quickly create tasks from meeting notes',
+              'Backlinks help you build a connected knowledge graph over time',
+            ]}
+            accentColor="#8B5CF6"
+          />
+          <Tooltip content="Toggle AI panel" placement="bottom">
+            <Button size="sm" variant="secondary" onClick={() => setAiPanel(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AIIcon size="sm" /> AI
+            </Button>
+          </Tooltip>
+          <Tooltip content="Delete this note" placement="bottom">
+            <Button size="sm" variant="ghost" onClick={handleDelete} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <DeleteIcon size="sm" /> Delete
+            </Button>
+          </Tooltip>
         </div>
 
         {/* Content area */}
         <div style={{ flex: 1, overflow: 'auto', padding: '48px 64px' }}>
-          <input value={title} onChange={handleTitleChange}
+          <input
+            value={title}
+            onChange={handleTitleChange}
             style={{ display: 'block', width: '100%', fontSize: '32px', fontWeight: '700', border: 'none', background: 'transparent', color: 'var(--text-primary)', outline: 'none', marginBottom: '24px', lineHeight: 1.2 }}
             placeholder="Untitled"
           />
-          <textarea value={content} onChange={handleContentChange}
+          <textarea
+            value={content}
+            onChange={handleContentChange}
             style={{ width: '100%', minHeight: '60vh', border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: '15px', outline: 'none', resize: 'none', lineHeight: 1.7, fontFamily: 'inherit' }}
             placeholder="Start writing... (Markdown supported)"
           />
@@ -98,13 +188,25 @@ export default function NoteEditorPage() {
         {/* AI panel */}
         {aiPanel && (
           <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '10px', color: 'var(--primary)' }}>✨ AI Actions</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <Button size="sm" variant="secondary" onClick={() => handleAI('summarize')} disabled={aiLoading}>Summarize note</Button>
-              <Button size="sm" variant="secondary" onClick={() => handleAI('extract')} disabled={aiLoading}>Extract tasks</Button>
-              <Button size="sm" variant="secondary" onClick={() => handleAI('rewrite')} disabled={aiLoading}>Rewrite concise</Button>
+            <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '10px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <SparkIcon size="sm" /> AI Actions
             </div>
-            {aiLoading && <div style={{ marginTop: '10px', fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center' }}>AI is thinking...</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <Button size="sm" variant="secondary" onClick={() => handleAI('summarize')} disabled={aiLoading}>
+                Summarize note
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => handleAI('extract')} disabled={aiLoading}>
+                Extract tasks
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => handleAI('rewrite')} disabled={aiLoading}>
+                Rewrite concise
+              </Button>
+            </div>
+            {aiLoading && (
+              <div style={{ marginTop: '10px', fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                AI is thinking...
+              </div>
+            )}
             {aiResult?.type === 'summary' && (
               <div style={{ marginTop: '12px', padding: '10px', background: 'var(--surface-alt)', borderRadius: 'var(--radius)', fontSize: '13px', lineHeight: 1.6, border: '1px solid var(--primary-soft)' }}>
                 <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '600', marginBottom: '6px' }}>AI SUMMARY</div>
@@ -115,7 +217,13 @@ export default function NoteEditorPage() {
               <div style={{ marginTop: '12px', padding: '10px', background: 'var(--surface-alt)', borderRadius: 'var(--radius)', fontSize: '13px', lineHeight: 1.6 }}>
                 <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '600', marginBottom: '6px' }}>AI REWRITE</div>
                 {aiResult.text}
-                <Button size="sm" style={{ marginTop: '8px', width: '100%' }} onClick={() => { setContent(aiResult.text); setAiResult(null); toast.success('Content replaced'); }}>Apply</Button>
+                <Button
+                  size="sm"
+                  style={{ marginTop: '8px', width: '100%' }}
+                  onClick={() => { setContent(aiResult.text); setAiResult(null); toast.success('Content replaced'); }}
+                >
+                  Apply
+                </Button>
               </div>
             )}
             {extractedTasks.length > 0 && (
@@ -124,7 +232,11 @@ export default function NoteEditorPage() {
                 {extractedTasks.map((t, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px', background: 'var(--surface-alt)', borderRadius: 'var(--radius)', marginBottom: '4px', fontSize: '12px' }}>
                     <span style={{ flex: 1, marginRight: '6px' }}>{t.title}</span>
-                    <Button size="sm" onClick={() => createExtractedTask(t)}>+</Button>
+                    <Tooltip content="Create as task" placement="left">
+                      <Button size="sm" onClick={() => createExtractedTask(t)}>
+                        <AddIcon size="xs" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 ))}
               </div>
@@ -134,18 +246,30 @@ export default function NoteEditorPage() {
 
         {/* Backlinks */}
         <div style={{ padding: '16px' }}>
-          <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '10px', color: 'var(--text-secondary)' }}>Backlinks ({backlinks.length})</div>
-          {backlinks.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No backlinks yet</div> :
+          <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '10px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <BacklinkIcon size="xs" /> Backlinks ({backlinks.length})
+          </div>
+          {backlinks.length === 0 ? (
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No backlinks yet</div>
+          ) : (
             backlinks.map(bl => (
-              <a key={bl._id} href={`/notes/${bl._id}`} style={{ display: 'block', padding: '6px 8px', borderRadius: 'var(--radius)', fontSize: '13px', color: 'var(--primary)', marginBottom: '4px', background: 'var(--surface-alt)', textDecoration: 'none' }}>↩ {bl.title}</a>
+              <a
+                key={bl._id}
+                href={`/notes/${bl._id}`}
+                style={{ display: 'block', padding: '6px 8px', borderRadius: 'var(--radius)', fontSize: '13px', color: 'var(--primary)', marginBottom: '4px', background: 'var(--surface-alt)', textDecoration: 'none' }}
+              >
+                <BacklinkIcon size="xs" style={{ marginRight: '4px' }} /> {bl.title}
+              </a>
             ))
-          }
+          )}
         </div>
 
         {/* Linked tasks */}
         {note.linkedTaskIds?.length > 0 && (
           <div style={{ padding: '0 16px 16px' }}>
-            <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '10px', color: 'var(--text-secondary)' }}>Linked Tasks</div>
+            <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '10px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <TaskIcon size="xs" /> Linked Tasks
+            </div>
             {note.linkedTaskIds.map(t => (
               <div key={t._id} style={{ padding: '6px 8px', borderRadius: 'var(--radius)', fontSize: '13px', background: 'var(--surface-alt)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Badge type={t.status} label="" style={{ width: '8px', height: '8px', padding: 0, borderRadius: '50%' }} />
