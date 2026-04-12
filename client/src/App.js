@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
+import { useUIStore } from './store/uiStore';
 import AppLayout from './layouts/AppLayout';
 import AuthLayout from './layouts/AuthLayout';
 import LandingPage from './pages/LandingPage';
@@ -14,6 +15,8 @@ import NoteEditorPage from './pages/NoteEditorPage';
 import DailyNotePage from './pages/DailyNotePage';
 import TodayPage from './pages/TodayPage';
 import TasksPage from './pages/TasksPage';
+import BoardPage from './pages/BoardPage';
+import BacklogPage from './pages/BacklogPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import PomodoroPage from './pages/PomodoroPage';
@@ -40,8 +43,11 @@ const PublicRoute = ({ children }) => {
 
 export default function App() {
   const { preferences } = useAuthStore();
+
+  // Apply theme
   useEffect(() => {
-    const theme = preferences?.theme === 'dark' ? 'dark' :
+    const theme =
+      preferences?.theme === 'dark' ? 'dark' :
       preferences?.theme === 'light' ? 'light' :
       window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
@@ -49,32 +55,68 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Toaster position="top-right" toastOptions={{ style: { background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' } }} />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: 'var(--surface)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+          },
+          duration: 3500,
+        }}
+      />
       <Routes>
+        {/* Public */}
         <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
-        <Route path="/login" element={<PublicRoute><AuthLayout><LoginPage /></AuthLayout></PublicRoute>} />
+        <Route path="/login"    element={<PublicRoute><AuthLayout><LoginPage /></AuthLayout></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><AuthLayout><RegisterPage /></AuthLayout></PublicRoute>} />
+
+        {/* Protected — inside AppLayout */}
         <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/today" element={<TodayPage />} />
-          <Route path="/inbox" element={<InboxPage />} />
-          <Route path="/notes" element={<NotesPage />} />
-          <Route path="/notes/:id" element={<NoteEditorPage />} />
-          <Route path="/daily/:date" element={<DailyNotePage />} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:id" element={<ProjectDetailPage />} />
-          <Route path="/pomodoro" element={<PomodoroPage />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/templates" element={<TemplatesPage />} />
-          <Route path="/databases" element={<DatabasesPage />} />
-          <Route path="/databases/:id" element={<DatabaseDetailPage />} />
-          <Route path="/graph" element={<GraphPage />} />
-          <Route path="/collaboration" element={<CollaborationPage />} />
-          <Route path="/ai" element={<AIPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/dashboard"         element={<DashboardPage />} />
+          <Route path="/today"             element={<TodayPage />} />
+          <Route path="/inbox"             element={<InboxPage />} />
+
+          {/* Notes */}
+          <Route path="/notes"             element={<NotesPage />} />
+          <Route path="/notes/new"         element={<NoteEditorPage />} />
+          <Route path="/notes/:id"         element={<NoteEditorPage />} />
+          <Route path="/daily/:date"       element={<DailyNotePage />} />
+          <Route path="/daily/today"       element={<DailyNotePage />} />
+
+          {/* Tasks + Work */}
+          <Route path="/tasks"             element={<TasksPage />} />
+          <Route path="/boards"            element={<BoardPage />} />
+          <Route path="/backlog"           element={<BacklogPage />} />
+
+          {/* Projects */}
+          <Route path="/projects"          element={<ProjectsPage />} />
+          <Route path="/projects/:id"      element={<ProjectDetailPage />} />
+
+          {/* Focus */}
+          <Route path="/pomodoro"          element={<PomodoroPage />} />
+
+          {/* Insights */}
+          <Route path="/calendar"          element={<CalendarPage />} />
+          <Route path="/analytics"         element={<AnalyticsPage />} />
+          <Route path="/search"            element={<SearchPage />} />
+
+          {/* Knowledge */}
+          <Route path="/templates"         element={<TemplatesPage />} />
+          <Route path="/databases"         element={<DatabasesPage />} />
+          <Route path="/databases/:id"     element={<DatabaseDetailPage />} />
+          <Route path="/graph"             element={<GraphPage />} />
+
+          {/* AI + Team */}
+          <Route path="/ai"                element={<AIPage />} />
+          <Route path="/collaboration"     element={<CollaborationPage />} />
+
+          {/* Settings */}
+          <Route path="/settings"          element={<SettingsPage />} />
+
+          {/* Fallback */}
+          <Route path="*"                  element={<Navigate to="/today" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>
