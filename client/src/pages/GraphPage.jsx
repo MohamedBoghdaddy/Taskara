@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getGraph } from '../api/index';
 import { useNavigate } from 'react-router-dom';
+import FeatureGuide from '../components/common/FeatureGuide';
+import Tooltip from '../components/common/Tooltip';
+import {
+  GraphIcon,
+  NodeIcon,
+  NetworkIcon,
+  NoteIcon,
+  TaskIcon,
+  ProjectIcon,
+  ArrowRight,
+  InfoIcon,
+} from '../components/common/Icons';
 import toast from 'react-hot-toast';
 
 export default function GraphPage() {
@@ -12,7 +24,9 @@ export default function GraphPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    getGraph().then(data => { setGraphData(data); setLoading(false); }).catch(() => { toast.error('Failed to load graph'); setLoading(false); });
+    getGraph()
+      .then(data => { setGraphData(data); setLoading(false); })
+      .catch(() => { toast.error('Failed to load graph'); setLoading(false); });
   }, []);
 
   useEffect(() => {
@@ -25,7 +39,7 @@ export default function GraphPage() {
 
     // Initialize positions
     const positions = {};
-    graphData.nodes.forEach((n, i) => {
+    graphData.nodes.forEach((n) => {
       positions[n.id] = positions[n.id] || {
         x: W / 2 + (Math.random() - 0.5) * W * 0.6,
         y: H / 2 + (Math.random() - 0.5) * H * 0.6,
@@ -46,7 +60,7 @@ export default function GraphPage() {
           if (m.id === n.id) return;
           const q = positions[m.id];
           const dx = p.x - q.x; const dy = p.y - q.y;
-          const d = Math.sqrt(dx*dx + dy*dy) || 1;
+          const d = Math.sqrt(dx * dx + dy * dy) || 1;
           const f = 800 / (d * d);
           p.vx += dx / d * f; p.vy += dy / d * f;
         });
@@ -59,7 +73,7 @@ export default function GraphPage() {
         const a = positions[e.source?.toString()]; const b = positions[e.target?.toString()];
         if (!a || !b) return;
         const dx = b.x - a.x; const dy = b.y - a.y;
-        const d = Math.sqrt(dx*dx + dy*dy) || 1;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
         const f = (d - 80) * 0.05;
         const fx = dx / d * f; const fy = dy / d * f;
         a.vx += fx; a.vy += fy;
@@ -115,7 +129,7 @@ export default function GraphPage() {
         const p = positions[n.id?.toString()];
         if (!p) continue;
         const dx = mx - p.x; const dy = my - p.y;
-        if (dx*dx + dy*dy < 100) {
+        if (dx * dx + dy * dy < 100) {
           setSelected(n);
           return;
         }
@@ -129,22 +143,68 @@ export default function GraphPage() {
 
   return (
     <div style={{ padding: '24px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <FeatureGuide
+        storageKey="graph-guide"
+        title="Knowledge Graph"
+        icon={<GraphIcon />}
+        description="The Knowledge Graph visualises relationships between your notes, tasks, and projects using a live force-directed simulation."
+        steps={[
+          {
+            icon: <NetworkIcon />,
+            title: 'Force-directed layout',
+            body: 'Nodes repel each other but linked nodes are pulled together, clustering related items automatically.',
+          },
+          {
+            icon: <NodeIcon />,
+            title: 'Click a node',
+            body: 'Click any dot to select it and see its label and type in the info panel at the bottom-left.',
+          },
+          {
+            icon: <ArrowRight />,
+            title: 'Open the item',
+            body: 'With a node selected, press "Open" in the panel to navigate directly to that note or project.',
+          },
+          {
+            icon: <InfoIcon />,
+            title: 'Colour legend',
+            body: 'Purple = note, green = task, yellow = project. Grey nodes have an unknown type.',
+          },
+        ]}
+        tips={[
+          'Link notes to each other in the note editor to build connections',
+          'More links = tighter clusters — great for finding related content',
+          'The graph settles after a few seconds; click the canvas to deselect a node',
+        ]}
+        accentColor="#6366F1"
+      />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: '700' }}>Knowledge Graph</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <GraphIcon /> Knowledge Graph
+        </h1>
         <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          {[['note','#6366F1'], ['task','#22C55E'], ['project','#F59E0B']].map(([t, c]) => (
-            <span key={t} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: c, display: 'inline-block' }} />{t}
-            </span>
+          {[
+            { type: 'note', color: '#6366F1', icon: <NoteIcon /> },
+            { type: 'task', color: '#22C55E', icon: <TaskIcon /> },
+            { type: 'project', color: '#F59E0B', icon: <ProjectIcon /> },
+          ].map(({ type, color, icon }) => (
+            <Tooltip key={type} content={`${type.charAt(0).toUpperCase() + type.slice(1)} nodes`} placement="bottom">
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: color, display: 'inline-block' }} />
+                {icon} {type}
+              </span>
+            </Tooltip>
           ))}
         </div>
       </div>
 
       {loading ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Loading graph...</div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+          Loading graph...
+        </div>
       ) : graphData.nodes.length === 0 ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: '8px' }}>
-          <span style={{ fontSize: '40px' }}>🕸️</span>
+          <span style={{ fontSize: '40px', color: 'var(--text-muted)' }}><NetworkIcon /></span>
           <p>No links yet. Link notes to each other to build your knowledge graph.</p>
         </div>
       ) : (
@@ -153,8 +213,20 @@ export default function GraphPage() {
           {selected && (
             <div style={{ position: 'absolute', bottom: '16px', left: '16px', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-md)' }}>
               <div style={{ fontWeight: '600', marginBottom: '6px' }}>{selected.label}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'capitalize' }}>{selected.type}</div>
-              <button onClick={() => { if (selected.type === 'note') navigate(`/notes/${selected.id}`); else if (selected.type === 'project') navigate(`/projects/${selected.id}`); }} style={{ padding: '6px 12px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '13px' }}>Open →</button>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'capitalize' }}>
+                {selected.type}
+              </div>
+              <Tooltip content={`Open this ${selected.type}`} placement="top">
+                <button
+                  onClick={() => {
+                    if (selected.type === 'note') navigate(`/notes/${selected.id}`);
+                    else if (selected.type === 'project') navigate(`/projects/${selected.id}`);
+                  }}
+                  style={{ padding: '6px 12px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  Open <ArrowRight size="xs" />
+                </button>
+              </Tooltip>
             </div>
           )}
         </div>
