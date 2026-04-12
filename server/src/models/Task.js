@@ -21,9 +21,17 @@ const taskSchema = new mongoose.Schema({
   tagIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }],
   linkedNoteIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Note' }],
   recurrence: {
-    enabled: { type: Boolean, default: false },
-    rule: { type: String, default: '' },
+    enabled:         { type: Boolean, default: false },
+    rule:            { type: String, default: '' },       // 'daily'|'weekly'|'monthly'|'weekdays'
+    nextOccurrence:  { type: Date,    default: null },
+    lastCreated:     { type: Date,    default: null },
   },
+  // Sprint / Scrum
+  sprintId:         { type: mongoose.Schema.Types.ObjectId, ref: 'Sprint', default: null },
+  estimatedPoints:  { type: Number, default: 0 },         // story points
+  // Pomodoro
+  estimatedPomodoros: { type: Number, default: 0 },
+  completedPomodoros: { type: Number, default: 0 },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   completedAt: { type: Date, default: null },
 }, { timestamps: true });
