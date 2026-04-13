@@ -11,9 +11,35 @@ import Tooltip from '../components/common/Tooltip';
 import {
   ArrowLeft, SaveIcon, DeleteIcon, AIIcon, BrainIcon, TaskIcon,
   WandIcon, BacklinkIcon, AddIcon, NoteIcon, CheckIcon, SparkIcon,
+  BoldIcon, ItalicIcon, StrikeIcon, CodeIcon, QuoteIcon,
+  HeadingIcon, BulletIcon, NumberedIcon, CopyIcon, HistoryIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+
+// ── Markdown insertion helper ────────────────────────────────────────────────
+function insertMd(textareaRef, before, after = '', newline = false) {
+  const ta = textareaRef.current;
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const sel   = ta.value.slice(start, end);
+  const prefix = newline && start > 0 && ta.value[start - 1] !== '\n' ? '\n' : '';
+  const inserted = prefix + before + sel + after;
+  const newVal = ta.value.slice(0, start) + inserted + ta.value.slice(end);
+  return { newVal, cursor: start + inserted.length };
+}
+
+const FMT_TOOLS = [
+  { icon: HeadingIcon,  tip: 'Heading (H2)',  before: '## ',       after: '',   newline: true  },
+  { icon: BoldIcon,     tip: 'Bold',          before: '**',        after: '**', newline: false },
+  { icon: ItalicIcon,   tip: 'Italic',        before: '_',         after: '_',  newline: false },
+  { icon: StrikeIcon,   tip: 'Strikethrough', before: '~~',        after: '~~', newline: false },
+  { icon: CodeIcon,     tip: 'Inline code',   before: '`',         after: '`',  newline: false },
+  { icon: QuoteIcon,    tip: 'Blockquote',    before: '> ',        after: '',   newline: true  },
+  { icon: BulletIcon,   tip: 'Bullet list',   before: '- ',        after: '',   newline: true  },
+  { icon: NumberedIcon, tip: 'Numbered list', before: '1. ',       after: '',   newline: true  },
+];
 
 export default function NoteEditorPage() {
   const { id } = useParams();
@@ -28,6 +54,7 @@ export default function NoteEditorPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [extractedTasks, setExtractedTasks] = useState([]);
   const saveTimer = useRef(null);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     Promise.all([
@@ -85,6 +112,24 @@ export default function NoteEditorPage() {
       toast.success(`Task created: ${task.title}`);
       setExtractedTasks(ts => ts.filter(t => t !== task));
     } catch { toast.error('Failed to create task'); }
+  };
+
+  const handleFmt = ({ before, after, newline }) => {
+    const result = insertMd(textareaRef, before, after, newline);
+    if (!result) return;
+    setContent(result.newVal);
+    scheduleAutosave(title, result.newVal);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.selectionStart = result.cursor;
+        textareaRef.current.selectionEnd   = result.cursor;
+      }
+    }, 0);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content).then(() => toast.success('Copied to clipboard'));
   };
 
   if (!note) return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>;
@@ -166,6 +211,40 @@ export default function NoteEditorPage() {
           </Tooltip>
         </div>
 
+        {/* Markdown formatting toolbar */}
+        <div style={{ padding: '4px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '2px', background: 'var(--surface-alt)', flexShrink: 0 }}>
+          {FMT_TOOLS.map(({ icon: Icon, tip, before, after, newline }) => (
+            <Tooltip key={tip} content={tip} placement="bottom">
+              <button
+                type="button"
+                onMouseDown={e => { e.preventDefault(); handleFmt({ before, after, newline }); }}
+                style={{ padding: '4px 7px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: 'var(--radius)', fontSize: '12px', display: 'flex', alignItems: 'center' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >
+                <Icon size="xs" />
+              </button>
+            </Tooltip>
+          ))}
+          <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
+          <Tooltip content="Copy note content" placement="bottom">
+            <button
+              type="button"
+              onClick={handleCopy}
+              style={{ padding: '4px 7px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              <CopyIcon size="xs" />
+            </button>
+          </Tooltip>
+          <Tooltip content={`Last saved ${format(new Date(note.updatedAt), 'HH:mm')}`} placement="bottom">
+            <span style={{ marginLeft: '4px', fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <HistoryIcon size="xs" /> {format(new Date(note.updatedAt), 'HH:mm')}
+            </span>
+          </Tooltip>
+        </div>
+
         {/* Content area */}
         <div style={{ flex: 1, overflow: 'auto', padding: '48px 64px' }}>
           <input
@@ -175,6 +254,7 @@ export default function NoteEditorPage() {
             placeholder="Untitled"
           />
           <textarea
+            ref={textareaRef}
             value={content}
             onChange={handleContentChange}
             style={{ width: '100%', minHeight: '60vh', border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: '15px', outline: 'none', resize: 'none', lineHeight: 1.7, fontFamily: 'inherit' }}
