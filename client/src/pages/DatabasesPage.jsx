@@ -9,14 +9,22 @@ import Tooltip from '../components/common/Tooltip';
 import {
   LayersIcon, AddIcon, EyeIcon, EditIcon, FilterIcon,
   ListIcon, CloseIcon, SaveIcon, InfoIcon,
+  TableIcon, GridIcon, GalleryIcon, LoadingIcon, DatabaseIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
+
+const VIEW_TYPES = [
+  { key: 'grid',    Icon: GridIcon,    label: 'Grid' },
+  { key: 'table',   Icon: TableIcon,   label: 'Table' },
+  { key: 'gallery', Icon: GalleryIcon, label: 'Gallery' },
+];
 
 export default function DatabasesPage() {
   const [dbs, setDbs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', icon: '' });
+  const [viewType, setViewType] = useState('grid');
 
   useEffect(() => {
     getDatabases()
@@ -63,21 +71,39 @@ export default function DatabasesPage() {
           <LayersIcon style={{ color: 'var(--primary)' }} />
           Databases
         </h1>
-        <Tooltip content="Create a new database" placement="left">
-          <Button onClick={() => setShowCreate(true)}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AddIcon size="sm" /> New Database
-            </span>
-          </Button>
-        </Tooltip>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* View switcher */}
+          <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+            {VIEW_TYPES.map(({ key, Icon, label }) => (
+              <Tooltip key={key} content={`${label} view`} placement="bottom">
+                <button
+                  onClick={() => setViewType(key)}
+                  style={{ padding: '6px 10px', border: 'none', cursor: 'pointer', background: viewType === key ? 'var(--primary)' : 'var(--surface)', color: viewType === key ? '#fff' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+                >
+                  <Icon size="sm" />
+                </button>
+              </Tooltip>
+            ))}
+          </div>
+          <Tooltip content="Create a new database" placement="left">
+            <Button onClick={() => setShowCreate(true)}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AddIcon size="sm" /> New Database
+              </span>
+            </Button>
+          </Tooltip>
+        </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>Loading...</div>
+        <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <LoadingIcon /> Loading databases…
+        </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: viewType === 'table' ? '1fr' : 'repeat(auto-fill, minmax(250px, 1fr))', gap: '14px' }}>
           {dbs.length === 0 && (
             <div style={{ gridColumn: '1/-1', padding: '48px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>
+              <DatabaseIcon style={{ fontSize: '36px', opacity: 0.35, display: 'block', margin: '0 auto 12px' }} />
               No databases yet.{' '}
               <button onClick={() => setShowCreate(true)} style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}>
                 Create one →
@@ -98,9 +124,13 @@ export default function DatabasesPage() {
                 {db.description && (
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>{db.description}</p>
                 )}
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <ListIcon size="xs" />
-                  {db.fields?.length || 0} fields
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <TableIcon size="xs" /> {db.fields?.length || 0} fields
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <ListIcon size="xs" /> {db.recordCount || 0} rows
+                  </span>
                 </div>
               </div>
             </Link>
