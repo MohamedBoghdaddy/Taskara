@@ -11,8 +11,9 @@ import Tooltip from '../components/common/Tooltip';
 import {
   ArrowLeft, SaveIcon, DeleteIcon, AIIcon, BrainIcon, TaskIcon,
   WandIcon, BacklinkIcon, AddIcon, NoteIcon, CheckIcon, SparkIcon,
-  BoldIcon, ItalicIcon, StrikeIcon, CodeIcon, QuoteIcon,
-  HeadingIcon, BulletIcon, NumberedIcon, CopyIcon, HistoryIcon,
+  BoldIcon, ItalicIcon, UnderlineIcon, StrikeIcon, CodeIcon, QuoteIcon,
+  HeadingIcon, BulletIcon, NumberedIcon, AlignLeftIcon, AlignRightIcon,
+  CopyIcon, HistoryIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -31,14 +32,17 @@ function insertMd(textareaRef, before, after = '', newline = false) {
 }
 
 const FMT_TOOLS = [
-  { icon: HeadingIcon,  tip: 'Heading (H2)',  before: '## ',       after: '',   newline: true  },
-  { icon: BoldIcon,     tip: 'Bold',          before: '**',        after: '**', newline: false },
-  { icon: ItalicIcon,   tip: 'Italic',        before: '_',         after: '_',  newline: false },
-  { icon: StrikeIcon,   tip: 'Strikethrough', before: '~~',        after: '~~', newline: false },
-  { icon: CodeIcon,     tip: 'Inline code',   before: '`',         after: '`',  newline: false },
-  { icon: QuoteIcon,    tip: 'Blockquote',    before: '> ',        after: '',   newline: true  },
-  { icon: BulletIcon,   tip: 'Bullet list',   before: '- ',        after: '',   newline: true  },
-  { icon: NumberedIcon, tip: 'Numbered list', before: '1. ',       after: '',   newline: true  },
+  { icon: HeadingIcon,    tip: 'Heading (H2)',   before: '## ',  after: '',   newline: true  },
+  { icon: BoldIcon,       tip: 'Bold',           before: '**',   after: '**', newline: false },
+  { icon: ItalicIcon,     tip: 'Italic',         before: '_',    after: '_',  newline: false },
+  { icon: UnderlineIcon,  tip: 'Underline (HTML)',before: '<u>',  after: '</u>',newline:false },
+  { icon: StrikeIcon,     tip: 'Strikethrough',  before: '~~',   after: '~~', newline: false },
+  { icon: CodeIcon,       tip: 'Inline code',    before: '`',    after: '`',  newline: false },
+  { icon: QuoteIcon,      tip: 'Blockquote',     before: '> ',   after: '',   newline: true  },
+  { icon: BulletIcon,     tip: 'Bullet list',    before: '- ',   after: '',   newline: true  },
+  { icon: NumberedIcon,   tip: 'Numbered list',  before: '1. ',  after: '',   newline: true  },
+  { icon: AlignLeftIcon,  tip: 'Left align (HTML)',before:'<div style="text-align:left">',after:'</div>',newline:false },
+  { icon: AlignRightIcon, tip: 'Right align (HTML)',before:'<div style="text-align:right">',after:'</div>',newline:false },
 ];
 
 export default function NoteEditorPage() {
