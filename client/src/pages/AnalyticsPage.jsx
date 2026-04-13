@@ -8,6 +8,7 @@ import {
   TrendUpIcon, TrendDownIcon, CheckCircleIcon, LineChartIcon, WarnIcon,
   ExportIcon, DownloadIcon, PieChartIcon, AreaChartIcon,
   TachometerIcon, SignalIcon, MedalIcon, LoadingIcon,
+  SmileyIcon, NeutralIcon, FrownIcon,
 } from '../components/common/Icons';
 
 // ── Focus score ring ──────────────────────────────────────────────────────────
@@ -216,6 +217,28 @@ export default function AnalyticsPage() {
               </div>
             ))}
           </div>
+
+          {/* Productivity mood */}
+          {focusScore && (
+            <div style={{ padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>Today's mood:</span>
+              {[
+                { Icon: SmileyIcon,  label: 'Productive',  min: 70, color: 'var(--success)' },
+                { Icon: NeutralIcon, label: 'Getting there',min: 40, color: '#f59e0b' },
+                { Icon: FrownIcon,   label: 'Needs work',  min: 0,  color: 'var(--error)' },
+              ].map(({ Icon, label, min, color }) => {
+                const score = focusScore?.score || 0;
+                const active = score >= min && (min === 70 ? true : score < min + 30);
+                return (
+                  <Tooltip key={label} content={`${label} (${min}%+ focus score)`} placement="top">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: active ? color : 'var(--text-muted)', fontWeight: active ? '600' : '400', opacity: active ? 1 : 0.4 }}>
+                      <Icon size="sm" color={active ? color : 'var(--text-muted)'} /> {label}
+                    </span>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          )}
 
           {/* Heatmap */}
           <HabitHeatmap entries={habitData?.entries || []} />
