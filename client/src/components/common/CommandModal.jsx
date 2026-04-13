@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '../../store/uiStore';
 import { search } from '../../api/index';
+import { SearchIcon } from './Icons';
+const SearchIconInline = () => <SearchIcon size="sm" />;
 
 export default function CommandModal() {
   const { commandOpen, closeCommand } = useUIStore();
@@ -38,7 +40,7 @@ export default function CommandModal() {
     <div onClick={closeCommand} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh' }}>
       <div onClick={e => e.stopPropagation()} style={{ width: '560px', background: 'var(--surface)', borderRadius: '12px', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)', gap: '8px' }}>
-          <span style={{ color: 'var(--text-muted)' }}>🔍</span>
+          <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}><SearchIconInline /></span>
           <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
             placeholder="Search notes, tasks, projects..."
             style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '16px', color: 'var(--text-primary)' }}
