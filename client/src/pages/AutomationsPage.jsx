@@ -4,24 +4,34 @@ import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
+import FeatureGuide from '../components/common/FeatureGuide';
+import {
+  FlashIcon, AddIcon, ToggleOnIcon, ToggleOffIcon, DeleteIcon,
+  WorkflowIcon, TaskIcon,
+} from '../components/common/Icons';
 
 const TRIGGER_EVENTS = [
   'card.moved','task.created','task.updated','task.status_changed','task.deleted',
   'note.created','note.updated','sprint.started','sprint.completed','due_date.reached',
 ];
+
 const ACTION_TYPES = [
-  { value: 'set_task_field',     label: 'Set task field' },
-  { value: 'send_notification',  label: 'Send notification' },
-  { value: 'webhook',            label: 'Trigger webhook' },
-  { value: 'create_task',        label: 'Create task' },
+  { value: 'set_task_field',    label: 'Set task field' },
+  { value: 'send_notification', label: 'Send notification' },
+  { value: 'webhook',           label: 'Trigger webhook' },
+  { value: 'create_task',       label: 'Create task' },
 ];
 
 export default function AutomationsPage() {
-  const [rules,      setRules]     = useState([]);
-  const [templates,  setTemplates] = useState([]);
-  const [loading,    setLoading]   = useState(true);
-  const [showModal,  setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', trigger: { event: '', filter: '{}' }, actions: [{ type: 'set_task_field', params: '{}' }] });
+  const [rules,     setRules]     = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({
+    name: '', description: '',
+    trigger: { event: '', filter: '{}' },
+    actions: [{ type: 'set_task_field', params: '{}' }],
+  });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -58,10 +68,12 @@ export default function AutomationsPage() {
     try {
       actions = form.actions.map(a => ({ type: a.type, params: JSON.parse(a.params || '{}') }));
     } catch { return toast.error('Invalid action params JSON'); }
-
     setSaving(true);
     try {
-      await automationsApi.createAutomation({ name: form.name, description: form.description, trigger: { event: form.trigger.event, filter }, actions });
+      await automationsApi.createAutomation({
+        name: form.name, description: form.description,
+        trigger: { event: form.trigger.event, filter }, actions,
+      });
       toast.success('Automation created');
       setShowModal(false);
       load();
@@ -71,21 +83,52 @@ export default function AutomationsPage() {
 
   const applyTemplate = (tpl) => {
     setForm({
-      name: tpl.name,
-      description: '',
+      name: tpl.name, description: '',
       trigger: { event: tpl.trigger.event, filter: JSON.stringify(tpl.trigger.filter || {}, null, 2) },
       actions: tpl.actions.map(a => ({ type: a.type, params: JSON.stringify(a.params || {}, null, 2) })),
     });
   };
 
+  const resetForm = () => setForm({
+    name: '', description: '',
+    trigger: { event: '', filter: '{}' },
+    actions: [{ type: 'set_task_field', params: '{}' }],
+  });
+
   return (
     <div style={{ padding: '32px', maxWidth: '860px' }}>
+      {/* How to use guide */}
+      <FeatureGuide
+        storageKey="automations-guide"
+        title="Automations"
+        icon={<FlashIcon />}
+        description="Create Trigger → Action rules that run automatically. For example: when a task moves to 'Done', automatically send a Slack notification or create a follow-up task."
+        steps={[
+          { icon: <WorkflowIcon />, title: 'Choose a trigger',  body: 'Select the event that starts the automation (e.g. task.status_changed).' },
+          { icon: <TaskIcon />,     title: 'Add a filter',      body: 'Optionally filter: only run when status = "done".' },
+          { icon: <FlashIcon />,    title: 'Define an action',  body: 'Set what happens: update a field, send a notification, or call a webhook.' },
+          { icon: <ToggleOnIcon />, title: 'Enable the rule',   body: 'Toggle rules on/off without deleting them.' },
+        ]}
+        tips={[
+          'Use templates to get started quickly',
+          'You can chain multiple actions in one rule',
+          'Rules run server-side — no browser required',
+          'Check Run Count to see how many times a rule has fired',
+        ]}
+        accentColor="#f59e0b"
+      />
+
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '4px' }}>⚡ Automations</h1>
+          <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FlashIcon color="#f59e0b" /> Automations
+          </h1>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Create trigger → action rules to automate repetitive work.</p>
         </div>
-        <Button variant="primary" onClick={() => { setForm({ name: '', description: '', trigger: { event: '', filter: '{}' }, actions: [{ type: 'set_task_field', params: '{}' }] }); setShowModal(true); }}>+ New Rule</Button>
+        <Button variant="primary" onClick={() => { resetForm(); setShowModal(true); }}>
+          <AddIcon /> New Rule
+        </Button>
       </div>
 
       {/* Templates */}
@@ -94,8 +137,17 @@ export default function AutomationsPage() {
           <h2 style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px' }}>Quick Templates</h2>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {templates.map((tpl, i) => (
-              <button key={i} onClick={() => { applyTemplate(tpl); setShowModal(true); }} style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                ⚡ {tpl.name}
+              <button
+                key={i}
+                onClick={() => { applyTemplate(tpl); setShowModal(true); }}
+                style={{
+                  padding: '6px 12px', borderRadius: 'var(--radius)',
+                  border: '1px solid var(--border)', background: 'var(--surface)',
+                  fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                }}
+              >
+                <FlashIcon size="xs" color="#f59e0b" /> {tpl.name}
               </button>
             ))}
           </div>
@@ -107,17 +159,28 @@ export default function AutomationsPage() {
         <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>Loading…</div>
       ) : rules.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>⚡</div>
+          <FlashIcon size="3x" style={{ marginBottom: '12px', opacity: 0.3 }} />
           <p>No automations yet. Use a template or create your own rule.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {rules.map(rule => (
-            <div key={rule._id} style={{ padding: '16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div
+              key={rule._id}
+              style={{
+                padding: '16px', background: 'var(--surface)',
+                border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+              }}
+            >
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <span style={{ fontWeight: '600', fontSize: '14px' }}>{rule.name}</span>
-                  <span style={{ fontSize: '11px', padding: '2px 7px', borderRadius: '99px', background: rule.active ? '#16a34a22' : 'var(--surface-alt)', color: rule.active ? 'var(--success)' : 'var(--text-muted)' }}>
+                  <span style={{
+                    fontSize: '11px', padding: '2px 7px', borderRadius: '99px',
+                    background: rule.active ? '#16a34a22' : 'var(--surface-alt)',
+                    color: rule.active ? 'var(--success)' : 'var(--text-muted)',
+                  }}>
                     {rule.active ? 'Active' : 'Paused'}
                   </span>
                 </div>
@@ -126,12 +189,25 @@ export default function AutomationsPage() {
                   {' → '}
                   {rule.actions?.length || 0} action(s)
                 </div>
-                {rule.runCount > 0 && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Ran {rule.runCount} time(s){rule.lastRunAt ? ` · last ${new Date(rule.lastRunAt).toLocaleDateString()}` : ''}</div>}
-                {rule.lastError && <div style={{ fontSize: '11px', color: 'var(--error)', marginTop: '4px' }}>Last error: {rule.lastError}</div>}
+                {rule.runCount > 0 && (
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Ran {rule.runCount} time(s){rule.lastRunAt ? ` · last ${new Date(rule.lastRunAt).toLocaleDateString()}` : ''}
+                  </div>
+                )}
+                {rule.lastError && (
+                  <div style={{ fontSize: '11px', color: 'var(--error)', marginTop: '4px' }}>
+                    Last error: {rule.lastError}
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '12px' }}>
-                <Button size="sm" variant="secondary" onClick={() => handleToggle(rule)}>{rule.active ? 'Pause' : 'Enable'}</Button>
-                <Button size="sm" variant="danger" onClick={() => handleDelete(rule._id)}>Delete</Button>
+                <Button size="sm" variant="secondary" onClick={() => handleToggle(rule)}>
+                  {rule.active ? <ToggleOnIcon size="xs" /> : <ToggleOffIcon size="xs" />}
+                  {rule.active ? 'Pause' : 'Enable'}
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => handleDelete(rule._id)}>
+                  <DeleteIcon size="xs" /> Delete
+                </Button>
               </div>
             </div>
           ))}
@@ -145,30 +221,54 @@ export default function AutomationsPage() {
           <Input label="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optional description" />
 
           <div>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Trigger Event *</label>
-            <select value={form.trigger.event} onChange={e => setForm(f => ({ ...f, trigger: { ...f.trigger, event: e.target.value } }))} style={selectStyle} required>
+            <label style={labelStyle}>Trigger Event *</label>
+            <select
+              value={form.trigger.event}
+              onChange={e => setForm(f => ({ ...f, trigger: { ...f.trigger, event: e.target.value } }))}
+              style={selectStyle}
+              required
+            >
               <option value="">Select trigger event…</option>
               {TRIGGER_EVENTS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
             </select>
           </div>
 
           <div>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Trigger Filter <span style={{ fontWeight: '400', color: 'var(--text-muted)' }}>(JSON, optional)</span></label>
+            <label style={labelStyle}>Trigger Filter <span style={{ fontWeight: '400', color: 'var(--text-muted)' }}>(JSON, optional)</span></label>
             <textarea value={form.trigger.filter} onChange={e => setForm(f => ({ ...f, trigger: { ...f.trigger, filter: e.target.value } }))} rows={2} style={textareaStyle} placeholder='{"status": "done"}' />
           </div>
 
           <div>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Actions</label>
+            <label style={labelStyle}>Actions</label>
             {form.actions.map((action, i) => (
               <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px', marginBottom: '8px' }}>
-                <select value={action.type} onChange={e => setForm(f => { const a = [...f.actions]; a[i] = { ...a[i], type: e.target.value }; return { ...f, actions: a }; })} style={{ ...selectStyle, marginBottom: '6px' }}>
+                <select
+                  value={action.type}
+                  onChange={e => setForm(f => { const a = [...f.actions]; a[i] = { ...a[i], type: e.target.value }; return { ...f, actions: a }; })}
+                  style={{ ...selectStyle, marginBottom: '6px' }}
+                >
                   {ACTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
-                <textarea value={action.params} onChange={e => setForm(f => { const a = [...f.actions]; a[i] = { ...a[i], params: e.target.value }; return { ...f, actions: a }; })} rows={2} style={textareaStyle} placeholder='{"field": "status", "value": "done"}' />
-                {form.actions.length > 1 && <button type="button" onClick={() => setForm(f => ({ ...f, actions: f.actions.filter((_, j) => j !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '12px' }}>Remove action</button>}
+                <textarea
+                  value={action.params}
+                  onChange={e => setForm(f => { const a = [...f.actions]; a[i] = { ...a[i], params: e.target.value }; return { ...f, actions: a }; })}
+                  rows={2} style={textareaStyle}
+                  placeholder='{"field": "status", "value": "done"}'
+                />
+                {form.actions.length > 1 && (
+                  <button type="button" onClick={() => setForm(f => ({ ...f, actions: f.actions.filter((_, j) => j !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '12px' }}>
+                    Remove action
+                  </button>
+                )}
               </div>
             ))}
-            <button type="button" onClick={() => setForm(f => ({ ...f, actions: [...f.actions, { type: 'send_notification', params: '{}' }] }))} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px' }}>+ Add action</button>
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, actions: [...f.actions, { type: 'send_notification', params: '{}' }] }))}
+              style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px' }}
+            >
+              + Add action
+            </button>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -181,5 +281,6 @@ export default function AutomationsPage() {
   );
 }
 
+const labelStyle = { fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' };
 const selectStyle = { width: '100%', padding: '8px 10px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '13px' };
 const textareaStyle = { width: '100%', padding: '6px 8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '12px', fontFamily: 'monospace', boxSizing: 'border-box', resize: 'vertical' };
