@@ -148,7 +148,7 @@ export default function Sidebar() {
           >
             <SearchIcon size="xs" />
             <span style={{ flex: 1 }}>Search…</span>
-            <span style={{ fontSize: '10px', background: 'var(--border)', padding: '1px 5px', borderRadius: '3px' }}>⌘K</span>
+            <span style={{ fontSize: '10px', background: 'var(--border)', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Ctrl+K</span>
           </button>
         </div>
       )}
