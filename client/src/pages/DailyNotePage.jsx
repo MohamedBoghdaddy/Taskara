@@ -8,7 +8,7 @@ import FeatureGuide from '../components/common/FeatureGuide';
 import Tooltip from '../components/common/Tooltip';
 import {
   CalendarIcon, ChevronLeft, ChevronRight, SaveIcon, CheckCircleIcon,
-  TimerIcon, TaskIcon, NoteIcon, CheckIcon,
+  TimerIcon, TaskIcon, NoteIcon, CheckIcon, NodeIcon,
 } from '../components/common/Icons';
 import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -150,7 +150,7 @@ export default function DailyNotePage() {
             {tasks.slice(0, 6).map(t => (
               <div key={t._id} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0' }}>
                 <span style={{ color: t.status === 'done' ? 'var(--success)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                  {t.status === 'done' ? <CheckIcon size="xs" /> : <span style={{ fontSize: '10px' }}>○</span>}
+                  {t.status === 'done' ? <CheckIcon size="xs" /> : <NodeIcon size="xs" style={{ opacity: 0.4 }} />}
                 </span>
                 <span style={{ textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                   {t.title}

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
   AnalyticsIcon, TimerIcon, TrophyIcon, FireIcon,
-  TrendUpIcon, CheckCircleIcon, LineChartIcon,
+  TrendUpIcon, CheckCircleIcon, LineChartIcon, WarnIcon,
 } from '../components/common/Icons';
 
 // ── Focus score ring ──────────────────────────────────────────────────────────
@@ -141,7 +141,7 @@ export default function AnalyticsPage() {
           {burnout && burnout.risk !== 'none' && (
             <div style={{ padding: '14px 16px', borderRadius: 'var(--radius)', marginBottom: '20px', border: `1px solid ${burnout.risk === 'high' ? '#ef444488' : burnout.risk === 'medium' ? '#f59e0b88' : '#6366f188'}`, background: burnout.risk === 'high' ? '#ef444412' : burnout.risk === 'medium' ? '#f59e0b12' : '#6366f112' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '16px', color: burnout.risk === 'high' ? '#ef4444' : burnout.risk === 'medium' ? '#f59e0b' : '#6366f1' }}>●</span>
+                <WarnIcon size="sm" color={burnout.risk === 'high' ? '#ef4444' : burnout.risk === 'medium' ? '#f59e0b' : '#6366f1'} />
                 <span style={{ fontWeight: '700', fontSize: '14px' }}>Burnout Risk: {burnout.risk.toUpperCase()}</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 4px 26px' }}>{burnout.message}</p>
