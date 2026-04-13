@@ -8,6 +8,7 @@ import Tooltip from '../components/common/Tooltip';
 import {
   UserPlusIcon, UsersIcon, SaveIcon, TimerIcon, SliderIcon, CheckIcon,
   InfoIcon, FlashIcon, SunIcon, MoonIcon, LayoutIcon,
+  LockIcon, KeyIcon, UserShieldIcon, AlarmIcon, ClockIcon, BreakIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 
@@ -142,7 +143,7 @@ export default function SettingsPage() {
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               <div>
-                <label style={labelStyle}>Focus (min)</label>
+                <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '4px' }}><ClockIcon size="xs" color="var(--primary)" /> Focus (min)</label>
                 <input
                   type="number" min={1} max={120}
                   value={prefs.defaultPomodoroMinutes}
@@ -151,7 +152,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label style={labelStyle}>Short break</label>
+                <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '4px' }}><BreakIcon size="xs" color="var(--success)" /> Short break</label>
                 <input
                   type="number" min={1} max={30}
                   value={prefs.defaultShortBreakMinutes}
@@ -160,7 +161,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label style={labelStyle}>Long break</label>
+                <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '4px' }}><AlarmIcon size="xs" color="#8b5cf6" /> Long break</label>
                 <input
                   type="number" min={1} max={60}
                   value={prefs.defaultLongBreakMinutes}
@@ -178,6 +179,28 @@ export default function SettingsPage() {
             </span>
           </Button>
         </form>
+      </div>
+      {/* Security info */}
+      <div style={sectionStyle}>
+        <h2 style={sectionHeadStyle}>
+          <LockIcon style={{ color: '#ef4444' }} size="sm" />
+          Security
+        </h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {[
+            { icon: <KeyIcon size="sm" color="#f59e0b" />, title: 'API Access', body: 'API tokens are managed per-integration. Visit Integrations to connect third-party services securely.' },
+            { icon: <UserShieldIcon size="sm" color="#6366f1" />, title: 'Account protection', body: 'Your account is protected by hashed credentials. We never store plain-text passwords.' },
+            { icon: <LockIcon size="sm" color="#10b981" />, title: 'Data privacy', body: 'All data is scoped to your account. Notes, tasks, and sessions are private by default unless explicitly shared.' },
+          ].map(item => (
+            <div key={item.title} style={{ display: 'flex', gap: '12px', padding: '12px', background: 'var(--surface-alt)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+              <span style={{ flexShrink: 0, marginTop: '2px' }}>{item.icon}</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '3px' }}>{item.title}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{item.body}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
