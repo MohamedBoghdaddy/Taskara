@@ -4,6 +4,7 @@ import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
 import FeatureGuide from '../components/common/FeatureGuide';
 import Tooltip from '../components/common/Tooltip';
+import toast from 'react-hot-toast';
 import {
   BoardIcon, KanbanIcon, AddIcon, EditIcon, DeleteIcon, CloseIcon,
   CheckIcon, PriorityIcon, DueDateIcon, AssignIcon, UsersIcon,
@@ -92,7 +93,7 @@ export default function BoardPage() {
       const data = await api('GET', '/boards');
       setBoards(data.boards || data || []);
     } catch {
-      // silently handle; show empty state
+      toast.error('Failed to load boards');
     } finally {
       setLoading(false);
     }
@@ -110,9 +111,10 @@ export default function BoardPage() {
       setColumns(colData.columns || colData || []);
       setCards(cardData.cards || cardData || []);
     } catch {
-      // If columns endpoint doesn't exist, use board's embedded data
+      // Fallback to embedded board data if endpoint doesn't exist yet
       setColumns(board.columns || []);
       setCards(board.cards || []);
+      if (!board.columns?.length) toast.error('Failed to load board columns');
     } finally {
       setBoardLoading(false);
     }
@@ -135,8 +137,9 @@ export default function BoardPage() {
       setBoards(prev => [newBoard, ...prev]);
       setShowNewBoard(false);
       setBoardForm({ name: '', description: '', color: COLOR_SWATCHES[0] });
+      toast.success(`Board "${payload.name}" created`);
     } catch {
-      // creation failed
+      toast.error('Failed to create board');
     } finally {
       setCreating(false);
     }
@@ -153,7 +156,7 @@ export default function BoardPage() {
       const newCard = created.card || created;
       setCards(prev => [...prev, newCard]);
     } catch {
-      // failed silently
+      toast.error('Failed to add card');
     } finally {
       setNewCardTitle('');
       setAddingCard(null);
@@ -185,10 +188,11 @@ export default function BoardPage() {
     try {
       await api('PATCH', `/boards/${activeBoard._id}/cards/${cardId}`, { columnId: targetColumnId });
     } catch {
-      // Revert
+      // Revert optimistic update
       setCards(prev =>
         prev.map(c => c._id === cardId ? { ...c, columnId: fromColumnId } : c)
       );
+      toast.error('Failed to move card');
     }
     dragCard.current = null;
   };
@@ -284,7 +288,7 @@ export default function BoardPage() {
       )}
 
       {/* New Board Modal */}
-      <Modal open={showNewBoard} onClose={() => setShowNewBoard(false)} title="New Board" width="480px">
+      <Modal isOpen={showNewBoard} onClose={() => setShowNewBoard(false)} title="New Board" width="480px">
         <form onSubmit={handleCreateBoard} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Name */}
           <div>
