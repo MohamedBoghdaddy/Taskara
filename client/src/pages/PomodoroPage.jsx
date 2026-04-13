@@ -287,7 +287,7 @@ export default function PomodoroPage() {
         tips={[
           'Use Ctrl+B to collapse sidebar for distraction-free focus',
           'Long Break after every 4 focus sessions',
-          'Customize durations in Settings (⚙)',
+          'Customize durations in the Settings panel (gear icon)',
           'Sessions are saved for analytics',
         ]}
       />
