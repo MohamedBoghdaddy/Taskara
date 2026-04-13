@@ -6,7 +6,12 @@ import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Input from '../components/common/Input';
-import { SprintIcon, AddIcon, TrophyIcon, TimerIcon, CheckCircleIcon } from '../components/common/Icons';
+import FeatureGuide from '../components/common/FeatureGuide';
+import {
+  SprintIcon, AddIcon, TrophyIcon, TimerIcon, CheckCircleIcon,
+  CalendarIcon, FlagIcon, FlashIcon, PlayIcon, CheckIcon, CloseIcon,
+  PriorityFilledIcon,
+} from '../components/common/Icons';
 
 const STATUS_COLOR = { planning: 'var(--text-muted)', active: 'var(--success)', completed: 'var(--primary)' };
 const STATUS_BG    = { planning: 'var(--surface-alt)', active: '#16a34a22', completed: 'var(--primary)22' };
@@ -97,7 +102,11 @@ export default function SprintsPage() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <span style={{ fontWeight: '600', fontSize: '15px', color: 'var(--text-primary)' }}>{sprint.name}</span>
-              <span style={{ fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '99px', background: STATUS_BG[sprint.status], color: STATUS_COLOR[sprint.status], textTransform: 'capitalize' }}>
+              <span style={{
+                fontSize: '11px', fontWeight: '600', padding: '2px 8px',
+                borderRadius: '99px', background: STATUS_BG[sprint.status],
+                color: STATUS_COLOR[sprint.status], textTransform: 'capitalize',
+              }}>
                 {sprint.status}
               </span>
             </div>
@@ -105,12 +114,18 @@ export default function SprintsPage() {
           </div>
           <div style={{ display: 'flex', gap: '6px' }} onClick={e => e.stopPropagation()}>
             {sprint.status === 'planning' && (
-              <Button size="sm" variant="primary" onClick={() => handleStart(sprint)}>Start</Button>
+              <Button size="sm" variant="primary" onClick={() => handleStart(sprint)}>
+                <PlayIcon size="xs" /> Start
+              </Button>
             )}
             {sprint.status === 'active' && (
-              <Button size="sm" variant="secondary" onClick={() => handleComplete(sprint)}>Complete</Button>
+              <Button size="sm" variant="secondary" onClick={() => handleComplete(sprint)}>
+                <CheckIcon size="xs" /> Complete
+              </Button>
             )}
-            <Button size="sm" variant="danger" onClick={() => handleDelete(sprint)}>✕</Button>
+            <Button size="sm" variant="danger" onClick={() => handleDelete(sprint)}>
+              <CloseIcon size="xs" />
+            </Button>
           </div>
         </div>
 
@@ -122,29 +137,48 @@ export default function SprintsPage() {
               <span>{pct}%</span>
             </div>
             <div style={{ background: 'var(--surface-alt)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: sprint.status === 'completed' ? 'var(--primary)' : 'var(--success)', width: `${pct}%`, transition: 'width 0.3s', borderRadius: '4px' }} />
+              <div style={{
+                height: '100%',
+                background: sprint.status === 'completed' ? 'var(--primary)' : 'var(--success)',
+                width: `${pct}%`, transition: 'width 0.3s', borderRadius: '4px',
+              }} />
             </div>
           </div>
         )}
 
         {/* Meta */}
-        <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-muted)' }}>
-          {sprint.startDate && <span>📅 {new Date(sprint.startDate).toLocaleDateString()}</span>}
-          {sprint.endDate   && <span>🏁 {new Date(sprint.endDate).toLocaleDateString()}</span>}
+        <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+          {sprint.startDate && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <CalendarIcon size="xs" /> {new Date(sprint.startDate).toLocaleDateString()}
+            </span>
+          )}
+          {sprint.endDate && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <FlagIcon size="xs" /> {new Date(sprint.endDate).toLocaleDateString()}
+            </span>
+          )}
           {daysLeft !== null && sprint.status === 'active' && (
-            <span style={{ color: daysLeft < 0 ? 'var(--error)' : daysLeft <= 2 ? '#f59e0b' : 'var(--text-muted)' }}>
+            <span style={{ color: daysLeft < 0 ? 'var(--error)' : daysLeft <= 2 ? '#f59e0b' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <TimerIcon size="xs" />
               {daysLeft < 0 ? `${Math.abs(daysLeft)} days overdue` : daysLeft === 0 ? 'Due today' : `${daysLeft} days left`}
             </span>
           )}
-          {sprint.velocity > 0 && <span>⚡ {sprint.velocity} pts velocity</span>}
+          {sprint.velocity > 0 && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <FlashIcon size="xs" /> {sprint.velocity} pts velocity
+            </span>
+          )}
         </div>
       </div>
     );
   };
 
-  const Section = ({ title, items, empty }) => (
+  const Section = ({ icon, title, items, empty }) => (
     <div style={{ marginBottom: '32px' }}>
-      <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '12px' }}>{title} <span style={{ fontWeight: '400', opacity: 0.7 }}>({items.length})</span></h2>
+      <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {icon} {title} <span style={{ fontWeight: '400', opacity: 0.7 }}>({items.length})</span>
+      </h2>
       {items.length === 0
         ? <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '12px 0' }}>{empty}</p>
         : <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>{items.map(s => <SprintCard key={s._id} sprint={s} />)}</div>
@@ -154,6 +188,27 @@ export default function SprintsPage() {
 
   return (
     <div style={{ padding: '32px', maxWidth: '860px' }}>
+      {/* How to use guide */}
+      <FeatureGuide
+        storageKey="sprints-guide"
+        title="Sprints"
+        icon={<SprintIcon />}
+        description="Organize your work into time-boxed sprints (Scrum-style). Plan tasks in the backlog, start a sprint, track progress with a burndown chart, then complete it."
+        steps={[
+          { icon: <AddIcon />, title: 'Create a sprint', body: 'Click "New Sprint", set a name, goal, and date range.' },
+          { icon: <PlayIcon />, title: 'Start the sprint', body: 'Move from Planning → Active to begin the time box.' },
+          { icon: <SprintIcon />, title: 'Add tasks', body: 'Go to Backlog and drag tasks into the active sprint.' },
+          { icon: <CheckCircleIcon />, title: 'Complete', body: 'When done, click Complete — velocity is auto-calculated.' },
+        ]}
+        tips={[
+          'Keep sprints 1–2 weeks long',
+          'Set a clear sprint goal before starting',
+          'Review velocity to improve future estimates',
+          'Unfinished tasks auto-return to backlog on completion',
+        ]}
+        accentColor="var(--success)"
+      />
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -168,16 +223,37 @@ export default function SprintsPage() {
         <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>Loading sprints…</div>
       ) : (
         <>
-          <Section title="🟢 Active" items={active} empty="No active sprint. Start one from the Planning section below." />
-          <Section title="📋 Planning" items={planning} empty="No sprints in planning. Create one to get started." />
-          <Section title="✅ Completed" items={completed} empty="No completed sprints yet." />
+          <Section
+            icon={<SprintIcon color="var(--success)" size="sm" />}
+            title="Active"
+            items={active}
+            empty="No active sprint. Start one from the Planning section below."
+          />
+          <Section
+            icon={<CalendarIcon size="sm" color="var(--primary)" />}
+            title="Planning"
+            items={planning}
+            empty="No sprints in planning. Create one to get started."
+          />
+          <Section
+            icon={<CheckCircleIcon size="sm" color="var(--success)" />}
+            title="Completed"
+            items={completed}
+            empty="No completed sprints yet."
+          />
         </>
       )}
 
       {/* Create sprint modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Sprint">
         <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <Input label="Sprint name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Sprint 1 — MVP Launch" required />
+          <Input
+            label="Sprint name *"
+            value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="e.g. Sprint 1 — MVP Launch"
+            required
+          />
           <div>
             <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Goal</label>
             <textarea
@@ -185,12 +261,16 @@ export default function SprintsPage() {
               onChange={e => setForm(f => ({ ...f, goal: e.target.value }))}
               placeholder="What should be achieved in this sprint?"
               rows={3}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }}
+              style={{
+                width: '100%', padding: '8px 10px', borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)', background: 'var(--surface)',
+                color: 'var(--text-primary)', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box',
+              }}
             />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <Input label="Start date" type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
-            <Input label="End date" type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
+            <Input label="End date"   type="date" value={form.endDate}   onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
           </div>
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
             <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
