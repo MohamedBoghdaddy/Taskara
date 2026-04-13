@@ -9,14 +9,17 @@ import Tooltip from '../components/common/Tooltip';
 import {
   InboxIcon, NoteIcon, TaskIcon, ReminderIcon, BacklinkIcon,
   AIIcon, CheckCircleIcon, ArchiveIcon, AddIcon, FilterIcon,
+  IdeaIcon, LightbulbFilledIcon, EmailIcon, AttachIcon, LoadingIcon,
 } from '../components/common/Icons';
 
 const TYPE_ICONS = {
-  note:     <NoteIcon />,
-  task:     <TaskIcon />,
-  idea:     <AIIcon />,
-  link:     <BacklinkIcon />,
-  reminder: <ReminderIcon />,
+  note:     <NoteIcon color="var(--primary)" />,
+  task:     <TaskIcon color="#f59e0b" />,
+  idea:     <LightbulbFilledIcon color="#8b5cf6" />,
+  link:     <BacklinkIcon color="#3b82f6" />,
+  reminder: <ReminderIcon color="var(--error)" />,
+  email:    <EmailIcon color="#10b981" />,
+  file:     <AttachIcon color="var(--text-muted)" />,
 };
 
 export default function InboxPage() {
@@ -127,7 +130,7 @@ export default function InboxPage() {
         ))}
       </div>
 
-      {loading ? <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div> :
+      {loading ? <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><LoadingIcon /> Loading inbox…</div> :
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {items.length === 0 && (
             <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
