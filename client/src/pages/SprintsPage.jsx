@@ -9,8 +9,7 @@ import Input from '../components/common/Input';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
   SprintIcon, AddIcon, TrophyIcon, TimerIcon, CheckCircleIcon,
-  CalendarIcon, FlagIcon, FlashIcon, PlayIcon, CheckIcon, CloseIcon,
-  PriorityFilledIcon,
+  CalendarIcon, PriorityFilledIcon, FlashIcon, PlayIcon, CheckIcon, CloseIcon,
 } from '../components/common/Icons';
 
 const STATUS_COLOR = { planning: 'var(--text-muted)', active: 'var(--success)', completed: 'var(--primary)' };
@@ -155,7 +154,7 @@ export default function SprintsPage() {
           )}
           {sprint.endDate && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <FlagIcon size="xs" /> {new Date(sprint.endDate).toLocaleDateString()}
+              <PriorityFilledIcon size="xs" /> {new Date(sprint.endDate).toLocaleDateString()}
             </span>
           )}
           {daysLeft !== null && sprint.status === 'active' && (
