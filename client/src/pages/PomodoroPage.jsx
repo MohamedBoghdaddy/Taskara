@@ -139,7 +139,7 @@ export default function PomodoroPage() {
               background: '#f9731615', border: '1px solid #f9731640',
               padding: '3px 9px', borderRadius: '12px', cursor: 'default',
             }}>
-              🔥 {streak.currentStreak}d
+              <FireIcon size="xs" color="#f97316" /> {streak.currentStreak}d
             </span>
           </Tooltip>
         )}
@@ -231,7 +231,7 @@ export default function PomodoroPage() {
               background: 'var(--surface-alt)', padding: '10px 14px',
               borderRadius: 'var(--radius)', borderLeft: '3px solid var(--primary)',
             }}>
-              💡 {adaptive.insight}
+              <BrainIcon size="xs" color="var(--primary)" /> {adaptive.insight}
             </div>
           )}
 
