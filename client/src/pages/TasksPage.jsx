@@ -11,7 +11,7 @@ import {
   CheckCircleIcon, PriorityIcon, DueDateIcon, KanbanIcon, EditIcon,
   LoadingIcon, BugIcon, WrenchIcon, RocketIcon, FlashIcon,
   CheckboxIcon, PlayIcon, InboxIcon, WarnIcon, SubtaskIcon, LabelIcon,
-  SortUpIcon, SortDownIcon,
+  SortUpIcon, SortDownIcon, MoreVertIcon, EyeOffIcon, EyeIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -340,6 +340,16 @@ function TaskListRow({ task, onStatusChange, onDelete, onClick }) {
       {task.dueDate && !overdue && <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}><DueDateIcon size="xs" /> {format(new Date(task.dueDate), 'MMM d')}</span>}
       <Badge type={task.priority} label={task.priority} />
       <Badge type={task.status} label={task.status.replace('_', ' ')} />
+      <Tooltip content="More options" placement="left">
+        <button
+          onClick={e => e.stopPropagation()}
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 4px', display: 'flex', alignItems: 'center', opacity: 0.5 }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
+        >
+          <MoreVertIcon size="sm" />
+        </button>
+      </Tooltip>
       <Tooltip content="Delete task" placement="left">
         <button
           onClick={e => { e.stopPropagation(); onDelete(task._id); }}
@@ -360,6 +370,7 @@ function TaskDetailModal({ task, onClose, onUpdate }) {
     priority: task.priority,
     dueDate: task.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : '',
   });
+  const [showDesc, setShowDesc] = useState(true);
 
   const handleSave = async () => {
     try {
@@ -375,13 +386,18 @@ function TaskDetailModal({ task, onClose, onUpdate }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <Input label="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
         <div>
-          <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Description</label>
-          <textarea
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            rows={4}
-            style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
-          />
+          <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowDesc(v => !v)}>
+            Description
+            {showDesc ? <EyeIcon size="xs" color="var(--text-muted)" /> : <EyeOffIcon size="xs" color="var(--text-muted)" />}
+          </label>
+          {showDesc && (
+            <textarea
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              rows={4}
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+            />
+          )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
           <div>
