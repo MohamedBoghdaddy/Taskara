@@ -9,20 +9,40 @@ import Tooltip from '../components/common/Tooltip';
 import {
   TaskIcon, ListIcon, BoardIcon, AddIcon, DeleteIcon, FilterIcon,
   CheckCircleIcon, PriorityIcon, DueDateIcon, KanbanIcon, EditIcon,
+  LoadingIcon, BugIcon, WrenchIcon, RocketIcon, FlashIcon,
+  CheckboxIcon, PlayIcon, InboxIcon, WarnIcon, SubtaskIcon, LabelIcon,
+  SortUpIcon, SortDownIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
 const STATUSES = ['inbox', 'todo', 'in_progress', 'blocked', 'done'];
 const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+const TASK_TYPES = ['feature', 'bug', 'chore', 'improvement'];
+
+const STATUS_ICONS = {
+  inbox:       { Icon: InboxIcon,       color: 'var(--text-muted)' },
+  todo:        { Icon: CheckboxIcon,    color: 'var(--primary)' },
+  in_progress: { Icon: PlayIcon,        color: '#f59e0b' },
+  blocked:     { Icon: WarnIcon,        color: 'var(--error)' },
+  done:        { Icon: CheckCircleIcon, color: 'var(--success)' },
+};
+
+const TYPE_DEFS = {
+  feature:     { Icon: RocketIcon, color: 'var(--success)' },
+  bug:         { Icon: BugIcon,    color: 'var(--error)' },
+  chore:       { Icon: WrenchIcon, color: 'var(--text-muted)' },
+  improvement: { Icon: FlashIcon,  color: 'var(--primary)' },
+};
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');
   const [filters, setFilters] = useState({ status: '', priority: '' });
+  const [sortDir, setSortDir] = useState('desc'); // 'asc' | 'desc' — sort by priority/due date
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '' });
+  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '', type: '' });
   const [selectedTask, setSelectedTask] = useState(null);
 
   useEffect(() => { loadTasks(); }, [filters]);
@@ -37,10 +57,10 @@ export default function TasksPage() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const task = await createTask({ ...form, dueDate: form.dueDate || undefined });
+      const task = await createTask({ ...form, dueDate: form.dueDate || undefined, type: form.type || undefined });
       setTasks(prev => [task, ...prev]);
       setShowCreate(false);
-      setForm({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '' });
+      setForm({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '', type: '' });
       toast.success('Task created');
     } catch { toast.error('Failed to create task'); }
   };
@@ -150,17 +170,29 @@ export default function TasksPage() {
           <option value="">All priorities</option>
           {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
+        <Tooltip content={sortDir === 'desc' ? 'Newest first (click to reverse)' : 'Oldest first (click to reverse)'} placement="bottom">
+          <button
+            onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+            style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}
+          >
+            {sortDir === 'desc' ? <SortDownIcon size="sm" /> : <SortUpIcon size="sm" />}
+            Sort
+          </button>
+        </Tooltip>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>Loading...</div>
+        <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <LoadingIcon /> Loading tasks…
+        </div>
       ) : (
         <>
           {view === 'list' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {tasks.length === 0 && (
                 <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>
-                  No tasks. Create one!
+                  <TaskIcon style={{ fontSize: '36px', opacity: 0.35, display: 'block', margin: '0 auto 12px' }} />
+                  No tasks yet. Create your first one!
                 </div>
               )}
               {tasks.map(task => (
@@ -178,9 +210,12 @@ export default function TasksPage() {
             <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px' }}>
               {STATUSES.map(status => (
                 <div key={status} style={{ minWidth: '220px', flex: '0 0 220px' }}>
-                  <div style={{ padding: '8px 12px', fontWeight: '600', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--surface-alt)', borderRadius: 'var(--radius)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{status.replace('_', ' ').toUpperCase()}</span>
-                    <span style={{ color: 'var(--text-muted)' }}>{grouped[status]?.length || 0}</span>
+                  <div style={{ padding: '8px 12px', fontWeight: '600', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--surface-alt)', borderRadius: 'var(--radius)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      {STATUS_ICONS[status] && React.createElement(STATUS_ICONS[status].Icon, { size: 'xs', color: STATUS_ICONS[status].color })}
+                      {status.replace('_', ' ').toUpperCase()}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: '400', fontSize: '11px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '1px 7px' }}>{grouped[status]?.length || 0}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {(grouped[status] || []).map(task => (
@@ -215,9 +250,30 @@ export default function TasksPage() {
               style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
             />
           </div>
+          {/* Type picker */}
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+              <LabelIcon size="xs" /> Type
+            </label>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {TASK_TYPES.map(t => {
+                const def = TYPE_DEFS[t];
+                const active = form.type === t;
+                return (
+                  <button key={t} type="button" onClick={() => setForm(f => ({ ...f, type: active ? '' : t }))}
+                    style={{ padding: '5px 10px', border: `1px solid ${active ? def.color : 'var(--border)'}`, borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '12px', fontWeight: active ? '600' : '400', background: active ? `${def.color}18` : 'var(--surface)', color: active ? def.color : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <def.Icon size="xs" color={active ? def.color : 'var(--text-muted)'} />
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Priority</label>
+              <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
+                <PriorityIcon size="xs" /> Priority
+              </label>
               <select
                 value={form.priority}
                 onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
@@ -249,6 +305,8 @@ export default function TasksPage() {
 
 function TaskListRow({ task, onStatusChange, onDelete, onClick }) {
   const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
+  const typeDef = task.type && TYPE_DEFS[task.type];
+  const subtaskCount = task.subtasks?.length || task.subtaskCount || 0;
   return (
     <div
       style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer' }}
@@ -261,11 +319,25 @@ function TaskListRow({ task, onStatusChange, onDelete, onClick }) {
         onChange={() => onStatusChange(task, task.status === 'done' ? 'todo' : 'done')}
         style={{ accentColor: 'var(--primary)', width: '15px', height: '15px' }}
       />
+      {typeDef && (
+        <Tooltip content={task.type} placement="top">
+          <span style={{ color: typeDef.color, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <typeDef.Icon size="xs" />
+          </span>
+        </Tooltip>
+      )}
       <span style={{ flex: 1, fontSize: '14px', textDecoration: task.status === 'done' ? 'line-through' : 'none', color: task.status === 'done' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {task.title}
       </span>
-      {overdue && <span style={{ fontSize: '11px', color: 'var(--error)', fontWeight: '600' }}>OVERDUE</span>}
-      {task.dueDate && !overdue && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{format(new Date(task.dueDate), 'MMM d')}</span>}
+      {subtaskCount > 0 && (
+        <Tooltip content={`${subtaskCount} subtask${subtaskCount > 1 ? 's' : ''}`} placement="top">
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+            <SubtaskIcon size="xs" /> {subtaskCount}
+          </span>
+        </Tooltip>
+      )}
+      {overdue && <span style={{ fontSize: '11px', color: 'var(--error)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '3px' }}><WarnIcon size="xs" /> OVERDUE</span>}
+      {task.dueDate && !overdue && <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}><DueDateIcon size="xs" /> {format(new Date(task.dueDate), 'MMM d')}</span>}
       <Badge type={task.priority} label={task.priority} />
       <Badge type={task.status} label={task.status.replace('_', ' ')} />
       <Tooltip content="Delete task" placement="left">
@@ -299,7 +371,7 @@ function TaskDetailModal({ task, onClose, onUpdate }) {
   };
 
   return (
-    <Modal open onClose={onClose} title="Task Details" width="560px">
+    <Modal isOpen onClose={onClose} title="Task Details" width="560px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <Input label="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
         <div>
