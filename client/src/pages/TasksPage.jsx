@@ -202,7 +202,7 @@ export default function TasksPage() {
       )}
 
       {/* Create modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Task">
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="New Task">
         <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <Input label="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Task title" required />
           <div>

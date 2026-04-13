@@ -151,7 +151,7 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Project">
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="New Project">
         <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <Input
             label="Project name"

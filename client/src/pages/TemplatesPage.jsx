@@ -185,7 +185,7 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title={editing ? 'Edit Template' : 'New Template'}>
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title={editing ? 'Edit Template' : 'New Template'}>
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <Input label="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
           <div>

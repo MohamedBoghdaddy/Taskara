@@ -289,7 +289,7 @@ export default function DatabaseDetailPage() {
       )}
 
       {/* Create / Edit modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title={editing ? 'Edit Record' : 'New Record'}>
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title={editing ? 'Edit Record' : 'New Record'}>
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {db.fields.map(f => (
             <div key={f.key}>
