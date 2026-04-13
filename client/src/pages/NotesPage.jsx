@@ -7,6 +7,7 @@ import Tooltip from '../components/common/Tooltip';
 import {
   NoteFilledIcon, NoteIcon, SearchIcon, AddIcon, DeleteIcon,
   PinIcon, TagIcon, EditIcon, BacklinkIcon, AIIcon,
+  StarFilledIcon, BookmarkFilledIcon, LoadingIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -45,9 +46,10 @@ export default function NotesPage() {
   };
 
   const FILTERS = [
-    { label: 'All', key: {} },
-    { label: 'Pinned', key: { isPinned: true }, icon: <PinIcon size="xs" /> },
-    { label: 'Favorites', key: { isFavorite: true }, icon: <TagIcon size="xs" /> },
+    { label: 'All',        key: {},                                  icon: <NoteIcon size="xs" /> },
+    { label: 'Pinned',     key: { isPinned: true },                  icon: <PinIcon size="xs" /> },
+    { label: 'Favorites',  key: { isFavorite: true },                icon: <StarFilledIcon size="xs" color="#f59e0b" /> },
+    { label: 'Bookmarked', key: { isBookmarked: true },              icon: <BookmarkFilledIcon size="xs" color="var(--primary)" /> },
   ];
 
   return (
@@ -145,11 +147,14 @@ export default function NotesPage() {
       </div>
 
       {loading ? (
-        <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
+        <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <LoadingIcon /> Loading notes…
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
           {notes.length === 0 && (
             <div style={{ gridColumn: '1/-1', padding: '48px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>
+              <NoteFilledIcon style={{ fontSize: '36px', opacity: 0.35, display: 'block', margin: '0 auto 12px' }} />
               No notes yet.{' '}
               <button onClick={handleCreate} style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}>
                 Create your first note →
