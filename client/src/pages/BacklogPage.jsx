@@ -11,7 +11,7 @@ import {
   PlayIcon, CheckCircleIcon, CloseIcon, DragIcon, MoveIcon,
   PriorityIcon, DueDateIcon, ChevronDown, ChevronUp,
   FireIcon, TrophyIcon, FilterIcon, RefreshIcon, WarnIcon,
-  FlagIcon, InfoIcon, FlashIcon, TimerIcon, ChecklistIcon,
+  PriorityFilledIcon, InfoIcon, FlashIcon, TimerIcon, ChecklistIcon,
   ArrowRight,
 } from '../components/common/Icons';
 
@@ -84,6 +84,9 @@ export default function BacklogPage() {
   /* ── create sprint ── */
   const handleCreateSprint = async () => {
     if (!sprintForm.name.trim()) return toast.error('Sprint name required');
+    if (sprintForm.startDate && sprintForm.endDate && sprintForm.endDate < sprintForm.startDate) {
+      return toast.error('End date must be after start date');
+    }
     try {
       const s = await api('POST', '/sprints', sprintForm);
       setSprints(prev => [...prev, s]);
