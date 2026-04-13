@@ -4,7 +4,11 @@ import * as sprintApi from '../api/sprints';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import { SprintIcon, CheckCircleIcon, TimerIcon, AddIcon, BacklogIcon } from '../components/common/Icons';
+import FeatureGuide from '../components/common/FeatureGuide';
+import {
+  SprintIcon, CheckCircleIcon, TimerIcon, BacklogIcon,
+  CloseIcon, ArrowLeft, CheckIcon, PlayIcon, FlashIcon,
+} from '../components/common/Icons';
 
 const COL_STATUS = { 'Todo': 'todo', 'In Progress': 'in_progress', 'Done': 'done' };
 const COLS = ['Todo', 'In Progress', 'Done'];
@@ -20,9 +24,7 @@ function BurndownChart({ sprint, tasks }) {
   const done   = tasks.filter(t => t.status === 'done').length;
   const count  = tasks.length;
 
-  // Ideal line: count → 0 over total days
   const ideal  = (day) => count - (count / total) * day;
-  // Actual: linear estimate based on today's progress
   const actual = (day) => {
     if (day === 0) return count;
     if (day > today) return null;
@@ -33,31 +35,25 @@ function BurndownChart({ sprint, tasks }) {
   const x = (day) => PAD + (day / total) * (W - PAD * 2);
   const y = (val) => PAD + ((count - val) / Math.max(count, 1)) * (H - PAD * 2);
 
-  const points = Array.from({ length: today + 1 }, (_, d) => ({ d, a: actual(d) })).filter(p => p.a !== null);
-  const idealPts = [{ d: 0 }, { d: total }];
-
+  const points    = Array.from({ length: today + 1 }, (_, d) => ({ d, a: actual(d) })).filter(p => p.a !== null);
+  const idealPts  = [{ d: 0 }, { d: total }];
   const toSVGLine = (pts, key) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(p.d).toFixed(1)} ${y(key === 'ideal' ? ideal(p.d) : p.a).toFixed(1)}`).join(' ');
 
   return (
     <div style={{ padding: '16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: '20px' }}>
       <h3 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: 'var(--text-secondary)' }}>Burndown Chart</h3>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }}>
-        {/* Grid lines */}
         {[0, 0.25, 0.5, 0.75, 1].map(t => (
           <line key={t} x1={PAD} y1={y(count * t)} x2={W - PAD} y2={y(count * t)} stroke="var(--border)" strokeWidth="1" />
         ))}
-        {/* Ideal line */}
         <path d={toSVGLine(idealPts, 'ideal')} fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="6 3" />
-        {/* Actual line */}
         {points.length > 1 && (
           <path d={toSVGLine(points, 'actual')} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" />
         )}
-        {/* Axis labels */}
         <text x={PAD} y={H - 4} fill="var(--text-muted)" fontSize="10">Day 0</text>
         <text x={W - PAD - 10} y={H - 4} fill="var(--text-muted)" fontSize="10">Day {total}</text>
         <text x={4} y={PAD + 4} fill="var(--text-muted)" fontSize="10">{count}</text>
         <text x={4} y={H - PAD + 4} fill="var(--text-muted)" fontSize="10">0</text>
-        {/* Legend */}
         <line x1={W - 130} y1={14} x2={W - 110} y2={14} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4 2" />
         <text x={W - 105} y={18} fill="var(--text-muted)" fontSize="10">Ideal</text>
         <line x1={W - 60} y1={14} x2={W - 40} y2={14} stroke="var(--primary)" strokeWidth="2.5" />
@@ -70,11 +66,11 @@ function BurndownChart({ sprint, tasks }) {
 export default function SprintDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [sprint, setSprint]   = useState(null);
-  const [tasks,  setTasks]    = useState([]);
-  const [stats,  setStats]    = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [dragTaskId, setDragTaskId] = useState(null);
+  const [sprint,    setSprint]  = useState(null);
+  const [tasks,     setTasks]   = useState([]);
+  const [stats,     setStats]   = useState(null);
+  const [loading,   setLoading] = useState(true);
+  const [dragTaskId,setDragTaskId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,37 +113,68 @@ export default function SprintDetailPage() {
   };
 
   if (loading) return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading sprint…</div>;
-  if (!sprint) return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>Sprint not found.</div>;
+  if (!sprint)  return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>Sprint not found.</div>;
 
-  const daysLeft   = sprint.endDate ? Math.ceil((new Date(sprint.endDate) - new Date()) / 86400000) : null;
-  const pct        = stats?.total ? stats.completion : 0;
+  const daysLeft    = sprint.endDate ? Math.ceil((new Date(sprint.endDate) - new Date()) / 86400000) : null;
+  const pct         = stats?.total ? stats.completion : 0;
   const statusColor = sprint.status === 'active' ? 'var(--success)' : sprint.status === 'completed' ? 'var(--primary)' : 'var(--text-muted)';
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: '1100px' }}>
+      {/* How to use guide */}
+      <FeatureGuide
+        storageKey="sprint-detail-guide"
+        title="Sprint Board"
+        icon={<SprintIcon />}
+        description="Track your active sprint with a Kanban board and burndown chart. Drag tasks between columns to update their status in real time."
+        steps={[
+          { icon: <BacklogIcon />, title: 'Add tasks', body: 'Click "Add Tasks" to pull tasks from the backlog into this sprint.' },
+          { icon: <SprintIcon />, title: 'Drag to move', body: 'Drag a task card from one column to another to change its status.' },
+          { icon: <CheckCircleIcon />, title: 'Burndown chart', body: 'The chart shows ideal vs. actual progress — aim to stay at or below the ideal line.' },
+          { icon: <FlashIcon />, title: 'Velocity', body: 'Complete the sprint to record velocity (story points done).' },
+        ]}
+        tips={[
+          'Keep the In Progress column short — focus on finishing tasks',
+          'Update task status daily for accurate burndown tracking',
+          'Use story points to measure velocity across sprints',
+        ]}
+        accentColor="var(--primary)"
+      />
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <button onClick={() => navigate('/sprints')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '20px', lineHeight: 1, padding: 0 }}>←</button>
+            <button
+              onClick={() => navigate('/sprints')}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+            >
+              <ArrowLeft />
+            </button>
             <SprintIcon color={statusColor} />
             <h1 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>{sprint.name}</h1>
-            <span style={{ fontSize: '11px', fontWeight: '600', padding: '2px 9px', borderRadius: '99px', background: `${statusColor}22`, color: statusColor, textTransform: 'capitalize' }}>{sprint.status}</span>
+            <span style={{
+              fontSize: '11px', fontWeight: '600', padding: '2px 9px',
+              borderRadius: '99px', background: `${statusColor}22`,
+              color: statusColor, textTransform: 'capitalize',
+            }}>
+              {sprint.status}
+            </span>
           </div>
           {sprint.goal && <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 0 0 34px' }}>{sprint.goal}</p>}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {sprint.status === 'active' && <Button variant="secondary" size="sm" onClick={() => navigate('/backlog')}>+ Add Tasks</Button>}
-          {sprint.status === 'planning' && <Button variant="primary" size="sm" onClick={async () => { await sprintApi.updateSprint(id,{status:'active'}); load(); }}>Start Sprint</Button>}
-          {sprint.status === 'active'   && <Button variant="secondary" size="sm" onClick={async () => { await sprintApi.updateSprint(id,{status:'completed'}); load(); }}>Complete Sprint</Button>}
+          {sprint.status === 'active'   && <Button variant="secondary" size="sm" onClick={() => navigate('/backlog')}><BacklogIcon size="xs" /> Add Tasks</Button>}
+          {sprint.status === 'planning' && <Button variant="primary"   size="sm" onClick={async () => { await sprintApi.updateSprint(id, { status: 'active' }); load(); }}><PlayIcon size="xs" /> Start Sprint</Button>}
+          {sprint.status === 'active'   && <Button variant="secondary" size="sm" onClick={async () => { await sprintApi.updateSprint(id, { status: 'completed' }); load(); }}><CheckIcon size="xs" /> Complete Sprint</Button>}
         </div>
       </div>
 
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
         {[
-          { label: 'Total tasks',  value: stats?.total || 0 },
-          { label: 'Done',         value: stats?.done || 0,       color: 'var(--success)' },
+          { label: 'Total tasks',  value: stats?.total      || 0 },
+          { label: 'Done',         value: stats?.done       || 0, color: 'var(--success)' },
           { label: 'In Progress',  value: stats?.inProgress || 0, color: 'var(--primary)' },
           { label: 'Completion',   value: `${pct}%`,              color: pct === 100 ? 'var(--success)' : 'var(--primary)' },
         ].map(s => (
@@ -162,7 +189,11 @@ export default function SprintDetailPage() {
       <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>
           <span>Sprint progress</span>
-          <span>{daysLeft !== null ? (daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`) : ''}</span>
+          <span>
+            {daysLeft !== null
+              ? (daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`)
+              : ''}
+          </span>
         </div>
         <div style={{ height: '8px', background: 'var(--surface-alt)', borderRadius: '4px', overflow: 'hidden' }}>
           <div style={{ height: '100%', background: 'var(--success)', width: `${pct}%`, borderRadius: '4px', transition: 'width 0.4s' }} />
@@ -196,8 +227,8 @@ export default function SprintDetailPage() {
                     onDragStart={() => setDragTaskId(task._id)}
                     onDragEnd={() => setDragTaskId(null)}
                     style={{
-                      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                      padding: '10px 12px', cursor: 'grab',
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius)', padding: '10px 12px', cursor: 'grab',
                       opacity: dragTaskId === task._id ? 0.5 : 1,
                       borderLeft: `3px solid ${PRIORITY_COLOR[task.priority] || 'var(--border)'}`,
                     }}
@@ -206,11 +237,19 @@ export default function SprintDetailPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         {task.estimatedPoints > 0 && (
-                          <span style={{ fontSize: '10px', background: 'var(--primary)22', color: 'var(--primary)', borderRadius: '4px', padding: '1px 5px', fontWeight: '600' }}>{task.estimatedPoints}pt</span>
+                          <span style={{ fontSize: '10px', background: 'var(--primary)22', color: 'var(--primary)', borderRadius: '4px', padding: '1px 5px', fontWeight: '600' }}>
+                            {task.estimatedPoints}pt
+                          </span>
                         )}
                         <span style={{ fontSize: '10px', color: PRIORITY_COLOR[task.priority], textTransform: 'capitalize' }}>{task.priority}</span>
                       </div>
-                      <button onClick={() => removeFromSprint(task._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px', padding: '0 2px' }} title="Remove from sprint">✕</button>
+                      <button
+                        onClick={() => removeFromSprint(task._id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+                        title="Remove from sprint"
+                      >
+                        <CloseIcon size="xs" />
+                      </button>
                     </div>
                   </div>
                 ))}
