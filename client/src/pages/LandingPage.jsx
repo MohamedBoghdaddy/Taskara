@@ -5,7 +5,7 @@ import {
   faInbox, faStickyNote, faClipboardList, faStopwatch,
   faCalendarCheck, faRobot,
 } from '@fortawesome/free-solid-svg-icons';
-import { LogoIcon } from '../components/common/Icons';
+import { LogoIcon, DiscordIcon, TwitterIcon, LinkedInIcon } from '../components/common/Icons';
 
 const features = [
   { icon: faInbox,         color: '#6366f1', title: 'Inbox Capture',   desc: 'Capture anything instantly. Process later.' },
@@ -125,6 +125,20 @@ export default function LandingPage() {
       </main>
 
       <footer style={{ borderTop: '1px solid var(--border)', padding: '20px 32px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '12px' }}>
+          {[
+            { Icon: DiscordIcon,  label: 'Discord',  color: '#5865F2', href: '#' },
+            { Icon: TwitterIcon,  label: 'Twitter',  color: '#1DA1F2', href: '#' },
+            { Icon: LinkedInIcon, label: 'LinkedIn', color: '#0A66C2', href: '#' },
+          ].map(({ Icon, label, color, href }) => (
+            <a key={label} href={href} title={label} style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', transition: 'color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.color = color}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              <Icon /> {label}
+            </a>
+          ))}
+        </div>
         © {new Date().getFullYear()} Taskara · All-in-one productivity workspace
       </footer>
     </div>
