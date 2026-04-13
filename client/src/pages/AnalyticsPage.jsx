@@ -5,7 +5,9 @@ import toast from 'react-hot-toast';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
   AnalyticsIcon, TimerIcon, TrophyIcon, FireIcon,
-  TrendUpIcon, CheckCircleIcon, LineChartIcon, WarnIcon,
+  TrendUpIcon, TrendDownIcon, CheckCircleIcon, LineChartIcon, WarnIcon,
+  ExportIcon, DownloadIcon, PieChartIcon, AreaChartIcon,
+  TachometerIcon, SignalIcon, MedalIcon, LoadingIcon,
 } from '../components/common/Icons';
 
 // ── Focus score ring ──────────────────────────────────────────────────────────
@@ -37,8 +39,8 @@ function TrendBadge({ change }) {
   const up    = change >= 0;
   const color = up ? '#10b981' : '#ef4444';
   return (
-    <span style={{ fontSize: '11px', fontWeight: '600', color, background: `${color}22`, borderRadius: '99px', padding: '2px 7px' }}>
-      {up ? '↑' : '↓'} {Math.abs(change)}%
+    <span style={{ fontSize: '11px', fontWeight: '600', color, background: `${color}22`, borderRadius: '99px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+      {up ? <TrendUpIcon size="xs" /> : <TrendDownIcon size="xs" />} {Math.abs(change)}%
     </span>
   );
 }
@@ -117,8 +119,8 @@ export default function AnalyticsPage() {
           {['7d','30d','90d'].map(r => (
             <button key={r} onClick={() => setRange(r)} style={{ padding: '6px 14px', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: '13px', background: range === r ? 'var(--primary)' : 'var(--surface-alt)', color: range === r ? '#fff' : 'var(--text-secondary)', fontWeight: range === r ? '600' : '400' }}>{r}</button>
           ))}
-          <button onClick={() => exportTasks()} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>⬇ Tasks CSV</button>
-          <button onClick={() => exportAnalytics()} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>⬇ Analytics CSV</button>
+          <button onClick={() => exportTasks()} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}><ExportIcon size="xs" /> Tasks CSV</button>
+          <button onClick={() => exportAnalytics()} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}><DownloadIcon size="xs" /> Analytics CSV</button>
         </div>
       </div>
 
@@ -134,7 +136,9 @@ export default function AnalyticsPage() {
       />
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>Loading…</div>
+        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <LoadingIcon /> Loading analytics…
+        </div>
       ) : (
         <>
           {/* Burnout alert */}
@@ -158,13 +162,13 @@ export default function AnalyticsPage() {
               <div style={{ fontSize: '28px', marginBottom: '4px', color: '#f97316' }}><FireIcon size="2x" /></div>
               <div style={{ fontSize: '28px', fontWeight: '800', color: streak?.current > 0 ? '#f97316' : 'var(--text-muted)' }}>{streak?.current || 0}</div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Day streak</div>
-              {streak?.best > 0 && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Best: {streak.best} days</div>}
+              {streak?.best > 0 && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}><MedalIcon size="xs" color="#f59e0b" /> Best: {streak.best} days</div>}
             </div>
 
             {/* Weekly trend */}
             {trend && (
               <div style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px' }}>vs last week</div>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}><AreaChartIcon size="xs" color="var(--primary)" /> vs last week</div>
                 {[
                   { label: 'Sessions',  val: trend.sessions?.thisWeek, change: trend.sessions?.change },
                   { label: 'Minutes',   val: trend.minutes?.thisWeek,  change: trend.minutes?.change },
@@ -202,8 +206,8 @@ export default function AnalyticsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
             {[
               { label: 'Total focus time', value: `${Math.round((focusStats?.totalMinutes || 0)/60*10)/10}h`, color: 'var(--primary)', icon: <TimerIcon /> },
-              { label: 'Sessions',         value: focusStats?.totalSessions || 0, color: 'var(--primary)', icon: <AnalyticsIcon /> },
-              { label: 'Avg session',      value: `${focusStats?.averageSessionMinutes || 0}m`, icon: <TimerIcon /> },
+              { label: 'Sessions',         value: focusStats?.totalSessions || 0, color: 'var(--primary)', icon: <SignalIcon /> },
+              { label: 'Avg session',      value: `${focusStats?.averageSessionMinutes || 0}m`, icon: <TachometerIcon /> },
             ].map(s => (
               <div key={s.label} style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', textAlign: 'center' }}>
                 <div style={{ marginBottom: '6px', color: s.color || 'var(--text-muted)' }}>{s.icon}</div>
@@ -237,7 +241,7 @@ export default function AnalyticsPage() {
           {taskStats?.byStatus?.length > 0 && (
             <div style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
               <h3 style={{ fontWeight: '600', fontSize: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <AnalyticsIcon color="var(--primary)" /> Tasks by Status
+                <PieChartIcon color="var(--primary)" /> Tasks by Status
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {taskStats.byStatus.map(({ _id, count }) => (
