@@ -50,7 +50,7 @@ function HabitHeatmap({ entries = [] }) {
   return (
     <div style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: '24px' }}>
       <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-        🔥 Focus Heatmap (last {entries.length} days)
+        <FireIcon size="sm" color="#f97316" /> Focus Heatmap (last {entries.length} days)
       </h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
         {entries.map((e, i) => {
@@ -141,11 +141,11 @@ export default function AnalyticsPage() {
           {burnout && burnout.risk !== 'none' && (
             <div style={{ padding: '14px 16px', borderRadius: 'var(--radius)', marginBottom: '20px', border: `1px solid ${burnout.risk === 'high' ? '#ef444488' : burnout.risk === 'medium' ? '#f59e0b88' : '#6366f188'}`, background: burnout.risk === 'high' ? '#ef444412' : burnout.risk === 'medium' ? '#f59e0b12' : '#6366f112' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '18px' }}>{burnout.risk === 'high' ? '🔴' : burnout.risk === 'medium' ? '🟡' : '🔵'}</span>
+                <span style={{ fontSize: '16px', color: burnout.risk === 'high' ? '#ef4444' : burnout.risk === 'medium' ? '#f59e0b' : '#6366f1' }}>●</span>
                 <span style={{ fontWeight: '700', fontSize: '14px' }}>Burnout Risk: {burnout.risk.toUpperCase()}</span>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 4px 26px' }}>{burnout.message}</p>
-              <p style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '500', margin: '0 0 0 26px' }}>💡 {burnout.recommendation}</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '500', margin: '0 0 0 26px', display: 'flex', alignItems: 'center', gap: '5px' }}><FireIcon size="xs" color="#f59e0b" /> {burnout.recommendation}</p>
             </div>
           )}
 
@@ -155,7 +155,7 @@ export default function AnalyticsPage() {
 
             {/* Streak */}
             <div style={{ padding: '20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', textAlign: 'center' }}>
-              <div style={{ fontSize: '36px', marginBottom: '4px' }}>🔥</div>
+              <div style={{ fontSize: '28px', marginBottom: '4px', color: '#f97316' }}><FireIcon size="2x" /></div>
               <div style={{ fontSize: '28px', fontWeight: '800', color: streak?.current > 0 ? '#f97316' : 'var(--text-muted)' }}>{streak?.current || 0}</div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Day streak</div>
               {streak?.best > 0 && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Best: {streak.best} days</div>}
