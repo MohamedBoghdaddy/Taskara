@@ -10,8 +10,9 @@ import {
   DatabaseIcon, AnalyticsIcon, SettingsIcon, UsersIcon, BacklogIcon,
   SprintIcon, CollapseIcon, ExpandSideIcon, LogoutIcon, UserIcon,
   LogoIcon, ChevronDown, ChevronUp, BoardIcon, AddIcon,
-  DueDateIcon, NoteFilledIcon, BreakIcon, ProjectFilledIcon, FocusIcon,
-  BrainIcon, TeamIcon, FlashIcon, TrophyIcon, PlugIcon,
+  NoteFilledIcon, BreakIcon, ProjectFilledIcon, FocusIcon,
+  BrainIcon, FlashIcon, TrophyIcon, PlugIcon,
+  TimelineIcon, CalendarCheckIcon, BroadcastIcon, PaletteIcon,
 } from './Icons';
 
 const NAV_GROUPS = [
@@ -30,7 +31,7 @@ const NAV_GROUPS = [
       { to: '/boards',       Icon: BoardIcon,         label: 'Boards',       tip: 'Trello-style project boards' },
       { to: '/sprints',      Icon: SprintIcon,        label: 'Sprints',      tip: 'Scrum sprints + burndown' },
       { to: '/backlog',      Icon: BacklogIcon,       label: 'Backlog',      tip: 'Sprint backlog & planning' },
-      { to: '/timeline',     Icon: CalendarIcon,      label: 'Timeline',     tip: 'Gantt / roadmap view' },
+      { to: '/timeline',     Icon: TimelineIcon,      label: 'Timeline',     tip: 'Gantt / roadmap view' },
       { to: '/projects',     Icon: ProjectIcon,       label: 'Projects',     tip: 'Project workspaces' },
       { to: '/calendar',     Icon: CalendarIcon,      label: 'Calendar',     tip: 'Due dates & reminders' },
     ],
@@ -39,7 +40,7 @@ const NAV_GROUPS = [
     label: 'Knowledge',
     items: [
       { to: '/notes',        Icon: NoteIcon,          label: 'Notes',        tip: 'Notes with auto-backlinks' },
-      { to: '/daily/today',  Icon: DueDateIcon,       label: 'Daily Notes',  tip: 'Journal by date' },
+      { to: '/daily/today',  Icon: CalendarCheckIcon, label: 'Daily Notes',  tip: 'Journal by date' },
       { to: '/graph',        Icon: GraphIcon,         label: 'Graph',        tip: 'Knowledge graph view' },
       { to: '/databases',    Icon: DatabaseIcon,      label: 'Databases',    tip: 'Custom structured tables' },
       { to: '/templates',    Icon: TemplateIcon,      label: 'Templates',    tip: 'Note & task templates' },
@@ -56,7 +57,7 @@ const NAV_GROUPS = [
   {
     label: 'Create',
     items: [
-      { to: '/canvas',       Icon: BrainIcon,         label: 'Canvas',       tip: 'Freeform whiteboard & mindmap' },
+      { to: '/canvas',       Icon: PaletteIcon,       label: 'Canvas',       tip: 'Freeform whiteboard & mindmap' },
     ],
   },
   {
@@ -64,7 +65,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/collaboration', Icon: UsersIcon,        label: 'Team',         tip: 'Members, roles & invites' },
       { to: '/automations',   Icon: FlashIcon,        label: 'Automations',  tip: 'Trigger → action rules' },
-      { to: '/webhooks',      Icon: TeamIcon,         label: 'Webhooks',     tip: 'Outbound event delivery' },
+      { to: '/webhooks',      Icon: BroadcastIcon,    label: 'Webhooks',     tip: 'Outbound event delivery' },
       { to: '/integrations',  Icon: PlugIcon,         label: 'Integrations', tip: 'Todoist, Slack & more' },
     ],
   },
