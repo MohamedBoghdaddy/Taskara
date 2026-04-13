@@ -1,4 +1,10 @@
 import React, { useRef, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faImage, faFilePdf, faFileAudio, faFileVideo, faFileWord,
+  faFileExcel, faFileArchive, faPaperclip, faDownload, faTimes,
+  faCloudUploadAlt,
+} from '@fortawesome/free-solid-svg-icons';
 
 const formatSize = (bytes) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -6,15 +12,15 @@ const formatSize = (bytes) => {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
-const fileIcon = (mimetype = '') => {
-  if (mimetype.startsWith('image/')) return '🖼';
-  if (mimetype === 'application/pdf') return '📄';
-  if (mimetype.startsWith('audio/')) return '🎵';
-  if (mimetype.startsWith('video/')) return '🎬';
-  if (mimetype.includes('word') || mimetype.includes('document')) return '📝';
-  if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) return '📊';
-  if (mimetype.includes('zip')) return '📦';
-  return '📎';
+const fileIconDef = (mimetype = '') => {
+  if (mimetype.startsWith('image/'))                                      return faImage;
+  if (mimetype === 'application/pdf')                                     return faFilePdf;
+  if (mimetype.startsWith('audio/'))                                      return faFileAudio;
+  if (mimetype.startsWith('video/'))                                      return faFileVideo;
+  if (mimetype.includes('word') || mimetype.includes('document'))         return faFileWord;
+  if (mimetype.includes('excel') || mimetype.includes('spreadsheet'))     return faFileExcel;
+  if (mimetype.includes('zip') || mimetype.includes('compressed'))        return faFileArchive;
+  return faPaperclip;
 };
 
 /**
@@ -63,7 +69,9 @@ export default function FileUpload({ onUpload, accept, multiple = true, maxMB = 
         transition: 'border-color 0.15s, background 0.15s',
       }}
     >
-      <div style={{ fontSize: '24px', marginBottom: '6px' }}>📎</div>
+      <div style={{ fontSize: '24px', marginBottom: '6px', color: dragOver ? 'var(--primary)' : 'var(--text-muted)' }}>
+        <FontAwesomeIcon icon={faCloudUploadAlt} />
+      </div>
       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '500' }}>
         {uploading ? 'Uploading…' : label}
       </div>
@@ -93,7 +101,10 @@ export function AttachmentList({ attachments = [], onDelete, compact = false }) 
   return (
     <div>
       {preview && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setPreview(null)}>
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setPreview(null)}
+        >
           <img src={preview} alt="preview" style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: '8px', boxShadow: '0 4px 40px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()} />
         </div>
       )}
@@ -102,10 +113,22 @@ export function AttachmentList({ attachments = [], onDelete, compact = false }) 
           const isImage = att.mimetype?.startsWith('image/');
           const isAudio = att.mimetype?.startsWith('audio/');
           return (
-            <div key={att._id || att.filename} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: compact ? '4px 8px' : '8px 10px', background: 'var(--surface-alt)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+            <div
+              key={att._id || att.filename}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: compact ? '4px 8px' : '8px 10px',
+                background: 'var(--surface-alt)', borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+              }}
+            >
               {isImage
                 ? <img src={att.url} alt={att.originalName} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: '4px', cursor: 'zoom-in', flexShrink: 0 }} onClick={() => setPreview(att.url)} />
-                : <span style={{ fontSize: '20px', flexShrink: 0 }}>{fileIcon(att.mimetype)}</span>
+                : (
+                  <span style={{ fontSize: '18px', flexShrink: 0, color: 'var(--text-muted)', width: 20, textAlign: 'center' }}>
+                    <FontAwesomeIcon icon={fileIconDef(att.mimetype)} />
+                  </span>
+                )
               }
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '12px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.originalName || att.filename}</div>
@@ -113,9 +136,24 @@ export function AttachmentList({ attachments = [], onDelete, compact = false }) 
                 {isAudio && <audio src={att.url} controls style={{ height: '24px', marginTop: '4px', width: '100%' }} />}
               </div>
               <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                <a href={att.url} target="_blank" rel="noreferrer" download={att.originalName} style={{ fontSize: '11px', color: 'var(--primary)', textDecoration: 'none', padding: '2px 6px', borderRadius: '4px', background: 'var(--primary)18' }}>⬇</a>
+                <a
+                  href={att.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  download={att.originalName}
+                  style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'none', padding: '3px 7px', borderRadius: '4px', background: 'var(--primary)18', display: 'flex', alignItems: 'center' }}
+                  title="Download"
+                >
+                  <FontAwesomeIcon icon={faDownload} />
+                </a>
                 {onDelete && (
-                  <button onClick={() => onDelete(att._id || att.filename)} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '13px', padding: '2px 4px' }}>✕</button>
+                  <button
+                    onClick={() => onDelete(att._id || att.filename)}
+                    style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
+                    title="Delete attachment"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
                 )}
               </div>
             </div>
