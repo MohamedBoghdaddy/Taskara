@@ -19,6 +19,11 @@ import {
   TimerIcon,
   InboxIcon,
   TodayIcon,
+  LoadingIcon,
+  CommentIcon,
+  MentionIcon,
+  InviteIcon,
+  EmailIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 
@@ -36,16 +41,22 @@ const ACTION_LABELS = {
 };
 
 const ACTION_ICONS = {
-  task_created: <TaskIcon />,
-  task_updated: <TaskIcon />,
-  task_deleted: <TaskIcon />,
-  note_created: <NoteIcon />,
-  note_deleted: <NoteIcon />,
-  project_created: <ProjectIcon />,
-  inbox_item_created: <InboxIcon />,
-  pomodoro_started: <TimerIcon />,
-  pomodoro_completed: <TimerIcon />,
-  daily_note_created: <TodayIcon />,
+  task_created:        <TaskIcon />,
+  task_updated:        <EditIcon />,
+  task_deleted:        <TaskIcon />,
+  note_created:        <NoteIcon />,
+  note_deleted:        <NoteIcon />,
+  note_updated:        <NoteIcon />,
+  project_created:     <ProjectIcon />,
+  inbox_item_created:  <InboxIcon />,
+  pomodoro_started:    <TimerIcon />,
+  pomodoro_completed:  <CheckCircleIcon />,
+  daily_note_created:  <TodayIcon />,
+  member_invited:      <InviteIcon />,
+  member_joined:       <UserPlusIcon />,
+  comment_added:       <CommentIcon />,
+  mention:             <MentionIcon />,
+  email_sent:          <EmailIcon />,
 };
 
 export default function CollaborationPage() {
@@ -113,7 +124,9 @@ export default function CollaborationPage() {
       </h1>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>Loading...</div>
+        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <LoadingIcon /> Loading activity…
+        </div>
       ) : (
         <>
           {logs.length === 0 && (
