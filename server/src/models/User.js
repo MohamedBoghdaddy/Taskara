@@ -17,6 +17,6 @@ const userSchema = new mongoose.Schema({
   refreshTokens: [{ type: String }],
 }, { timestamps: true });
 
-userSchema.index({ email: 1 });
+// email is already indexed by unique:true in the field definition above — no duplicate needed
 
 module.exports = mongoose.model('User', userSchema);

@@ -67,7 +67,7 @@ subscriptionSchema.methods.getPlanDef = function () {
   return PLANS[this.plan];
 };
 
-subscriptionSchema.index({ workspaceId: 1 });
+// workspaceId is already indexed by unique:true in the field definition above — no duplicate needed
 
 const Subscription = mongoose.model('Subscription', subscriptionSchema);
 module.exports = Subscription;

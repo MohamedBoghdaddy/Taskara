@@ -15,6 +15,16 @@ const httpServer = http.createServer(app);
 const io = initSocket(httpServer);
 app.set('io', io);
 
+httpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n[Server] Port ${PORT} is already in use.`);
+    console.error(`[Server] Kill the existing process or set a different PORT in .env, then restart.\n`);
+    process.exit(1);
+  } else {
+    throw err;
+  }
+});
+
 httpServer.listen(PORT, async () => {
   console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
 
