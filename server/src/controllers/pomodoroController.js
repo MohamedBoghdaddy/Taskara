@@ -9,6 +9,16 @@ const startSession = asyncHandler(async (req, res) => {
   res.status(201).json(session);
 });
 
+const pauseSession = asyncHandler(async (req, res) => {
+  const session = await pomodoroService.pauseSession(getWorkspaceId(req), req.user._id, req.params.id);
+  res.json(session);
+});
+
+const resumeSession = asyncHandler(async (req, res) => {
+  const session = await pomodoroService.resumeSession(getWorkspaceId(req), req.user._id, req.params.id);
+  res.json(session);
+});
+
 const stopSession = asyncHandler(async (req, res) => {
   const session = await pomodoroService.stopSession(getWorkspaceId(req), req.user._id, req.params.id, req.body);
   res.json(session);
@@ -29,4 +39,4 @@ const getActive = asyncHandler(async (req, res) => {
   res.json(session);
 });
 
-module.exports = { startSession, stopSession, getHistory, getActive };
+module.exports = { startSession, pauseSession, resumeSession, stopSession, getHistory, getActive };

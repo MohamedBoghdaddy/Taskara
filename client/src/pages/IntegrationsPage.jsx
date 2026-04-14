@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Button from '../components/common/Button';
 import toast from 'react-hot-toast';
 import client from '../api/client';
@@ -13,6 +14,7 @@ import {
 const importTodoist    = (apiToken)           => client.post('/integrations/todoist/import', { apiToken }).then(r => r.data);
 const testSlackWebhook = (webhookUrl)         => client.post('/integrations/slack/test', { webhookUrl }).then(r => r.data);
 const sendSlackNotify  = (webhookUrl, message) => client.post('/integrations/slack/notify', { webhookUrl, message }).then(r => r.data);
+const isSlackWebhookUrl = (value) => /^https:\/\/hooks\.slack\.com\/services\//i.test(value.trim());
 
 // ── Integration card ──────────────────────────────────────────────────────────
 function IntegrationCard({ logo, name, description, status, children }) {
@@ -82,6 +84,7 @@ export default function IntegrationsPage() {
 
   const handleSlackTest = async () => {
     if (!slackUrl.trim()) return toast.error('Enter your Slack webhook URL');
+    if (!isSlackWebhookUrl(slackUrl)) return toast.error('Enter a valid Slack Incoming Webhook URL');
     setSlackLoading(true);
     try {
       await testSlackWebhook(slackUrl.trim());
@@ -94,6 +97,7 @@ export default function IntegrationsPage() {
 
   const handleSlackSend = async () => {
     if (!slackUrl.trim()) return toast.error('Enter your Slack webhook URL');
+    if (!isSlackWebhookUrl(slackUrl)) return toast.error('Enter a valid Slack Incoming Webhook URL');
     if (!slackMsg.trim()) return toast.error('Enter a message');
     setSlackLoading(true);
     try {
@@ -136,6 +140,21 @@ export default function IntegrationsPage() {
       <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '28px' }}>
         Connect Taskara with your favourite tools to sync tasks and send notifications.
       </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+        {[
+          { icon: <ImportIcon size="xs" />, label: 'Todoist import', value: todoistResult ? `${todoistResult.imported} imported` : 'Ready to import' },
+          { icon: <SlackIcon size="xs" />, label: 'Slack status', value: slackConnected ? 'Connection verified' : 'Test required' },
+          { icon: <TaskIcon size="xs" />, label: 'Automation handoff', value: 'Works with task rules' },
+        ].map(card => (
+          <div key={card.label} style={{ padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              {card.icon} {card.label}
+            </div>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>{card.value}</div>
+          </div>
+        ))}
+      </div>
 
       {/* ── Todoist ── */}
       <IntegrationCard
@@ -208,17 +227,26 @@ export default function IntegrationsPage() {
             <input
               type="url"
               value={slackUrl}
-              onChange={e => setSlackUrl(e.target.value)}
+              onChange={e => { setSlackUrl(e.target.value); setSlackConnected(false); }}
               placeholder="https://hooks.slack.com/services/…"
               style={inputStyle}
             />
-            <Button variant="secondary" onClick={handleSlackTest} loading={slackLoading} disabled={!slackUrl.trim() || slackLoading}>
+            <Button variant="secondary" onClick={handleSlackTest} loading={slackLoading} disabled={!slackUrl.trim() || !isSlackWebhookUrl(slackUrl) || slackLoading}>
               Test
             </Button>
           </div>
 
+          {slackUrl.trim() && !isSlackWebhookUrl(slackUrl) && (
+            <p style={{ fontSize: '12px', color: 'var(--error)', margin: 0 }}>
+              Slack webhooks should start with `https://hooks.slack.com/services/`.
+            </p>
+          )}
+
           {slackConnected && (
             <>
+              <div style={{ padding: '10px 12px', background: 'var(--success)10', border: '1px solid var(--success)44', borderRadius: 'var(--radius)', fontSize: '12px', color: 'var(--success)' }}>
+                Test successful. Taskara can now send manual messages and automation notifications to this channel.
+              </div>
               <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Send a custom message</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
@@ -239,7 +267,7 @@ export default function IntegrationsPage() {
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
             <p style={{ margin: '0 0 4px' }}>
               Taskara can also post to Slack automatically when tasks or sprints change — configure that in{' '}
-              <a href="/automations" style={{ color: 'var(--primary)' }}>Automations</a>.
+              <Link to="/automations" style={{ color: 'var(--primary)' }}>Automations</Link>.
             </p>
             <p style={{ margin: 0 }}>
               <strong>Slash command:</strong> Add <code style={{ background: 'var(--surface-alt)', padding: '1px 5px', borderRadius: '4px' }}>/taskara</code> to your Slack workspace

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { search } from '../api/index';
-import { format } from 'date-fns';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
   SearchIcon, NoteIcon, TaskIcon, ProjectIcon, FilterIcon, SpinnerIcon,
@@ -11,23 +10,54 @@ const TYPE_ICONS = {
   note:    <NoteIcon />,
   task:    <TaskIcon />,
   project: <ProjectIcon />,
+  page:    <SearchIcon />,
 };
 
 export default function SearchPage() {
   const [params, setParams] = useSearchParams();
-  const [q, setQ] = useState(params.get('q') || '');
+  const urlQuery = params.get('q') || '';
+  const [q, setQ] = useState(urlQuery);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!q.trim()) { setResults([]); return; }
+    setQ(urlQuery);
+  }, [urlQuery]);
+
+  useEffect(() => {
+    const trimmed = q.trim();
+    if (trimmed) setParams({ q: trimmed }, { replace: true });
+    else setParams({}, { replace: true });
+  }, [q, setParams]);
+
+  useEffect(() => {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    let cancelled = false;
     const t = setTimeout(() => {
-      search(q).then(d => setResults(d.results || [])).catch(() => {}).finally(() => setLoading(false));
-    }, 300);
-    return () => clearTimeout(t);
+      search(trimmed)
+        .then((d) => {
+          if (!cancelled) setResults(Array.isArray(d.results) ? d.results : []);
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [q]);
 
   const filtered = typeFilter ? results.filter(r => r.type === typeFilter) : results;
@@ -35,8 +65,9 @@ export default function SearchPage() {
 
   const handleClick = (r) => {
     if (r.type === 'note') navigate(`/notes/${r.item._id}`);
-    else if (r.type === 'task') navigate(`/tasks`);
+    else if (r.type === 'task') navigate(`/tasks?highlight=${r.item._id}`);
     else if (r.type === 'project') navigate(`/projects/${r.item._id}`);
+    else if (r.type === 'page' && r.item.path) navigate(r.item.path);
   };
 
   return (
@@ -103,7 +134,13 @@ export default function SearchPage() {
           <SpinnerIcon /> Searching...
         </div>
       )}
-      {!loading && q && filtered.length === 0 && (
+      {!loading && q.trim().length === 1 && (
+        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          Type at least 2 characters to search.
+        </div>
+      )}
+
+      {!loading && q.trim().length >= 2 && filtered.length === 0 && (
         <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
           No results for "{q}"
         </div>

@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { startSession, stopSession, getHistory, getActive } = require('../controllers/pomodoroController');
+const { startSession, pauseSession, resumeSession, stopSession, getHistory, getActive } = require('../controllers/pomodoroController');
 const { getAdaptiveRecommendations, predictBestTimes } = require('../services/focus/adaptiveTimerService');
 
 router.use(authenticate);
@@ -10,6 +10,8 @@ router.use(authenticate);
 router.get('/active',    getActive);
 router.get('/history',   getHistory);
 router.post('/start',    startSession);
+router.post('/:id/pause', pauseSession);
+router.post('/:id/resume', resumeSession);
 router.post('/:id/stop', stopSession);
 
 // Adaptive timer recommendations

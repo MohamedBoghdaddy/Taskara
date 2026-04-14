@@ -18,12 +18,13 @@ export default function CommandModal() {
   }, [commandOpen]);
 
   useEffect(() => {
-    if (!q.trim()) { setResults([]); return; }
+    const trimmed = q.trim();
+    if (trimmed.length < 2) { setResults([]); setLoading(false); return; }
     const t = setTimeout(async () => {
       setLoading(true);
-      try { const d = await search(q); setResults(d.results || []); } catch {}
+      try { const d = await search(trimmed); setResults(Array.isArray(d.results) ? d.results : []); } catch { setResults([]); }
       setLoading(false);
-    }, 300);
+    }, 350);
     return () => clearTimeout(t);
   }, [q]);
 
@@ -33,6 +34,7 @@ export default function CommandModal() {
     if (r.type === 'note') navigate(`/notes/${r.item._id}`);
     else if (r.type === 'task') navigate(`/tasks?highlight=${r.item._id}`);
     else if (r.type === 'project') navigate(`/projects/${r.item._id}`);
+    else if (r.type === 'page' && r.item.path) navigate(r.item.path);
     closeCommand();
   };
 
@@ -49,7 +51,10 @@ export default function CommandModal() {
           {loading && <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>...</span>}
         </div>
         <div style={{ maxHeight: '360px', overflow: 'auto' }}>
-          {results.length === 0 && q && !loading && (
+          {q.trim().length === 1 && !loading && (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>Type at least 2 characters to search</div>
+          )}
+          {results.length === 0 && q.trim().length >= 2 && !loading && (
             <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>No results for "{q}"</div>
           )}
           {results.map((r, i) => (
@@ -60,7 +65,14 @@ export default function CommandModal() {
             onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-alt)'}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}>
               <span style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '4px', background: 'var(--surface-alt)', color: 'var(--text-muted)' }}>{r.type}</span>
-              <span style={{ fontWeight: '500' }}>{r.item.title || r.item.name}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.item.title || r.item.name}</div>
+                {(r.item.description || r.item.contentText) && (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.item.description || r.item.contentText}
+                  </div>
+                )}
+              </div>
             </button>
           ))}
         </div>

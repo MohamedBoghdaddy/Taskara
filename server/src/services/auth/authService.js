@@ -3,6 +3,7 @@ const User = require('../../models/User');
 const Workspace = require('../../models/Workspace');
 const WorkspaceMember = require('../../models/WorkspaceMember');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../../utils/jwt');
+const { serializeUser } = require('../../utils/serializeUser');
 
 const register = async ({ name, email, password }) => {
   const existing = await User.findOne({ email });
@@ -34,7 +35,7 @@ const register = async ({ name, email, password }) => {
   await user.save();
 
   return {
-    user: { _id: user._id, name: user.name, email: user.email, preferences: user.preferences, defaultWorkspaceId: workspace._id },
+    user: serializeUser(user),
     accessToken,
     refreshToken,
     workspace,
@@ -56,7 +57,7 @@ const login = async ({ email, password }) => {
   await user.save();
 
   return {
-    user: { _id: user._id, name: user.name, email: user.email, preferences: user.preferences, defaultWorkspaceId: user.defaultWorkspaceId, avatarUrl: user.avatarUrl },
+    user: serializeUser(user),
     accessToken,
     refreshToken,
   };

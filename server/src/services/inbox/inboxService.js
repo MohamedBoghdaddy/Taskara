@@ -18,6 +18,11 @@ const getItems = async (workspaceId, userId, { status, type, page = 1, limit = 5
   return { items, total, page, limit };
 };
 
+const getUnreadCount = async (workspaceId, userId) => {
+  const count = await InboxItem.countDocuments({ workspaceId, createdBy: userId, status: 'unprocessed' });
+  return { count };
+};
+
 const createItem = async (workspaceId, userId, data) => {
   const item = await InboxItem.create({ workspaceId, createdBy: userId, ...data });
   await logActivity({ workspaceId, userId, action: 'inbox_item_created', entityType: 'inbox_item', entityId: item._id });
@@ -73,4 +78,4 @@ const convertItem = async (workspaceId, userId, itemId, { targetType, additional
   return { item, entity };
 };
 
-module.exports = { getItems, createItem, updateItem, convertItem };
+module.exports = { getItems, getUnreadCount, createItem, updateItem, convertItem };

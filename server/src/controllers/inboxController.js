@@ -8,6 +8,11 @@ const getItems = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+const getUnreadCount = asyncHandler(async (req, res) => {
+  const result = await inboxService.getUnreadCount(getWorkspaceId(req), req.user._id);
+  res.json(result);
+});
+
 const createItem = asyncHandler(async (req, res) => {
   const item = await inboxService.createItem(getWorkspaceId(req), req.user._id, req.body);
   res.status(201).json(item);
@@ -23,4 +28,4 @@ const convertItem = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
-module.exports = { getItems, createItem, updateItem, convertItem };
+module.exports = { getItems, getUnreadCount, createItem, updateItem, convertItem };

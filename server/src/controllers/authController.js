@@ -1,5 +1,6 @@
 const authService = require('../services/auth/authService');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { serializeUser } = require('../utils/serializeUser');
 
 const register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
@@ -25,7 +26,7 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 const getMe = asyncHandler(async (req, res) => {
-  res.json({ user: req.user });
+  res.json({ user: serializeUser(req.user) });
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
@@ -35,7 +36,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   allowed.forEach(key => { if (req.body[key] !== undefined) updates[key] = req.body[key]; });
 
   const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true }).select('-passwordHash -refreshTokens');
-  res.json({ user });
+  res.json({ user: serializeUser(user) });
 });
 
 module.exports = { register, login, refresh, logout, getMe, updateProfile };

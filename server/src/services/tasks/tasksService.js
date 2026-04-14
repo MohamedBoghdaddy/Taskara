@@ -1,10 +1,32 @@
 const Task = require('../../models/Task');
 const { logActivity } = require('../../utils/activityLogger');
 
-const getTasks = async (workspaceId, userId, { projectId, status, priority, tags, assignee, dueDate, search, page = 1, limit = 100 }) => {
+const getTasks = async (workspaceId, userId, query = {}) => {
+  const {
+    projectId,
+    sprintId,
+    status,
+    priority,
+    tags,
+    assignee,
+    dueDate,
+    search,
+    page = 1,
+    limit = 100,
+  } = query;
+  const statusNotEqual = query['status[ne]'] || query?.status?.ne;
   const filter = { workspaceId, parentTaskId: null };
   if (projectId) filter.projectId = projectId;
+  if (sprintId === 'none') filter.sprintId = null;
+  else if (sprintId) filter.sprintId = sprintId;
   if (status) filter.status = Array.isArray(status) ? { $in: status } : status;
+  if (statusNotEqual) {
+    if (typeof filter.status === 'string') {
+      filter.status = { $eq: filter.status, $ne: statusNotEqual };
+    } else {
+      filter.status = { ...(filter.status || {}), $ne: statusNotEqual };
+    }
+  }
   if (priority) filter.priority = Array.isArray(priority) ? { $in: priority } : priority;
   if (tags && tags.length) filter.tagIds = { $in: tags };
   if (assignee) filter.assigneeIds = assignee;
@@ -16,14 +38,14 @@ const getTasks = async (workspaceId, userId, { projectId, status, priority, tags
 
   const tasks = await Task.find(filter)
     .sort({ priority: -1, dueDate: 1, createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
+    .skip((Number(page) - 1) * Number(limit))
+    .limit(Number(limit))
     .populate('tagIds', 'name color')
     .populate('assigneeIds', 'name avatarUrl')
     .populate('subtaskIds', 'title status');
 
   const total = await Task.countDocuments(filter);
-  return { tasks, total, page, limit };
+  return { tasks, total, page: Number(page), limit: Number(limit) };
 };
 
 const createTask = async (workspaceId, userId, data) => {

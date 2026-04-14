@@ -4,7 +4,7 @@ import { getCurrentPlan, upgradePlan } from '../api/index';
 import toast from 'react-hot-toast';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
-  GemFilledIcon, CheckIcon, CloseIcon, CrownIcon, RocketIcon,
+  GemFilledIcon, CheckIcon, CloseIcon, RocketIcon,
   UsersIcon, BrainIcon, StarFilledIcon,
 } from '../components/common/Icons';
 
@@ -106,12 +106,22 @@ const PLANS = [
 export default function PricingPage() {
   const navigate  = useNavigate();
   const [current,   setCurrent]   = useState(null);
+  const [currentLabel, setCurrentLabel] = useState(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [upgrading, setUpgrading] = useState(null);
 
   useEffect(() => {
     getCurrentPlan()
-      .then(d => setCurrent(d.subscription?.plan || 'free'))
-      .catch(() => setCurrent('free'));
+      .then(d => {
+        const planKey = d.subscription?.plan || 'free';
+        setCurrent(planKey);
+        setCurrentLabel(d.isPlatformAdmin ? 'Platform Admin' : d.planDef?.name || PLANS.find(p => p.key === planKey)?.name || 'Personal Starter');
+        setIsPlatformAdmin(Boolean(d.isPlatformAdmin));
+      })
+      .catch(() => {
+        setCurrent('free');
+        setCurrentLabel('Personal Starter');
+      });
   }, []);
 
   const handleUpgrade = async (planKey) => {
@@ -155,7 +165,12 @@ export default function PricingPage() {
         <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Start free. Upgrade when you need more power.</p>
         {current && (
           <p style={{ fontSize: '13px', color: 'var(--primary)', marginTop: '6px' }}>
-            Your current plan: <strong>{PLANS.find(p => p.key === current)?.name}</strong>
+            Your current plan: <strong>{currentLabel || PLANS.find(p => p.key === current)?.name}</strong>
+          </p>
+        )}
+        {isPlatformAdmin && (
+          <p style={{ fontSize: '13px', color: 'var(--success)', marginTop: '8px' }}>
+            Platform admins have unlimited feature access, workspace capacity, and storage.
           </p>
         )}
       </div>
@@ -213,10 +228,10 @@ export default function PricingPage() {
               {/* CTA */}
               <button
                 onClick={() => handleUpgrade(plan.key)}
-                disabled={isCurrent || upgrading === plan.key}
+                disabled={isCurrent || isPlatformAdmin || upgrading === plan.key}
                 style={{
                   width: '100%', padding: '10px', borderRadius: 'var(--radius)',
-                  border: 'none', cursor: isCurrent ? 'default' : 'pointer',
+                  border: 'none', cursor: isCurrent || isPlatformAdmin ? 'default' : 'pointer',
                   background: isCurrent ? 'var(--surface-alt)' : plan.color,
                   color: isCurrent ? 'var(--text-muted)' : '#fff',
                   fontWeight: '600', fontSize: '14px', marginBottom: '20px',
@@ -224,7 +239,7 @@ export default function PricingPage() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 }}
               >
-                {upgrading === plan.key ? 'Upgrading…' : isCurrent ? 'Current Plan' : plan.price === 0 ? 'Get Started Free' : `Upgrade to ${plan.name}`}
+                {upgrading === plan.key ? 'Upgrading…' : isCurrent ? 'Current Plan' : isPlatformAdmin ? 'Included with Admin' : plan.price === 0 ? 'Get Started Free' : `Upgrade to ${plan.name}`}
               </button>
 
               {/* Features */}

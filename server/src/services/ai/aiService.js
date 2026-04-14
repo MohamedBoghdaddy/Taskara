@@ -3,12 +3,14 @@ const Note = require('../../models/Note');
 
 const callGemini = async (prompt, systemPrompt) => {
   const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const apiVersion = process.env.GEMINI_API_VERSION || 'v1beta';
   if (!apiKey) {
     throw { status: 503, message: 'AI service not configured' };
   }
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -21,8 +23,8 @@ const callGemini = async (prompt, systemPrompt) => {
   );
 
   if (!response.ok) {
-    const err = await response.json();
-    throw { status: 502, message: 'AI API error: ' + (err.error?.message || 'Unknown') };
+    const err = await response.json().catch(() => ({}));
+    throw { status: 502, message: 'AI API error: ' + (err.error?.message || `Request failed for model ${model}`) };
   }
 
   const data = await response.json();

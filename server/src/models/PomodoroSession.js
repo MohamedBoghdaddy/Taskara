@@ -8,8 +8,11 @@ const pomodoroSessionSchema = new mongoose.Schema({
   type: { type: String, enum: ['focus', 'short_break', 'long_break'], default: 'focus' },
   plannedMinutes: { type: Number, required: true },
   actualMinutes: { type: Number, default: 0 },
-  status: { type: String, enum: ['active', 'completed', 'interrupted', 'cancelled'], default: 'active' },
+  elapsedSeconds: { type: Number, default: 0 },
+  remainingSeconds: { type: Number, default: null },
+  status: { type: String, enum: ['active', 'paused', 'completed', 'interrupted', 'cancelled'], default: 'active' },
   startedAt: { type: Date, default: Date.now },
+  pausedAt: { type: Date, default: null },
   endedAt: { type: Date, default: null },
   notes: { type: String, default: null },
 }, { timestamps: true });

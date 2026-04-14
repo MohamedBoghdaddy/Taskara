@@ -2,7 +2,6 @@ import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "./store/authStore";
-import { useUIStore } from "./store/uiStore";
 import AppLayout from "./layouts/AppLayout";
 import AuthLayout from "./layouts/AuthLayout";
 import LandingPage from "./pages/LandingPage";
@@ -124,8 +123,8 @@ export default function App() {
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/notes/new" element={<NoteEditorPage />} />
           <Route path="/notes/:id" element={<NoteEditorPage />} />
-          <Route path="/daily/:date" element={<DailyNotePage />} />
           <Route path="/daily/today" element={<DailyNotePage />} />
+          <Route path="/daily/:date" element={<DailyNotePage />} />
 
           {/* Tasks + Work */}
           <Route path="/tasks" element={<TasksPage />} />

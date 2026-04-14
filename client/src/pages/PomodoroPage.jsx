@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getActive, startSession, stopSession, getHistory, getAdaptiveRecommendations } from '../api/pomodoro';
+import { getActive, startSession, pauseSession, resumeSession, stopSession, getHistory, getAdaptiveRecommendations } from '../api/pomodoro';
 import { getStreak } from '../api/index';
 import { getTasks } from '../api/tasks';
 import Button from '../components/common/Button';
@@ -59,16 +59,39 @@ export default function PomodoroPage() {
     short_break: { ...DEFAULT_MODES.short_break, minutes: customMinutes.short_break },
     long_break:  { ...DEFAULT_MODES.long_break,  minutes: customMinutes.long_break },
   };
+  const getPlannedSeconds = (sessionData) => Math.max(0, Math.round((sessionData?.plannedMinutes || MODES[mode].minutes) * 60));
+  const getSessionTimeLeft = (sessionData) => {
+    if (!sessionData) return MODES[mode].minutes * 60;
+
+    const plannedSeconds = getPlannedSeconds(sessionData);
+    const baseRemaining = typeof sessionData.remainingSeconds === 'number'
+      ? sessionData.remainingSeconds
+      : Math.max(0, plannedSeconds - (sessionData.elapsedSeconds || 0));
+
+    if (sessionData.status === 'paused') return baseRemaining;
+
+    const elapsedSinceStart = sessionData.startedAt
+      ? Math.max(0, Math.floor((Date.now() - new Date(sessionData.startedAt)) / 1000))
+      : 0;
+
+    return Math.max(0, baseRemaining - elapsedSinceStart);
+  };
+  const isPaused = session?.status === 'paused';
 
   useEffect(() => {
     getTasks({ status: 'in_progress' }).then(d => setTasks(d.tasks || []));
     getHistory({ limit: 10 }).then(d => setHistory(d.sessions || []));
     getActive().then(s => {
-      if (s) { setSession(s); setRunning(true); setMode(s.type); }
+      if (s) {
+        setSession(s);
+        setMode(s.type);
+        setTimeLeft(getSessionTimeLeft(s));
+        setRunning(s.status === 'active');
+      }
     });
     getStreak().catch(() => null).then(d => d && setStreak(d));
     getAdaptiveRecommendations().catch(() => null).then(d => d && setAdaptive(d));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (running && timeLeft > 0) {
@@ -87,25 +110,47 @@ export default function PomodoroPage() {
   }, [running, timeLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!running) setTimeLeft(MODES[mode].minutes * 60);
-  }, [mode, running, customMinutes]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!session) setTimeLeft(MODES[mode].minutes * 60);
+  }, [mode, session, customMinutes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = async () => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission();
     }
     try {
-      const s = await startSession({ type: mode, plannedMinutes: MODES[mode].minutes, taskId: selectedTask || undefined });
-      setSession(s); setRunning(true);
-      toast.success(`${MODES[mode].label} started`);
+      const s = session?._id && isPaused
+        ? await resumeSession(session._id)
+        : await startSession({ type: mode, plannedMinutes: MODES[mode].minutes, taskId: selectedTask || undefined });
+      setSession(s);
+      setMode(s.type);
+      setTimeLeft(getSessionTimeLeft(s));
+      setRunning(true);
+      toast.success(isPaused ? `${MODES[s.type].label} resumed` : `${MODES[s.type].label} started`);
     } catch (e) { toast.error(e.response?.data?.error || 'Failed to start session'); }
+  };
+
+  const handlePause = async () => {
+    if (!session?._id) return;
+    try {
+      const paused = await pauseSession(session._id);
+      clearInterval(intervalRef.current);
+      setSession(paused);
+      setRunning(false);
+      setTimeLeft(getSessionTimeLeft(paused));
+      toast('Session paused');
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Failed to pause session');
+    }
   };
 
   const handleStop = async (status = 'interrupted') => {
     if (!session) { setRunning(false); return; }
     try {
       const s = await stopSession(session._id, { status });
-      setRunning(false); setSession(null);
+      clearInterval(intervalRef.current);
+      setRunning(false);
+      setSession(null);
+      setTimeLeft(MODES[mode].minutes * 60);
       setHistory(prev => [s, ...prev.slice(0, 9)]);
       if (status === 'completed') toast.success('Session complete!');
       else toast('Session stopped');
@@ -114,7 +159,7 @@ export default function PomodoroPage() {
 
   const mins = Math.floor(timeLeft / 60).toString().padStart(2, '0');
   const secs = (timeLeft % 60).toString().padStart(2, '0');
-  const totalSecs = MODES[mode].minutes * 60;
+  const totalSecs = session ? getPlannedSeconds(session) : MODES[mode].minutes * 60;
   const progress = ((totalSecs - timeLeft) / totalSecs) * 100;
   const modeColor = MODES[mode].color;
   const radius = 88;
@@ -340,14 +385,14 @@ export default function PomodoroPage() {
       {/* Mode selector */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '32px' }}>
         {Object.entries(MODES).map(([key, val]) => (
-          <button key={key} onClick={() => !running && setMode(key)} style={{
+          <button key={key} onClick={() => !session && setMode(key)} style={{
             padding: '7px 18px', borderRadius: '20px',
             border: `2px solid ${mode === key ? val.color : 'var(--border)'}`,
-            cursor: running ? 'not-allowed' : 'pointer', fontSize: '13px',
+            cursor: session ? 'not-allowed' : 'pointer', fontSize: '13px',
             fontWeight: mode === key ? '600' : '400',
             background: mode === key ? val.color : 'transparent',
             color: mode === key ? '#fff' : 'var(--text-secondary)',
-            opacity: running && mode !== key ? 0.4 : 1,
+            opacity: session && mode !== key ? 0.4 : 1,
             transition: 'all 150ms',
             display: 'flex', alignItems: 'center', gap: '6px',
           }}>
@@ -382,7 +427,7 @@ export default function PomodoroPage() {
       </div>
 
       {/* Task selector */}
-      {!running && (
+      {!session && (
         <div style={{ marginBottom: '20px' }}>
           <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
             <TaskIcon size="xs" /> Link to a task (optional)
@@ -399,7 +444,7 @@ export default function PomodoroPage() {
 
       {/* Controls */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        {!running ? (
+        {!running && !isPaused ? (
           <>
             <Button onClick={handleStart} style={{ padding: '11px 44px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <PlayIcon size="xs" /> Start
@@ -412,11 +457,17 @@ export default function PomodoroPage() {
           </>
         ) : (
           <>
-            <Tooltip content="Pause (stop without completing)">
-              <Button variant="secondary" onClick={() => { clearInterval(intervalRef.current); setRunning(false); }} style={{ padding: '11px 18px', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                <PauseIcon size="xs" /> Pause
+            {running ? (
+              <Tooltip content="Pause without losing progress">
+                <Button variant="secondary" onClick={handlePause} style={{ padding: '11px 18px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <PauseIcon size="xs" /> Pause
+                </Button>
+              </Tooltip>
+            ) : (
+              <Button onClick={handleStart} style={{ padding: '11px 22px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <PlayIcon size="xs" /> Resume
               </Button>
-            </Tooltip>
+            )}
             <Button variant="secondary" onClick={() => handleStop('interrupted')} style={{ padding: '11px 18px', display: 'flex', alignItems: 'center', gap: '7px' }}>
               <StopIcon size="xs" /> Stop
             </Button>

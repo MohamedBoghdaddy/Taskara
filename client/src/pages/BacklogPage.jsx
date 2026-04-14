@@ -36,6 +36,7 @@ const api = async (method, path, body) => {
 const PRIORITY_COLORS = { urgent: '#ef4444', high: '#f59e0b', medium: 'var(--primary)', low: 'var(--text-muted)' };
 const PRIORITY_LABELS = { urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' };
 const TASK_TYPES = ['all', 'feature', 'bug', 'chore', 'improvement'];
+const asArray = (value) => Array.isArray(value) ? value : [];
 
 export default function BacklogPage() {
   const [backlog, setBacklog]       = useState([]);
@@ -59,9 +60,11 @@ export default function BacklogPage() {
         api('GET', '/tasks?sprintId=none&status[ne]=done&limit=100'),
         api('GET', '/sprints?limit=20'),
       ]);
-      if (taskRes.status === 'fulfilled') setBacklog(taskRes.value.tasks || taskRes.value || []);
+      if (taskRes.status === 'fulfilled') {
+        setBacklog(asArray(taskRes.value?.tasks ?? taskRes.value));
+      }
       if (sprintRes.status === 'fulfilled') {
-        const all = sprintRes.value.sprints || sprintRes.value || [];
+        const all = asArray(sprintRes.value?.sprints ?? sprintRes.value);
         setSprints(all);
         setActiveSprint(all.find(s => s.status === 'active') || null);
         if (all.length) setExpanded(all[0]._id);
@@ -76,7 +79,7 @@ export default function BacklogPage() {
     if (!quickAdd.trim()) return;
     try {
       const t = await api('POST', '/tasks', { title: quickAdd, status: 'todo', priority: 'medium' });
-      setBacklog(prev => [t, ...prev]);
+      setBacklog(prev => [t, ...asArray(prev)]);
       setQuickAdd('');
       toast.success('Task added to backlog');
     } catch (e) { toast.error(e.message); }
@@ -156,12 +159,13 @@ export default function BacklogPage() {
           ? { ...sp, tasks: (sp.tasks || []).filter(t => t._id !== taskId) }
           : sp
       ));
-      setBacklog(prev => [updated, ...prev]);
+      setBacklog(prev => [updated, ...asArray(prev)]);
       toast.success('Moved to backlog');
     } catch (e) { toast.error(e.message); }
   };
 
-  const filtered = typeFilter === 'all' ? backlog : backlog.filter(t => t.type === typeFilter);
+  const backlogItems = asArray(backlog);
+  const filtered = typeFilter === 'all' ? backlogItems : backlogItems.filter(t => t.type === typeFilter);
 
   if (loading) return (
     <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>

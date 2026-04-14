@@ -3,7 +3,11 @@ const mongoose = require('mongoose');
 const aiLogSchema = new mongoose.Schema({
   workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  feature: { type: String, enum: ['task_extraction', 'summary', 'rewrite', 'planning', 'workspace_qa', 'template_gen'], required: true },
+  feature: {
+    type: String,
+    enum: ['task_extraction', 'summary', 'rewrite', 'planning', 'workspace_qa', 'template_gen', 'meeting_to_tasks', 'prioritization', 'voice_to_task', 'daily_brief'],
+    required: true,
+  },
   inputRef: {
     entityType: { type: String },
     entityId: { type: mongoose.Schema.Types.ObjectId },

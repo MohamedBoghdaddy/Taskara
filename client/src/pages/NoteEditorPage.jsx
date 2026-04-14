@@ -140,7 +140,8 @@ export default function NoteEditorPage() {
   if (!note) return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>;
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <>
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Main editor */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Toolbar */}
@@ -367,18 +368,19 @@ export default function NoteEditorPage() {
     </div>
 
     {/* Delete confirmation modal */}
-    <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Delete Note">
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>
-        Are you sure you want to permanently delete <strong>"{note?.title || 'Untitled'}"</strong>? This cannot be undone.
-      </p>
-      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-        <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
-          <CheckIcon size="xs" style={{ marginRight: 4 }} /> Keep note
-        </Button>
-        <Button onClick={handleDelete} style={{ background: 'var(--error)', border: 'none' }}>
-          <DeleteIcon size="xs" style={{ marginRight: 4 }} /> Delete
-        </Button>
-      </div>
-    </Modal>
+      <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Delete Note">
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>
+          Are you sure you want to permanently delete <strong>"{note?.title || 'Untitled'}"</strong>? This cannot be undone.
+        </p>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
+            <CheckIcon size="xs" style={{ marginRight: 4 }} /> Keep note
+          </Button>
+          <Button onClick={handleDelete} style={{ background: 'var(--error)', border: 'none' }}>
+            <DeleteIcon size="xs" style={{ marginRight: 4 }} /> Delete
+          </Button>
+        </div>
+      </Modal>
+    </>
   );
 }

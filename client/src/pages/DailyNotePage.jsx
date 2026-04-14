@@ -16,20 +16,32 @@ import toast from 'react-hot-toast';
 export default function DailyNotePage() {
   const { date } = useParams();
   const navigate = useNavigate();
+  const resolvedDate = date === 'today' || !date
+    ? format(new Date(), 'yyyy-MM-dd')
+    : date;
   const [note, setNote] = useState(null);
   const [content, setContent] = useState('');
   const [tasks, setTasks] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef(null);
+  const parsed = parseISO(resolvedDate);
+  const hasValidDate = !Number.isNaN(parsed.getTime());
 
   useEffect(() => {
+    if (!hasValidDate) {
+      toast.error('Invalid daily note date');
+      navigate(`/daily/${format(new Date(), 'yyyy-MM-dd')}`, { replace: true });
+      return undefined;
+    }
+
     Promise.all([
-      generateDailyNote(date).then(n => { setNote(n); setContent(typeof n.content === 'string' ? n.content : ''); }),
+      generateDailyNote(resolvedDate).then(n => { setNote(n); setContent(typeof n.content === 'string' ? n.content : ''); }),
       getTodayTasks().then(setTasks),
-      getHistory({ from: date, to: date }).then(d => setSessions(d.sessions || [])),
+      getHistory({ from: resolvedDate, to: resolvedDate }).then(d => setSessions(d.sessions || [])),
     ]).catch(() => toast.error('Failed to load daily note'));
-  }, [date]);
+    return undefined;
+  }, [date, hasValidDate, navigate, resolvedDate]);
 
   const scheduleAutosave = useCallback((newContent) => {
     if (!note) return;
@@ -45,7 +57,6 @@ export default function DailyNotePage() {
   const handleChange = e => { setContent(e.target.value); scheduleAutosave(e.target.value); };
 
   const focusMinutes = sessions.reduce((sum, s) => sum + (s.actualMinutes || 0), 0);
-  const parsed = parseISO(date);
 
   const prevDay = () => { const d = new Date(parsed); d.setDate(d.getDate() - 1); navigate(`/daily/${format(d, 'yyyy-MM-dd')}`); };
   const nextDay = () => { const d = new Date(parsed); d.setDate(d.getDate() + 1); navigate(`/daily/${format(d, 'yyyy-MM-dd')}`); };

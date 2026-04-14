@@ -6,6 +6,8 @@ const Subscription = require('../models/Subscription');
 
 const requireFeature = (feature) => async (req, res, next) => {
   try {
+    if (req.user?.isPlatformAdmin) return next();
+
     const workspaceId = req.user?.defaultWorkspaceId?.toString();
     if (!workspaceId) return next();
 

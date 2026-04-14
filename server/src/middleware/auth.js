@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const WorkspaceMember = require('../models/WorkspaceMember');
+const { isPlatformAdminUser } = require('../utils/platformAdmin');
 
 const authenticate = async (req, res, next) => {
   try {
@@ -14,6 +15,7 @@ const authenticate = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
+    user.isPlatformAdmin = isPlatformAdminUser(user);
     req.user = user;
     next();
   } catch (error) {
@@ -26,6 +28,8 @@ const authenticate = async (req, res, next) => {
 
 const requireWorkspaceAccess = (minRole = 'viewer') => async (req, res, next) => {
   try {
+    if (req.user?.isPlatformAdmin) return next();
+
     const workspaceId = req.params.workspaceId || req.body.workspaceId || req.query.workspaceId;
     if (!workspaceId) return next();
 
