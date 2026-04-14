@@ -54,6 +54,7 @@ export default function NoteEditorPage() {
   const [backlinks, setBacklinks] = useState([]);
   const [saving, setSaving] = useState(false);
   const [aiPanel, setAiPanel] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [aiResult, setAiResult] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [extractedTasks, setExtractedTasks] = useState([]);
@@ -85,9 +86,9 @@ export default function NoteEditorPage() {
   const handleContentChange = e => { setContent(e.target.value); scheduleAutosave(title, e.target.value); };
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this note?')) return;
     try { await deleteNote(id); navigate('/notes'); toast.success('Deleted'); }
     catch { toast.error('Failed to delete'); }
+    finally { setShowDeleteConfirm(false); }
   };
 
   const handleAI = async (action) => {
@@ -209,7 +210,7 @@ export default function NoteEditorPage() {
             </Button>
           </Tooltip>
           <Tooltip content="Delete this note" placement="bottom">
-            <Button size="sm" variant="ghost" onClick={handleDelete} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Button size="sm" variant="ghost" onClick={() => setShowDeleteConfirm(true)} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '5px' }}>
               <DeleteIcon size="sm" /> Delete
             </Button>
           </Tooltip>
@@ -364,5 +365,20 @@ export default function NoteEditorPage() {
         )}
       </div>
     </div>
+
+    {/* Delete confirmation modal */}
+    <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Delete Note">
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>
+        Are you sure you want to permanently delete <strong>"{note?.title || 'Untitled'}"</strong>? This cannot be undone.
+      </p>
+      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+        <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
+          <CheckIcon size="xs" style={{ marginRight: 4 }} /> Keep note
+        </Button>
+        <Button onClick={handleDelete} style={{ background: 'var(--error)', border: 'none' }}>
+          <DeleteIcon size="xs" style={{ marginRight: 4 }} /> Delete
+        </Button>
+      </div>
+    </Modal>
   );
 }

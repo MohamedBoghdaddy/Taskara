@@ -50,6 +50,7 @@ export default function NotesPage() {
     { label: 'Pinned',     key: { isPinned: true },                  icon: <PinIcon size="xs" /> },
     { label: 'Favorites',  key: { isFavorite: true },                icon: <StarFilledIcon size="xs" color="#f59e0b" /> },
     { label: 'Bookmarked', key: { isBookmarked: true },              icon: <BookmarkFilledIcon size="xs" color="var(--primary)" /> },
+    { label: 'Tagged',     key: { hasTag: true },                    icon: <TagIcon size="xs" color="#8b5cf6" /> },
   ];
 
   return (

@@ -100,12 +100,14 @@ export default function SettingsPage() {
           <Input label="Name" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
           <Input label="Email" type="email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
           <Input label="Timezone" value={profile.timezone} onChange={e => setProfile(p => ({ ...p, timezone: e.target.value }))} placeholder="e.g. America/New_York" />
-          <Button type="submit" disabled={saving} style={{ alignSelf: 'flex-start' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {saving ? <FlashIcon size="xs" /> : <SaveIcon size="xs" />}
-              {saving ? 'Saving...' : 'Save Profile'}
-            </span>
-          </Button>
+          <Tooltip content="Save your profile changes" placement="right">
+            <Button type="submit" disabled={saving} style={{ alignSelf: 'flex-start' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {saving ? <FlashIcon size="xs" /> : <CheckIcon size="xs" />}
+                {saving ? 'Saving...' : 'Save Profile'}
+              </span>
+            </Button>
+          </Tooltip>
         </form>
       </div>
 
@@ -140,6 +142,9 @@ export default function SettingsPage() {
             <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px' }}>
               <TimerIcon size="xs" style={{ color: 'var(--primary)' }} />
               Pomodoro Timer Defaults
+              <Tooltip content="These durations are used as defaults when you start a new Focus Timer session." placement="right">
+                <span style={{ color: 'var(--text-muted)', display: 'flex', cursor: 'default' }}><InfoIcon size="xs" /></span>
+              </Tooltip>
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               <div>

@@ -111,6 +111,17 @@ export default function DatabaseDetailPage() {
           {db.name}
         </h1>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Filter & sort */}
+          <Tooltip content="Filter records" placement="bottom">
+            <button style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
+              <FilterIcon size="xs" /> Filter
+            </button>
+          </Tooltip>
+          <Tooltip content="Sort records" placement="bottom">
+            <button style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
+              <SortIcon size="xs" /> Sort
+            </button>
+          </Tooltip>
           {/* View switcher */}
           <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
             {VIEW_MODES.map(vm => (

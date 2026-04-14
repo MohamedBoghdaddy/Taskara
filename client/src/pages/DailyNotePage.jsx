@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getDailyNote, generateDailyNote, updateNote } from '../api/notes';
+import { generateDailyNote, updateNote } from '../api/notes';
 import { getTodayTasks } from '../api/tasks';
 import { getHistory } from '../api/pomodoro';
 import Button from '../components/common/Button';
@@ -8,7 +8,7 @@ import FeatureGuide from '../components/common/FeatureGuide';
 import Tooltip from '../components/common/Tooltip';
 import {
   CalendarIcon, ChevronLeft, ChevronRight, SaveIcon, CheckCircleIcon,
-  TimerIcon, TaskIcon, NoteIcon, CheckIcon, NodeIcon,
+  TimerIcon, TaskIcon, NoteIcon, NodeIcon,
 } from '../components/common/Icons';
 import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -76,6 +76,9 @@ export default function DailyNotePage() {
             </button>
           </Tooltip>
           <span style={{ flex: 1 }} />
+          <Button size="sm" variant="secondary" onClick={() => navigate(`/daily/${format(new Date(), 'yyyy-MM-dd')}`)}>
+            Today
+          </Button>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             {saving ? <><SaveIcon size="xs" /> Saving...</> : 'Auto-saved'}
           </span>
@@ -150,7 +153,7 @@ export default function DailyNotePage() {
             {tasks.slice(0, 6).map(t => (
               <div key={t._id} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0' }}>
                 <span style={{ color: t.status === 'done' ? 'var(--success)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                  {t.status === 'done' ? <CheckIcon size="xs" /> : <NodeIcon size="xs" style={{ opacity: 0.4 }} />}
+                  {t.status === 'done' ? <CheckCircleIcon size="xs" /> : <NodeIcon size="xs" style={{ opacity: 0.4 }} />}
                 </span>
                 <span style={{ textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                   {t.title}

@@ -650,10 +650,10 @@ function KanbanCard({ card, onDragStart, colId }) {
       {/* Meta row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
         {card.priority && (
-          <Badge
-            variant={PRIORITY_VARIANTS[card.priority] || 'default'}
-            label={card.priority}
-          />
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: PRIORITY_COLORS[card.priority] || 'var(--text-muted)', fontWeight: '600' }}>
+            <PriorityIcon size="xs" />
+            <Badge variant={PRIORITY_VARIANTS[card.priority] || 'default'} label={card.priority} />
+          </span>
         )}
         {card.dueDate && (
           <span style={{
@@ -667,12 +667,15 @@ function KanbanCard({ card, onDragStart, colId }) {
             {overdue && ' (overdue)'}
           </span>
         )}
+        {card.status === 'done' && (
+          <CheckIcon size="xs" color="var(--success)" />
+        )}
 
         {/* Spacer */}
         <span style={{ flex: 1 }} />
 
-        {/* Assignee avatar */}
-        {abbr && (
+        {/* Assignee avatar / assign button */}
+        {abbr ? (
           <Tooltip content={assigneeName} placement="top">
             <span style={{
               width: '22px', height: '22px', borderRadius: '50%',
@@ -684,7 +687,30 @@ function KanbanCard({ card, onDragStart, colId }) {
               {abbr}
             </span>
           </Tooltip>
+        ) : (
+          <Tooltip content="Assign member" placement="top">
+            <span style={{ color: 'var(--text-muted)', opacity: 0.5, display: 'flex' }}>
+              <AssignIcon size="xs" />
+            </span>
+          </Tooltip>
         )}
+      </div>
+
+      {/* Card actions */}
+      <div style={{ display: 'flex', gap: '4px', marginTop: '8px', opacity: 0, transition: 'opacity 0.15s' }}
+        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+        onMouseLeave={e => e.currentTarget.style.opacity = '0'}
+      >
+        <Tooltip content="Edit card" placement="top">
+          <button style={{ padding: '3px 6px', border: '1px solid var(--border)', borderRadius: '4px', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px' }}>
+            <EditIcon size="xs" /> Edit
+          </button>
+        </Tooltip>
+        <Tooltip content="Delete card" placement="top">
+          <button style={{ padding: '3px 6px', border: '1px solid var(--border)', borderRadius: '4px', background: 'none', cursor: 'pointer', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px' }}>
+            <DeleteIcon size="xs" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

@@ -45,7 +45,7 @@ export default function TasksPage() {
   const [form, setForm] = useState({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '', type: '' });
   const [selectedTask, setSelectedTask] = useState(null);
 
-  useEffect(() => { loadTasks(); }, [filters]);
+  useEffect(() => { loadTasks(); }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTasks = async () => {
     setLoading(true);

@@ -101,13 +101,11 @@ export default function SprintsPage() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <span style={{ fontWeight: '600', fontSize: '15px', color: 'var(--text-primary)' }}>{sprint.name}</span>
-              <span style={{
-                fontSize: '11px', fontWeight: '600', padding: '2px 8px',
-                borderRadius: '99px', background: STATUS_BG[sprint.status],
-                color: STATUS_COLOR[sprint.status], textTransform: 'capitalize',
-              }}>
-                {sprint.status}
-              </span>
+              <Badge
+                label={sprint.status}
+                variant={sprint.status === 'active' ? 'success' : sprint.status === 'completed' ? 'primary' : 'default'}
+                style={{ fontSize: '10px', textTransform: 'capitalize' }}
+              />
             </div>
             {sprint.goal && <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>{sprint.goal}</p>}
           </div>
@@ -235,7 +233,7 @@ export default function SprintsPage() {
             empty="No sprints in planning. Create one to get started."
           />
           <Section
-            icon={<CheckCircleIcon size="sm" color="var(--success)" />}
+            icon={<TrophyIcon size="sm" color="var(--primary)" />}
             title="Completed"
             items={completed}
             empty="No completed sprints yet."

@@ -29,9 +29,10 @@ export default function InboxPage() {
   const [type, setType] = useState('idea');
   const [content, setContent] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [converting, setConverting] = useState(null);
+  const [converting, setConverting] = useState(null); // itemId being converted
   const [filter, setFilter] = useState('unprocessed');
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadItems(); }, [filter]);
 
   const loadItems = async () => {
@@ -58,12 +59,13 @@ export default function InboxPage() {
   };
 
   const handleConvert = async (item, targetType) => {
+    setConverting(item._id);
     try {
       await convertInboxItem(item._id, { targetType });
       setItems(prev => prev.filter(i => i._id !== item._id));
       toast.success(`Converted to ${targetType}!`);
-      setConverting(null);
     } catch { toast.error('Conversion failed'); }
+    finally { setConverting(null); }
   };
 
   return (
@@ -115,11 +117,36 @@ export default function InboxPage() {
       {/* Quick capture bar */}
       <form onSubmit={handleCapture} style={{ display: 'flex', gap: '8px', marginBottom: '20px', padding: '12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
         <select value={type} onChange={e => setType(e.target.value)} style={{ padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }}>
-          {['idea','task','note','link','reminder'].map(t => <option key={t} value={t}>{t}</option>)}
+          {[
+            { value: 'idea', label: 'Idea' }, { value: 'task', label: 'Task' },
+            { value: 'note', label: 'Note' }, { value: 'link', label: 'Link' }, { value: 'reminder', label: 'Reminder' },
+          ].map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Capture something..." style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} />
+        <Tooltip content="Add a note or description">
+          <Button type="button" size="sm" variant="secondary" onClick={() => setShowForm(v => !v)}>
+            <IdeaIcon size="xs" />
+          </Button>
+        </Tooltip>
         <Button type="submit" size="sm">Save</Button>
       </form>
+
+      {/* Expanded capture with description */}
+      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title="Capture item">
+        <form onSubmit={e => { handleCapture(e); setShowForm(false); }} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <select value={type} onChange={e => setType(e.target.value)} style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }}>
+            {['idea','task','note','link','reminder','email','file'].map(t => (
+              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            ))}
+          </select>
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Title *" required style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} />
+          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Notes / description (optional)" rows={3} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <Button variant="secondary" type="button" onClick={() => setShowForm(false)}>Cancel</Button>
+            <Button type="submit">Capture</Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
@@ -141,19 +168,27 @@ export default function InboxPage() {
             <div key={item._id} style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
               <span style={{ fontSize: '16px', marginTop: '1px', color: 'var(--primary)' }}>{TYPE_ICONS[item.type] || <TaskIcon />}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: '500', fontSize: '14px' }}>{item.title}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                  <span style={{ fontWeight: '500', fontSize: '14px' }}>{item.title}</span>
+                  <Badge label={item.type} variant="default" style={{ fontSize: '10px', textTransform: 'capitalize' }} />
+                </div>
                 {item.content && <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.content}</div>}
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{new Date(item.createdAt).toLocaleDateString()}</div>
               </div>
               {filter === 'unprocessed' && (
                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  <Tooltip content="AI: analyse & suggest" placement="top">
+                    <Button size="sm" variant="ghost" style={{ color: 'var(--primary)' }}>
+                      <AIIcon size="xs" />
+                    </Button>
+                  </Tooltip>
                   <Tooltip content="Convert to task" placement="top">
-                    <Button size="sm" variant="secondary" onClick={() => handleConvert(item, 'task')}>
+                    <Button size="sm" variant="secondary" onClick={() => handleConvert(item, 'task')} disabled={converting === item._id}>
                       <TaskIcon size="xs" style={{ marginRight: '4px' }} /> Task
                     </Button>
                   </Tooltip>
                   <Tooltip content="Convert to note" placement="top">
-                    <Button size="sm" variant="secondary" onClick={() => handleConvert(item, 'note')}>
+                    <Button size="sm" variant="secondary" onClick={() => handleConvert(item, 'note')} disabled={converting === item._id}>
                       <NoteIcon size="xs" style={{ marginRight: '4px' }} /> Note
                     </Button>
                   </Tooltip>

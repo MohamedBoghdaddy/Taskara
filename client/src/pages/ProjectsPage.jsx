@@ -135,15 +135,24 @@ export default function ProjectsPage() {
                     {p.description}
                   </p>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: 'var(--surface-alt)', color: 'var(--text-secondary)' }}>
-                    {p.status.replace('_', ' ')}
-                  </span>
-                  {p.dueDate && (
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <DueDateIcon size="xs" /> {new Date(p.dueDate).toLocaleDateString()}
-                    </span>
-                  )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Badge label={p.status.replace('_', ' ')} variant={p.status === 'active' ? 'success' : p.status === 'completed' ? 'primary' : 'default'} style={{ fontSize: '10px', textTransform: 'capitalize' }} />
+                    {p.status === 'on_hold' && <WarnIcon size="xs" color="#f59e0b" />}
+                    {p.status === 'archived' && <ArchiveIcon size="xs" color="var(--text-muted)" />}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {p.noteCount > 0 && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <NoteIcon size="xs" /> {p.noteCount}
+                      </span>
+                    )}
+                    {p.dueDate && (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <DueDateIcon size="xs" /> {new Date(p.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </Link>

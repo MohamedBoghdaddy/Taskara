@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
@@ -33,17 +33,18 @@ const api = async (method, path, body) => {
   return res.json().catch(() => ({}));
 };
 
-const PRIORITY_COLORS = { urgent: 'var(--error)', high: 'var(--warning)', medium: 'var(--primary)', low: 'var(--text-muted)' };
+const PRIORITY_COLORS = { urgent: '#ef4444', high: '#f59e0b', medium: 'var(--primary)', low: 'var(--text-muted)' };
 const PRIORITY_LABELS = { urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' };
 const TASK_TYPES = ['all', 'feature', 'bug', 'chore', 'improvement'];
 
 export default function BacklogPage() {
   const [backlog, setBacklog]       = useState([]);
   const [sprints, setSprints]       = useState([]);
-  const [activeSprint, setActive]   = useState(null);
+  const [activeSprint, setActiveSprint] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [typeFilter, setTypeFilter] = useState('all');
   const [showNewSprint, setShowNewSprint] = useState(false);
+  const [editTask, setEditTask]     = useState(null);
   const [quickAdd, setQuickAdd]     = useState('');
   const [dragId, setDragId]         = useState(null);
   const [sprintForm, setSprintForm] = useState({ name: '', goal: '', startDate: '', endDate: '' });
@@ -62,7 +63,7 @@ export default function BacklogPage() {
       if (sprintRes.status === 'fulfilled') {
         const all = sprintRes.value.sprints || sprintRes.value || [];
         setSprints(all);
-        setActive(all.find(s => s.status === 'active') || null);
+        setActiveSprint(all.find(s => s.status === 'active') || null);
         if (all.length) setExpanded(all[0]._id);
       }
     } catch (e) { toast.error('Failed to load backlog'); }
@@ -102,9 +103,30 @@ export default function BacklogPage() {
     try {
       const s = await api('PATCH', `/sprints/${id}`, { status });
       setSprints(prev => prev.map(sp => sp._id === id ? s : sp));
-      if (status === 'active') setActive(s);
-      if (status === 'completed') { setActive(null); load(); }
+      if (status === 'active') setActiveSprint(s);
+      if (status === 'completed') { setActiveSprint(null); load(); }
       toast.success(status === 'active' ? 'Sprint started!' : 'Sprint completed!');
+    } catch (e) { toast.error(e.message); }
+  };
+
+  /* ── edit task ── */
+  const handleSaveEdit = async () => {
+    if (!editTask) return;
+    try {
+      const updated = await api('PATCH', `/tasks/${editTask._id}`, { title: editTask.title, priority: editTask.priority });
+      setBacklog(prev => prev.map(t => t._id === editTask._id ? { ...t, ...updated } : t));
+      setEditTask(null);
+      toast.success('Task updated');
+    } catch (e) { toast.error(e.message); }
+  };
+
+  /* ── delete task ── */
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm('Delete this task?')) return;
+    try {
+      await api('DELETE', `/tasks/${taskId}`);
+      setBacklog(prev => prev.filter(t => t._id !== taskId));
+      toast.success('Task deleted');
     } catch (e) { toast.error(e.message); }
   };
 
@@ -166,7 +188,10 @@ export default function BacklogPage() {
           </div>
 
           {/* Type filter */}
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Tooltip content="Filter backlog by task type">
+              <FilterIcon size="xs" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            </Tooltip>
             {TASK_TYPES.map(t => (
               <button key={t} onClick={() => setTypeFilter(t)} style={{
                 padding: '3px 10px', borderRadius: 12, border: '1px solid var(--border)',
@@ -213,6 +238,8 @@ export default function BacklogPage() {
               onDragStart={() => setDragId(task._id)}
               onDragEnd={() => setDragId(null)}
               isDragging={dragId === task._id}
+              onEdit={t => setEditTask({ ...t })}
+              onDelete={handleDeleteTask}
             />
           ))}
         </div>
@@ -242,13 +269,26 @@ export default function BacklogPage() {
 
       {/* ── RIGHT: Sprints ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: activeSprint ? 10 : 20 }}>
           <SprintIcon style={{ color: 'var(--primary)', fontSize: 18 }} />
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Sprints</h2>
           <Button size="sm" onClick={() => setShowNewSprint(true)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             <AddIcon size="xs" /> New Sprint
           </Button>
         </div>
+
+        {/* Active sprint banner */}
+        {activeSprint && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, padding: '8px 12px', background: 'var(--success)12', border: '1px solid var(--success)40', borderRadius: 'var(--radius)' }}>
+            <FlashIcon size="xs" color="var(--success)" />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--success)' }}>Active: {activeSprint.name}</span>
+            {activeSprint.endDate && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <TimerIcon size="xs" /> {Math.max(0, Math.ceil((new Date(activeSprint.endDate) - new Date()) / 86400000))}d left
+              </span>
+            )}
+          </div>
+        )}
 
         {sprints.length === 0 && !showNewSprint && (
           <div style={{
@@ -314,44 +354,146 @@ export default function BacklogPage() {
           />
         ))}
       </div>
+
+      {/* ── Edit task modal ── */}
+      <Modal isOpen={!!editTask} onClose={() => setEditTask(null)} title="Edit Task">
+        {editTask && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+                <InfoIcon size="xs" /> Task title
+              </label>
+              <input
+                value={editTask.title}
+                onChange={e => setEditTask(t => ({ ...t, title: e.target.value }))}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-alt)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+                <PriorityIcon size="xs" /> Priority
+              </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
+                  <Badge
+                    key={key}
+                    label={label}
+                    variant={editTask.priority === key ? 'primary' : 'default'}
+                    style={{ cursor: 'pointer', borderColor: editTask.priority === key ? PRIORITY_COLORS[key] : undefined, color: editTask.priority === key ? PRIORITY_COLORS[key] : undefined }}
+                    onClick={() => setEditTask(t => ({ ...t, priority: key }))}
+                  />
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <Button variant="secondary" size="sm" onClick={() => setEditTask(null)}>Cancel</Button>
+              <Button size="sm" onClick={handleSaveEdit}>
+                <EditIcon size="xs" style={{ marginRight: 4 }} /> Save
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
 
 /* ── BacklogItem ── */
-function BacklogItem({ task, draggable, onDragStart, onDragEnd, isDragging }) {
-  const TYPE_COLORS = { feature: 'var(--success)', bug: 'var(--error)', chore: 'var(--text-muted)', improvement: 'var(--info, #3B82F6)' };
+function BacklogItem({ task, draggable, onDragStart, onDragEnd, isDragging, onEdit, onDelete }) {
+  const TYPE_COLORS = { feature: 'var(--success)', bug: 'var(--error)', chore: 'var(--text-muted)', improvement: '#3B82F6' };
+  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
+  const priorityColor = PRIORITY_COLORS[task.priority] || 'var(--text-muted)';
+  const isUrgentOrHigh = task.priority === 'urgent' || task.priority === 'high';
+
   return (
     <div
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+        display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px',
         background: isDragging ? 'var(--primary)12' : 'var(--surface)',
         border: `1px solid ${isDragging ? 'var(--primary)' : 'var(--border)'}`,
         borderRadius: 'var(--radius)', marginBottom: 4, cursor: 'grab',
-        opacity: isDragging ? 0.6 : 1,
-        transition: 'border-color 150ms',
+        opacity: isDragging ? 0.6 : 1, transition: 'border-color 150ms',
       }}
     >
-      <DragIcon style={{ color: 'var(--text-muted)', fontSize: 11, flexShrink: 0 }} />
+      <MoveIcon style={{ color: 'var(--text-muted)', flexShrink: 0 }} size="xs" />
       {task.type && (
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: TYPE_COLORS[task.type] || 'var(--text-muted)', flexShrink: 0 }} />
       )}
       <span style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </span>
-      {task.priority && task.priority !== 'medium' && (
-        <span style={{ fontSize: 10, color: { urgent: 'var(--error)', high: 'var(--warning)', low: 'var(--text-muted)' }[task.priority] || 'var(--text-muted)', fontWeight: 600 }}>
-          {task.priority.toUpperCase()}
+
+      {/* Urgent fire */}
+      {task.priority === 'urgent' && (
+        <Tooltip content="Urgent priority">
+          <FireIcon size="xs" color="#ef4444" />
+        </Tooltip>
+      )}
+
+      {/* Overdue warning */}
+      {isOverdue && (
+        <Tooltip content="Overdue">
+          <WarnIcon size="xs" color="var(--error)" />
+        </Tooltip>
+      )}
+
+      {/* Due date */}
+      {task.dueDate && (
+        <span style={{ fontSize: 10, color: isOverdue ? 'var(--error)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          <DueDateIcon size="xs" /> {format(new Date(task.dueDate), 'MMM d')}
         </span>
       )}
+
+      {/* Subtask count */}
+      {task.subtaskCount > 0 && (
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          <ChecklistIcon size="xs" /> {task.subtaskCount}
+        </span>
+      )}
+
+      {/* Estimated points */}
       {task.estimatedPoints && (
-        <span style={{ fontSize: 10, background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 5px', color: 'var(--text-muted)', fontWeight: 600 }}>
-          {task.estimatedPoints}
-        </span>
+        <Tooltip content={`${task.estimatedPoints} story points`}>
+          <span style={{ fontSize: 10, background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 5px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TimerIcon size="xs" /> {task.estimatedPoints}
+          </span>
+        </Tooltip>
       )}
+
+      {/* Priority badge */}
+      {task.priority && task.priority !== 'medium' && (
+        <Tooltip content={PRIORITY_LABELS[task.priority]}>
+          <span style={{ color: priorityColor, display: 'flex' }}>
+            {isUrgentOrHigh ? <PriorityFilledIcon size="xs" /> : <PriorityIcon size="xs" />}
+          </span>
+        </Tooltip>
+      )}
+
+      {/* Edit */}
+      <Tooltip content="Edit task">
+        <button
+          onClick={e => { e.stopPropagation(); onEdit(task); }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', opacity: 0.6 }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+        >
+          <EditIcon size="xs" />
+        </button>
+      </Tooltip>
+      {/* Delete */}
+      <Tooltip content="Delete task">
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(task._id); }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', opacity: 0.6 }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+        >
+          <DeleteIcon size="xs" />
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -400,7 +542,19 @@ function SprintCard({ sprint, expanded, onToggleExpand, onUpdateStatus, onDrop, 
         </div>
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+          {sprint.status === 'completed' && (
+            <Tooltip content="Sprint completed!">
+              <TrophyIcon size="xs" color="var(--primary)" />
+            </Tooltip>
+          )}
+          {sprint.velocity > 0 && (
+            <Tooltip content={`${sprint.velocity} pts velocity`}>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <FlashIcon size="xs" /> {sprint.velocity}
+              </span>
+            </Tooltip>
+          )}
           {sprint.status === 'pending' && (
             <Button size="sm" onClick={() => onUpdateStatus(sprint._id, 'active')}
               style={{ fontSize: 11, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>

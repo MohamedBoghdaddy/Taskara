@@ -28,18 +28,18 @@ const NAV_GROUPS = [
     label: 'Work',
     items: [
       { to: '/tasks',        Icon: TaskIcon,          label: 'Tasks',        tip: 'Kanban board + task list' },
-      { to: '/boards',       Icon: BoardIcon,         label: 'Boards',       tip: 'Trello-style project boards' },
+      { to: '/boards',       Icon: KanbanIcon,        label: 'Boards',       tip: 'Trello-style project boards' },
       { to: '/sprints',      Icon: SprintIcon,        label: 'Sprints',      tip: 'Scrum sprints + burndown' },
       { to: '/backlog',      Icon: BacklogIcon,       label: 'Backlog',      tip: 'Sprint backlog & planning' },
       { to: '/timeline',     Icon: TimelineIcon,      label: 'Timeline',     tip: 'Gantt / roadmap view' },
-      { to: '/projects',     Icon: ProjectIcon,       label: 'Projects',     tip: 'Project workspaces' },
+      { to: '/projects',     Icon: ProjectFilledIcon, label: 'Projects',     tip: 'Project workspaces' },
       { to: '/calendar',     Icon: CalendarIcon,      label: 'Calendar',     tip: 'Due dates & reminders' },
     ],
   },
   {
     label: 'Knowledge',
     items: [
-      { to: '/notes',        Icon: NoteIcon,          label: 'Notes',        tip: 'Notes with auto-backlinks' },
+      { to: '/notes',        Icon: NoteFilledIcon,    label: 'Notes',        tip: 'Notes with auto-backlinks' },
       { to: '/daily/today',  Icon: CalendarCheckIcon, label: 'Daily Notes',  tip: 'Journal by date' },
       { to: '/graph',        Icon: GraphIcon,         label: 'Graph',        tip: 'Knowledge graph view' },
       { to: '/databases',    Icon: DatabaseIcon,      label: 'Databases',    tip: 'Custom structured tables' },
@@ -49,9 +49,9 @@ const NAV_GROUPS = [
   {
     label: 'Insights',
     items: [
-      { to: '/pomodoro',     Icon: TimerIcon,         label: 'Focus Timer',  tip: 'Pomodoro + ambient sounds' },
+      { to: '/pomodoro',     Icon: FocusIcon,         label: 'Focus Timer',  tip: 'Pomodoro + ambient sounds' },
       { to: '/analytics',    Icon: AnalyticsIcon,     label: 'Analytics',    tip: 'Focus, task & note stats' },
-      { to: '/ai',           Icon: AIIcon,            label: 'AI Assistant', tip: 'Gemini-powered workspace AI' },
+      { to: '/ai',           Icon: BrainIcon,         label: 'AI Assistant', tip: 'Gemini-powered workspace AI' },
     ],
   },
   {
@@ -151,6 +151,28 @@ export default function Sidebar() {
             <span style={{ flex: 1 }}>Search…</span>
             <span style={{ fontSize: '10px', background: 'var(--border)', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Ctrl+K</span>
           </button>
+        </div>
+      )}
+
+      {/* ── Quick actions ── */}
+      {!collapsed && (
+        <div style={{ padding: '4px 8px 2px', display: 'flex', gap: '4px' }}>
+          <Tooltip content="New item (Ctrl+K)" placement="bottom">
+            <button
+              onClick={openCommand}
+              style={{ flex: 1, padding: '5px 0', background: 'var(--primary)12', border: '1px solid var(--primary)30', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--primary)', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontWeight: '600' }}
+            >
+              <AddIcon size="xs" /> New
+            </button>
+          </Tooltip>
+          <Tooltip content="Take a focus break" placement="bottom">
+            <button
+              onClick={() => navigate('/pomodoro')}
+              style={{ flex: 1, padding: '5px 0', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+            >
+              <BreakIcon size="xs" /> Break
+            </button>
+          </Tooltip>
         </div>
       )}
 

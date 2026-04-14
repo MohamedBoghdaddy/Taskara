@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getTaskAnalytics, getFocusAnalytics, getFocusScore, getBurnout, getWeeklyTrend, getAnalyticsHabits } from '../api/index';
 import { exportAnalytics, exportTasks } from '../api/exports';
-import toast from 'react-hot-toast';
 import FeatureGuide from '../components/common/FeatureGuide';
+import Tooltip from '../components/common/Tooltip';
 import {
   AnalyticsIcon, TimerIcon, TrophyIcon, FireIcon,
   TrendUpIcon, TrendDownIcon, CheckCircleIcon, LineChartIcon, WarnIcon,

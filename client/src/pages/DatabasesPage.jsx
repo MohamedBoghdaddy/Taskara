@@ -70,6 +70,9 @@ export default function DatabasesPage() {
         <h1 style={{ fontSize: '22px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <LayersIcon style={{ color: 'var(--primary)' }} />
           Databases
+          <Tooltip content="Custom structured tables — define fields and store records in any shape you need." placement="right">
+            <span style={{ color: 'var(--text-muted)', display: 'flex', cursor: 'default' }}><InfoIcon size="xs" /></span>
+          </Tooltip>
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* View switcher */}

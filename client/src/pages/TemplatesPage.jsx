@@ -107,6 +107,9 @@ export default function TemplatesPage() {
         <h1 style={{ fontSize: '22px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <TagIcon style={{ color: 'var(--primary)' }} />
           Templates
+          <Tooltip content="Reusable content blueprints for notes, tasks, projects and more." placement="right">
+            <span style={{ color: 'var(--text-muted)', display: 'flex', cursor: 'default' }}><InfoIcon size="xs" /></span>
+          </Tooltip>
         </h1>
         <Button onClick={openCreate}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

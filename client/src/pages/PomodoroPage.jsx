@@ -84,11 +84,11 @@ export default function PomodoroPage() {
       }
     }
     return () => clearInterval(intervalRef.current);
-  }, [running, timeLeft]);
+  }, [running, timeLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!running) setTimeLeft(MODES[mode].minutes * 60);
-  }, [mode, running, customMinutes]);
+  }, [mode, running, customMinutes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = async () => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -139,7 +139,7 @@ export default function PomodoroPage() {
               background: '#f9731615', border: '1px solid #f9731640',
               padding: '3px 9px', borderRadius: '12px', cursor: 'default',
             }}>
-              <FireIcon size="xs" color="#f97316" /> {streak.currentStreak}d
+              <StreakIcon size="xs" color="#f97316" /> {streak.currentStreak}d
             </span>
           </Tooltip>
         )}
@@ -164,7 +164,12 @@ export default function PomodoroPage() {
             onClick={() => setShowSettings(s => !s)}
             style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px 6px', borderRadius: 'var(--radius)' }}
           >
-            <SliderIcon />
+            <SettingsIcon />
+          </button>
+        </Tooltip>
+        <Tooltip content="More options">
+          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px 6px', borderRadius: 'var(--radius)' }}>
+            <MoreIcon />
           </button>
         </Tooltip>
         <Tooltip content={muted ? 'Unmute' : 'Mute'}>
@@ -393,19 +398,36 @@ export default function PomodoroPage() {
       )}
 
       {/* Controls */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
         {!running ? (
-          <Button onClick={handleStart} style={{ padding: '11px 44px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <PlayIcon size="xs" /> Start
-          </Button>
+          <>
+            <Button onClick={handleStart} style={{ padding: '11px 44px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <PlayIcon size="xs" /> Start
+            </Button>
+            <Tooltip content="Reset timer">
+              <Button variant="secondary" onClick={() => setTimeLeft(MODES[mode].minutes * 60)} style={{ padding: '11px 14px', display: 'flex', alignItems: 'center' }}>
+                <ResetIcon size="xs" />
+              </Button>
+            </Tooltip>
+          </>
         ) : (
           <>
-            <Button variant="secondary" onClick={() => handleStop('interrupted')} style={{ padding: '11px 28px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+            <Tooltip content="Pause (stop without completing)">
+              <Button variant="secondary" onClick={() => { clearInterval(intervalRef.current); setRunning(false); }} style={{ padding: '11px 18px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <PauseIcon size="xs" /> Pause
+              </Button>
+            </Tooltip>
+            <Button variant="secondary" onClick={() => handleStop('interrupted')} style={{ padding: '11px 18px', display: 'flex', alignItems: 'center', gap: '7px' }}>
               <StopIcon size="xs" /> Stop
             </Button>
-            <Button onClick={() => handleStop('completed')} style={{ padding: '11px 28px', background: 'var(--success)', border: 'none', display: 'flex', alignItems: 'center', gap: '7px' }}>
+            <Button onClick={() => handleStop('completed')} style={{ padding: '11px 18px', background: 'var(--success)', border: 'none', display: 'flex', alignItems: 'center', gap: '7px' }}>
               <CheckCircleIcon size="xs" /> Complete
             </Button>
+            <Tooltip content="Skip to next mode">
+              <Button variant="ghost" onClick={() => { handleStop('interrupted'); setMode(m => m === 'focus' ? 'short_break' : 'focus'); }} style={{ padding: '11px 14px', display: 'flex', alignItems: 'center' }}>
+                <SkipIcon size="xs" />
+              </Button>
+            </Tooltip>
           </>
         )}
       </div>
