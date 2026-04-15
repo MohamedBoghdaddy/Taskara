@@ -237,7 +237,7 @@ export default function LandingPage() {
         position: 'sticky', top: 0, zIndex: 100, height: '64px',
         padding: '0 48px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background:    scrolled ? 'rgba(252,252,252,0.96)' : NAVBAR_BG,
+        background:    scrolled ? 'rgba(252, 252, 252, 0.57)' : NAVBAR_BG,
         backdropFilter: scrolled ? 'blur(12px)'            : 'none',
         borderBottom:  scrolled ? `1px solid ${BORDER}`   : '1px solid transparent',
         transition: 'background 0.25s, border-color 0.25s, backdrop-filter 0.25s',
