@@ -34,6 +34,7 @@ const taskSchema = new mongoose.Schema({
   completedPomodoros: { type: Number, default: 0 },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   completedAt: { type: Date, default: null },
+  meta: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
 taskSchema.index({ workspaceId: 1, createdBy: 1, status: 1 });

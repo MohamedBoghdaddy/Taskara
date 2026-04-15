@@ -51,14 +51,14 @@ function redactSettings(doc) {
   const obj = doc.toObject ? doc.toObject() : { ...doc };
   const redact = (sub) => {
     if (!sub) return sub;
-    const KEYS = ['accessToken','refreshToken','clientSecret','apiKey','apiToken','webhookVerifyToken'];
+    const KEYS = ['accessToken','refreshToken','clientSecret','apiKey','apiToken','webhookVerifyToken','webhookUrl'];
     const out = { ...sub };
     for (const k of KEYS) {
       if (out[k]) out[k] = '••••••••';
     }
     return out;
   };
-  for (const p of ['github','googleCalendar','notion','whatsapp','clickup']) {
+  for (const p of ['github','googleCalendar','notion','whatsapp','clickup','slack']) {
     if (obj[p]) obj[p] = redact(obj[p]);
   }
   return obj;
@@ -88,10 +88,45 @@ router.post('/todoist/push/:taskId', asyncHandler(async (req, res) => {
 // Existing: Slack
 // ─────────────────────────────────────────────────────────────────────────────
 
+router.post('/slack/connect', asyncHandler(async (req, res) => {
+  const { webhookUrl, defaultChannel } = req.body;
+  if (!webhookUrl) return res.status(400).json({ error: 'webhookUrl required' });
+  await sendSlackMessage(webhookUrl, 'Taskara connection check: Slack is ready for workflow execution.');
+
+  const doc = await IntegrationSettings.findOneAndUpdate(
+    { workspaceId: getWorkspaceId(req), provider: 'slack' },
+    {
+      connectedBy: req.user._id,
+      isActive: true,
+      lastError: null,
+      slack: { webhookUrl, defaultChannel: defaultChannel || '', syncDirection: 'notify' },
+    },
+    { upsert: true, new: true }
+  );
+
+  res.json({ success: true, settings: redactSettings(doc) });
+}));
+
+router.get('/slack/settings', asyncHandler(async (req, res) => {
+  const doc = await IntegrationSettings.findOne({ workspaceId: getWorkspaceId(req), provider: 'slack' });
+  res.json({ settings: redactSettings(doc) });
+}));
+
+router.delete('/slack/disconnect', asyncHandler(async (req, res) => {
+  await IntegrationSettings.deleteOne({ workspaceId: getWorkspaceId(req), provider: 'slack' });
+  res.json({ success: true });
+}));
+
 router.post('/slack/notify', asyncHandler(async (req, res) => {
   const { webhookUrl, message } = req.body;
-  if (!webhookUrl || !message) return res.status(400).json({ error: 'webhookUrl and message required' });
-  await sendSlackMessage(webhookUrl, message);
+  if (!message) return res.status(400).json({ error: 'message required' });
+  let resolvedWebhook = webhookUrl;
+  if (!resolvedWebhook) {
+    const settings = await IntegrationSettings.findOne({ workspaceId: getWorkspaceId(req), provider: 'slack', isActive: true });
+    resolvedWebhook = settings?.slack?.webhookUrl || '';
+  }
+  if (!resolvedWebhook) return res.status(400).json({ error: 'Slack is not connected for this workspace' });
+  await sendSlackMessage(resolvedWebhook, message);
   res.json({ success: true });
 }));
 

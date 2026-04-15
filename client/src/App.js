@@ -37,6 +37,7 @@ import WebhooksPage from "./pages/WebhooksPage";
 import PricingPage from "./pages/PricingPage";
 import CanvasPage from "./pages/CanvasPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
+import AudienceSolutionPage from "./pages/AudienceSolutionPage";
 
 const PrivateRoute = ({ children }) => {
   const { token } = useAuthStore();
@@ -45,7 +46,7 @@ const PrivateRoute = ({ children }) => {
 
 const PublicRoute = ({ children }) => {
   const { token } = useAuthStore();
-  return !token ? children : <Navigate to="/today" replace />;
+  return !token ? children : <Navigate to="/dashboard" replace />;
 };
 
 export default function App() {
@@ -108,6 +109,11 @@ export default function App() {
         />
 
         {/* Protected — inside AppLayout */}
+        <Route path="/for-recruiters" element={<AudienceSolutionPage audienceKey="recruiters" />} />
+        <Route path="/for-startups" element={<AudienceSolutionPage audienceKey="startups" />} />
+        <Route path="/for-agencies" element={<AudienceSolutionPage audienceKey="agencies" />} />
+        <Route path="/for-real-estate" element={<AudienceSolutionPage audienceKey="realestate" />} />
+
         <Route
           element={
             <PrivateRoute>
@@ -167,7 +173,7 @@ export default function App() {
           <Route path="/pricing" element={<PricingPage />} />
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/today" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

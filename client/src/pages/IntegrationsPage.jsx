@@ -25,6 +25,9 @@ const api = {
   importTodoist:    (token) => client.post('/integrations/todoist/import', { apiToken: token }).then(r => r.data),
 
   // Slack
+  slackConnect:     (body)  => client.post('/integrations/slack/connect', body).then(r => r.data),
+  slackSettings:    ()      => client.get('/integrations/slack/settings').then(r => r.data),
+  slackDisconnect:  ()      => client.delete('/integrations/slack/disconnect').then(r => r.data),
   testSlack:        (url)   => client.post('/integrations/slack/test', { webhookUrl: url }).then(r => r.data),
   sendSlack:        (url, m)=> client.post('/integrations/slack/notify', { webhookUrl: url, message: m }).then(r => r.data),
 
@@ -270,6 +273,7 @@ export default function IntegrationsPage() {
       {/* Status summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', marginBottom: '24px' }}>
         {[
+          { key: 'slack',            label: 'Slack' },
           { key: 'github',           label: 'GitHub' },
           { key: 'google_calendar',  label: 'Google Calendar' },
           { key: 'notion',           label: 'Notion' },
@@ -293,7 +297,11 @@ export default function IntegrationsPage() {
       <TodoistSection />
 
       {/* ── Slack ───────────────────────────────────────────────────────────── */}
-      <SlackSection />
+      <SlackSection
+        connected={!!connected.slack}
+        onConnected={refreshConnected}
+        onDisconnect={() => disconnect('slack', 'Slack')}
+      />
 
       {/* ── GitHub ──────────────────────────────────────────────────────────── */}
       <GitHubSection
@@ -389,22 +397,34 @@ function TodoistSection() {
 // Slack Section (existing — unchanged behaviour)
 // ══════════════════════════════════════════════════════════════════════════════
 
-function SlackSection() {
+function SlackSection({ connected, onConnected, onDisconnect }) {
   const [url, setUrl]               = useState('');
-  const [msg, setMsg]               = useState('');
+  const [channel, setChannel]       = useState('');
+  const [msg, setMsg]               = useState('Taskara status check: workflow execution is synced to Slack.');
   const [loading, setLoading]       = useState(false);
-  const [connected, setConnected]   = useState(false);
+
+  useEffect(() => {
+    if (!connected) return;
+    api.slackSettings()
+      .then((data) => {
+        const slack = data.settings?.slack || {};
+        setChannel(slack.defaultChannel || '');
+      })
+      .catch(() => {});
+  }, [connected]);
 
   const isValid = /^https:\/\/hooks\.slack\.com\/services\//i.test(url.trim());
 
-  const handleTest = async () => {
+  const handleConnect = async () => {
     if (!url.trim()) return toast.error('Enter Slack webhook URL');
     if (!isValid) return toast.error('URL must start with https://hooks.slack.com/services/');
     setLoading(true);
     try {
-      await api.testSlack(url.trim());
-      setConnected(true); toast.success('Slack test message sent!');
-    } catch (e) { toast.error(e.response?.data?.error || 'Slack test failed'); }
+      await api.slackConnect({ webhookUrl: url.trim(), defaultChannel: channel.trim() });
+      toast.success('Slack connected for workflow execution');
+      setUrl('');
+      onConnected();
+    } catch (e) { toast.error(e.response?.data?.error || 'Slack connection failed'); }
     finally { setLoading(false); }
   };
 
@@ -412,8 +432,9 @@ function SlackSection() {
     if (!msg.trim()) return toast.error('Enter a message');
     setLoading(true);
     try {
-      await api.sendSlack(url.trim(), msg.trim());
-      toast.success('Message sent to Slack!'); setMsg('');
+      await api.sendSlack(url.trim() || undefined, msg.trim());
+      toast.success('Message sent to Slack!');
+      setMsg('');
     } catch (e) { toast.error(e.response?.data?.error || 'Failed to send'); }
     finally { setLoading(false); }
   };
@@ -422,33 +443,44 @@ function SlackSection() {
     <IntegrationCard
       logo={<SlackIcon size="lg" color="#4A154B" />}
       name="Slack"
-      description="Send task and sprint notifications to your Slack channels."
+      description="Persist Slack connectivity so startup workflows can post status updates and escalation messages automatically."
       connected={connected}
+      onDisconnect={onDisconnect}
     >
       <div style={sectionStyle}>
-        <label style={labelStyle}>
-          Slack Incoming Webhook URL
-          <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener noreferrer"
-            style={{ marginLeft: '8px', color: 'var(--primary)', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-            Create webhook <ExternalLinkIcon size="xs" />
-          </a>
-        </label>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input type="url" value={url} onChange={e => { setUrl(e.target.value); setConnected(false); }}
-            placeholder="https://hooks.slack.com/services/…" style={inputStyle} />
-          <Button variant="secondary" onClick={handleTest} loading={loading} disabled={!url.trim() || !isValid || loading}>
-            Test
-          </Button>
-        </div>
-        {url.trim() && !isValid && (
-          <p style={{ fontSize: '12px', color: 'var(--error)', margin: 0 }}>
-            Must start with https://hooks.slack.com/services/
-          </p>
-        )}
-        {connected && (
-          <div style={{ ...sectionStyle }}>
+        {!connected ? (
+          <>
+            <label style={labelStyle}>
+              Slack Incoming Webhook URL
+              <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener noreferrer"
+                style={{ marginLeft: '8px', color: 'var(--primary)', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                Create webhook <ExternalLinkIcon size="xs" />
+              </a>
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input type="url" value={url} onChange={e => setUrl(e.target.value)}
+                placeholder="https://hooks.slack.com/services/…" style={inputStyle} />
+              <Button variant="secondary" onClick={handleConnect} loading={loading} disabled={!url.trim() || !isValid || loading}>
+                Connect
+              </Button>
+            </div>
+            <input
+              type="text"
+              value={channel}
+              onChange={e => setChannel(e.target.value)}
+              placeholder="Optional channel label, e.g. #ops-updates"
+              style={inputStyle}
+            />
+            {url.trim() && !isValid && (
+              <p style={{ fontSize: '12px', color: 'var(--error)', margin: 0 }}>
+                Must start with https://hooks.slack.com/services/
+              </p>
+            )}
+          </>
+        ) : (
+          <>
             <div style={{ padding: '10px 12px', background: 'var(--success)10', border: '1px solid var(--success)44', borderRadius: 'var(--radius)', fontSize: '12px', color: 'var(--success)' }}>
-              Connected. Taskara can send notifications to this channel.
+              Slack is connected{channel ? ` for ${channel}` : ''}. Taskara can now post workflow updates and escalation messages automatically.
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input type="text" value={msg} onChange={e => setMsg(e.target.value)}
@@ -458,10 +490,10 @@ function SlackSection() {
                 <SendIcon size="xs" /> Send
               </Button>
             </div>
-          </div>
+          </>
         )}
         <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-          Also configure in <Link to="/automations" style={{ color: 'var(--primary)' }}>Automations</Link> for event-driven notifications.
+          Also configure in <Link to="/automations" style={{ color: 'var(--primary)' }}>Automations</Link> for event-driven notifications and use the Execution Hub for workflow-specific Slack sync.
         </p>
       </div>
     </IntegrationCard>

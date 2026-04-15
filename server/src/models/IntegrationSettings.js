@@ -19,7 +19,7 @@ const integrationSettingsSchema = new mongoose.Schema(
     },
     provider: {
       type: String,
-      enum: ['github', 'google_calendar', 'notion', 'whatsapp', 'clickup'],
+      enum: ['github', 'google_calendar', 'notion', 'whatsapp', 'clickup', 'slack'],
       required: true,
     },
     isActive: { type: Boolean, default: true },
@@ -65,6 +65,13 @@ const integrationSettingsSchema = new mongoose.Schema(
       teamId: String,               // ClickUp Workspace/Team ID
       listId: String,               // Default ClickUp list to sync
       teamName: String,             // display name fetched on connect
+    },
+
+    // Slack
+    slack: {
+      webhookUrl: String,           // Incoming webhook URL
+      defaultChannel: String,       // Human label only, webhook owns actual target
+      syncDirection: { type: String, enum: ['notify', 'both'], default: 'notify' },
     },
   },
   { timestamps: true }

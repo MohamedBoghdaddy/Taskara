@@ -12,13 +12,14 @@ import {
   LogoIcon, ChevronDown, ChevronUp, BoardIcon, AddIcon,
   NoteFilledIcon, BreakIcon, ProjectFilledIcon, FocusIcon,
   BrainIcon, FlashIcon, TrophyIcon, PlugIcon,
-  TimelineIcon, CalendarCheckIcon, BroadcastIcon, PaletteIcon,
+  TimelineIcon, CalendarCheckIcon, BroadcastIcon, PaletteIcon, WorkflowIcon,
 } from './Icons';
 
 const NAV_GROUPS = [
   {
     label: 'Main',
     items: [
+      { to: '/dashboard',    Icon: WorkflowIcon,      label: 'Execution Hub', tip: 'Audience workflows, approvals, and sync' },
       { to: '/today',        Icon: TodayIcon,         label: 'Today',        tip: 'Daily note + tasks due today' },
       { to: '/inbox',        Icon: InboxIcon,         label: 'Inbox',        tip: 'Notifications & mentions', badge: true },
       { to: '/search',       Icon: SearchIcon,        label: 'Search',       tip: 'Full-text search  (Ctrl+K)' },

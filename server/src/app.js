@@ -34,6 +34,7 @@ const uploadsRoutes = require("./routes/uploads");
 const subscriptionsRoutes = require("./routes/subscriptions");
 const noteVersionsRoutes = require("./routes/noteVersions");
 const integrationsRoutes = require("./routes/integrations");
+const workflowsRoutes = require("./routes/workflows");
 
 const app = express();
 const corsOrigin = createCorsOriginHandler();
@@ -89,6 +90,7 @@ app.use("/api/uploads", uploadsRoutes);
 app.use("/api/subscriptions", subscriptionsRoutes);
 app.use("/api/note-versions", noteVersionsRoutes);
 app.use("/api/integrations", integrationsRoutes);
+app.use("/api/workflows", workflowsRoutes);
 
 app.use(errorHandler);
 
