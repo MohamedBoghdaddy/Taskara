@@ -5,7 +5,7 @@ import Modal from '../components/common/Modal';
 import FeatureGuide from '../components/common/FeatureGuide';
 import Tooltip from '../components/common/Tooltip';
 import toast from 'react-hot-toast';
-import { buildApiUrl } from '../api/base';
+import { createBoard, createCard, getBoard, getBoards, updateCard } from '../api/boards';
 import {
   BoardIcon, KanbanIcon, AddIcon, EditIcon, DeleteIcon, CloseIcon,
   CheckIcon, PriorityIcon, DueDateIcon, AssignIcon, UsersIcon,
@@ -13,23 +13,6 @@ import {
 } from '../components/common/Icons';
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
-const authHeader = () => {
-  const s = JSON.parse(localStorage.getItem('auth-store') || '{}');
-  return s.state?.token
-    ? { Authorization: `Bearer ${s.state.token}`, 'Content-Type': 'application/json' }
-    : { 'Content-Type': 'application/json' };
-};
-
-const api = async (method, path, body) => {
-  const res = await fetch(buildApiUrl(path), {
-    method,
-    headers: authHeader(),
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-};
-
 // ── Constants ────────────────────────────────────────────────────────────────
 const COLOR_SWATCHES = [
   '#6366F1', '#22C55E', '#F59E0B', '#EF4444',
@@ -91,7 +74,7 @@ export default function BoardPage() {
   const loadBoards = async () => {
     setLoading(true);
     try {
-      const data = await api('GET', '/boards');
+      const data = await getBoards();
       setBoards(data.boards || data || []);
     } catch {
       toast.error('Failed to load boards');
@@ -105,17 +88,14 @@ export default function BoardPage() {
     setActiveBoard(board);
     setBoardLoading(true);
     try {
-      const [colData, cardData] = await Promise.all([
-        api('GET', `/boards/${board._id}/columns`),
-        api('GET', `/boards/${board._id}/cards`),
-      ]);
-      setColumns(colData.columns || colData || []);
-      setCards(cardData.cards || cardData || []);
+      const fullBoard = await getBoard(board._id);
+      setActiveBoard(fullBoard);
+      setColumns(fullBoard.columns || []);
+      setCards(fullBoard.cards || []);
     } catch {
-      // Fallback to embedded board data if endpoint doesn't exist yet
       setColumns(board.columns || []);
       setCards(board.cards || []);
-      if (!board.columns?.length) toast.error('Failed to load board columns');
+      toast.error('Failed to load board details');
     } finally {
       setBoardLoading(false);
     }
@@ -133,7 +113,7 @@ export default function BoardPage() {
         color: boardForm.color,
         columns: DEFAULT_COLUMNS.map((title, i) => ({ title, order: i })),
       };
-      const created = await api('POST', '/boards', payload);
+      const created = await createBoard(payload);
       const newBoard = created.board || created;
       setBoards(prev => [newBoard, ...prev]);
       setShowNewBoard(false);
@@ -150,7 +130,7 @@ export default function BoardPage() {
   const handleAddCard = async (columnId) => {
     if (!newCardTitle.trim()) { setAddingCard(null); return; }
     try {
-      const created = await api('POST', `/boards/${activeBoard._id}/cards`, {
+      const created = await createCard(activeBoard._id, {
         title: newCardTitle.trim(),
         columnId,
       });
@@ -187,7 +167,7 @@ export default function BoardPage() {
     );
 
     try {
-      await api('PATCH', `/boards/${activeBoard._id}/cards/${cardId}`, { columnId: targetColumnId });
+      await updateCard(activeBoard._id, cardId, { columnId: targetColumnId });
     } catch {
       // Revert optimistic update
       setCards(prev =>
@@ -483,25 +463,28 @@ function BoardView({
               No columns found for this board.
             </div>
           )}
-          {columns.map(col => (
-            <KanbanColumn
-              key={col._id}
-              col={col}
-              cards={cardsForCol(col._id)}
-              boardColor={color}
-              isOver={dragOverCol === col._id}
-              addingCard={addingCard === col._id}
-              newCardTitle={newCardTitle}
-              onDragStart={onDragStart}
-              onDragOver={e => { onDragOver(e, col._id); setDragOverCol(col._id); }}
-              onDragLeave={() => setDragOverCol(null)}
-              onDrop={e => { onDrop(e, col._id); setDragOverCol(null); }}
-              onStartAddCard={() => onStartAddCard(col._id)}
-              onNewCardTitleChange={onNewCardTitleChange}
-              onAddCard={() => onAddCard(col._id)}
-              onCancelAdd={onCancelAdd}
-            />
-          ))}
+          {columns.map(col => {
+            const columnId = col.id || col._id;
+            return (
+              <KanbanColumn
+                key={columnId}
+                col={col}
+                cards={cardsForCol(columnId)}
+                boardColor={color}
+                isOver={dragOverCol === columnId}
+                addingCard={addingCard === columnId}
+                newCardTitle={newCardTitle}
+                onDragStart={onDragStart}
+                onDragOver={e => { onDragOver(e, columnId); setDragOverCol(columnId); }}
+                onDragLeave={() => setDragOverCol(null)}
+                onDrop={e => { onDrop(e, columnId); setDragOverCol(null); }}
+                onStartAddCard={() => onStartAddCard(columnId)}
+                onNewCardTitleChange={onNewCardTitleChange}
+                onAddCard={() => onAddCard(columnId)}
+                onCancelAdd={onCancelAdd}
+              />
+            );
+          })}
         </div>
       )}
     </div>
@@ -559,7 +542,7 @@ function KanbanColumn({
             key={card._id}
             card={card}
             onDragStart={onDragStart}
-            colId={col._id}
+            colId={col.id || col._id}
           />
         ))}
 

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL, API_DEBUG_INFO, buildApiUrl, reportApiConfiguration } from './base';
+import { useAuthStore } from '../store/authStore';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -61,6 +62,11 @@ client.interceptors.response.use(
         const { data } = await axios.post(buildApiUrl('/auth/refresh'), { refreshToken });
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
+        useAuthStore.setState((state) => ({
+          ...state,
+          token: data.accessToken,
+          refreshToken: data.refreshToken,
+        }));
         queue.forEach(q => q.res());
         queue = [];
         return client(orig);
@@ -68,6 +74,7 @@ client.interceptors.response.use(
         queue.forEach(q => q.rej(e));
         queue = [];
         localStorage.clear();
+        useAuthStore.setState({ user: null, token: null, refreshToken: null });
         window.location.href = '/login';
       } finally { refreshing = false; }
     }

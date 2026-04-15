@@ -6,7 +6,8 @@ import FeatureGuide from '../components/common/FeatureGuide';
 import Tooltip from '../components/common/Tooltip';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { buildApiUrl } from '../api/base';
+import { createSprint as createSprintRequest, getSprints, updateSprint as updateSprintRequest } from '../api/sprints';
+import { createTask, deleteTask, getTasks, updateTask } from '../api/tasks';
 import {
   BacklogIcon, SprintIcon, TaskIcon, AddIcon, EditIcon, DeleteIcon,
   PlayIcon, CheckCircleIcon, CloseIcon, DragIcon, MoveIcon,
@@ -15,24 +16,6 @@ import {
   PriorityFilledIcon, InfoIcon, FlashIcon, TimerIcon, ChecklistIcon,
   ArrowRight,
 } from '../components/common/Icons';
-
-const authHeader = () => {
-  try {
-    const s = JSON.parse(localStorage.getItem('auth-store') || '{}');
-    return s.state?.token
-      ? { Authorization: `Bearer ${s.state.token}`, 'Content-Type': 'application/json' }
-      : { 'Content-Type': 'application/json' };
-  } catch { return { 'Content-Type': 'application/json' }; }
-};
-
-const api = async (method, path, body) => {
-  const res = await fetch(buildApiUrl(path), {
-    method, headers: authHeader(),
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || res.statusText); }
-  return res.json().catch(() => ({}));
-};
 
 const PRIORITY_COLORS = { urgent: '#ef4444', high: '#f59e0b', medium: 'var(--primary)', low: 'var(--text-muted)' };
 const PRIORITY_LABELS = { urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' };
@@ -58,8 +41,8 @@ export default function BacklogPage() {
     setLoading(true);
     try {
       const [taskRes, sprintRes] = await Promise.allSettled([
-        api('GET', '/tasks?sprintId=none&status[ne]=done&limit=100'),
-        api('GET', '/sprints?limit=20'),
+        getTasks({ sprintId: 'none', 'status[ne]': 'done', limit: 100 }),
+        getSprints({ limit: 20 }),
       ]);
       if (taskRes.status === 'fulfilled') {
         setBacklog(asArray(taskRes.value?.tasks ?? taskRes.value));
@@ -79,7 +62,7 @@ export default function BacklogPage() {
     e.preventDefault();
     if (!quickAdd.trim()) return;
     try {
-      const t = await api('POST', '/tasks', { title: quickAdd, status: 'todo', priority: 'medium' });
+      const t = await createTask({ title: quickAdd, status: 'todo', priority: 'medium' });
       setBacklog(prev => [t, ...asArray(prev)]);
       setQuickAdd('');
       toast.success('Task added to backlog');
@@ -93,7 +76,7 @@ export default function BacklogPage() {
       return toast.error('End date must be after start date');
     }
     try {
-      const s = await api('POST', '/sprints', sprintForm);
+      const s = await createSprintRequest(sprintForm);
       setSprints(prev => [...prev, s]);
       setSprintForm({ name: '', goal: '', startDate: '', endDate: '' });
       setShowNewSprint(false);
@@ -105,7 +88,7 @@ export default function BacklogPage() {
   /* ── start / complete sprint ── */
   const updateSprintStatus = async (id, status) => {
     try {
-      const s = await api('PATCH', `/sprints/${id}`, { status });
+      const s = await updateSprintRequest(id, { status });
       setSprints(prev => prev.map(sp => sp._id === id ? s : sp));
       if (status === 'active') setActiveSprint(s);
       if (status === 'completed') { setActiveSprint(null); load(); }
@@ -117,7 +100,7 @@ export default function BacklogPage() {
   const handleSaveEdit = async () => {
     if (!editTask) return;
     try {
-      const updated = await api('PATCH', `/tasks/${editTask._id}`, { title: editTask.title, priority: editTask.priority });
+      const updated = await updateTask(editTask._id, { title: editTask.title, priority: editTask.priority });
       setBacklog(prev => prev.map(t => t._id === editTask._id ? { ...t, ...updated } : t));
       setEditTask(null);
       toast.success('Task updated');
@@ -128,7 +111,7 @@ export default function BacklogPage() {
   const handleDeleteTask = async (taskId) => {
     if (!window.confirm('Delete this task?')) return;
     try {
-      await api('DELETE', `/tasks/${taskId}`);
+      await deleteTask(taskId);
       setBacklog(prev => prev.filter(t => t._id !== taskId));
       toast.success('Task deleted');
     } catch (e) { toast.error(e.message); }
@@ -139,7 +122,7 @@ export default function BacklogPage() {
     e.preventDefault();
     if (!dragId) return;
     try {
-      const updated = await api('PATCH', `/tasks/${dragId}`, { sprintId });
+      const updated = await updateTask(dragId, { sprintId });
       setBacklog(prev => prev.filter(t => t._id !== dragId));
       setSprints(prev => prev.map(sp =>
         sp._id === sprintId
@@ -154,7 +137,7 @@ export default function BacklogPage() {
   /* ── remove from sprint → backlog ── */
   const removeFromSprint = async (taskId, sprintId) => {
     try {
-      const updated = await api('PATCH', `/tasks/${taskId}`, { sprintId: null });
+      const updated = await updateTask(taskId, { sprintId: null });
       setSprints(prev => prev.map(sp =>
         sp._id === sprintId
           ? { ...sp, tasks: (sp.tasks || []).filter(t => t._id !== taskId) }
