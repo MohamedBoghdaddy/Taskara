@@ -1,8 +1,18 @@
 const DEFAULT_FRONTEND_ORIGIN = 'http://localhost:3000';
 
+const normalizeOrigin = (origin = '') => {
+  const value = String(origin || '').trim();
+
+  if (!value || value === '*') {
+    return value;
+  }
+
+  return value.replace(/\/+$/, '');
+};
+
 const parseOrigins = (...values) => values
   .flatMap((value) => String(value || '').split(','))
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
 
 function getAllowedOrigins() {
@@ -20,12 +30,14 @@ function getAllowedOrigins() {
 }
 
 function isAllowedOrigin(origin) {
-  if (!origin) {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (!normalizedOrigin) {
     return true;
   }
 
   const allowedOrigins = getAllowedOrigins();
-  return allowedOrigins.includes('*') || allowedOrigins.includes(origin);
+  return allowedOrigins.includes('*') || allowedOrigins.includes(normalizedOrigin);
 }
 
 function createCorsOriginHandler() {
@@ -40,6 +52,7 @@ function createCorsOriginHandler() {
 }
 
 module.exports = {
+  normalizeOrigin,
   getAllowedOrigins,
   createCorsOriginHandler,
 };
