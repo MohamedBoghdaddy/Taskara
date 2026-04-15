@@ -24,59 +24,105 @@ const FEATURES = [
   {
     icon: faWandMagicSparkles, color: '#2563EB', bg: '#EFF6FF',
     title: 'Tasks that write themselves.',
-    desc:  'Drop a note, email, or voice memo. Taskara extracts action items, structures them, and assigns them — ready to run.',
+    desc:  'Drop a note, email, or voice memo. Taskara extracts action items, preserves source context, deduplicates, and structures tasks ready to execute.',
+    trust: 'Context-preserving · Handles messy threads · No duplicates',
   },
   {
     icon: faUserGroup, color: '#7C3AED', bg: '#F5F3FF',
     title: 'Auto-assignment. Zero overhead.',
-    desc:  'No more deciding who does what. Taskara routes tasks to the right person based on role, load, and context.',
+    desc:  'Routes by role, workload, and history. Every assignment shows you why it was made. Override anytime — you stay in control.',
+    trust: 'Explainable routing · Manual override · Workload-aware',
   },
   {
     icon: faEnvelope, color: '#059669', bg: '#ECFDF5',
     title: 'AI that actually sends the email.',
-    desc:  "Reports. Outreach. Follow-ups. Taskara doesn't remind you to send them. It sends them.",
+    desc:  "Reports. Outreach. Follow-ups. Taskara drafts and sends them. Approval mode lets you review before anything goes out.",
+    trust: 'Approval mode · Brand-safe templates · Full audit log',
   },
   {
     icon: faBell, color: '#D97706', bg: '#FFFBEB',
     title: 'No more follow-ups. Ever.',
-    desc:  'Taskara tracks progress, pings the right people, and closes the loop — without you lifting a finger.',
+    desc:  'Multi-step sequences with stop conditions, escalation rules, and channel choice. It knows when to stop — and when to escalate.',
+    trust: 'Stop conditions · Escalation rules · Respects replies',
   },
   {
     icon: faPlug, color: '#DC2626', bg: '#FEF2F2',
     title: 'Plug in where you already work.',
-    desc:  'ClickUp, GitHub, WhatsApp, Slack, email. Taskara fits your stack, not the other way around.',
+    desc:  'ClickUp, GitHub, WhatsApp, Slack, email — with two-way sync, not just read access. Deep actions, not just logo coverage.',
+    trust: 'Two-way sync · Deep action support · System-of-record safe',
   },
   {
     icon: faArrowTrendUp, color: '#2563EB', bg: '#EFF6FF',
     title: 'From any platform. In minutes.',
-    desc:  'Already using Asana, Notion, or Trello? Migrate your existing workflows without starting over.',
+    desc:  'Migrate from Asana, Notion, or Trello. Preview the field mapping before import. History preserved. Rollback available.',
+    trust: 'Mapping preview · History preserved · Import-safe',
   },
 ];
 
 const USE_CASES = [
   {
     id: 'recruiters', label: 'Recruiters', icon: faUserGroup,
-    headline: 'Fill roles without the admin chaos.',
-    body:     'Taskara reads your pipeline, sends outreach, books interviews, follows up with candidates, and updates your ATS — while you focus on the humans, not the logistics.',
-    items:    ['Candidate outreach and follow-up', 'Interview scheduling automation', 'Stage updates and pipeline management', 'Resume parsing into structured tasks'],
+    pain:    'Too much admin between every candidate touchpoint.',
+    headline: 'Stop chasing candidates.\nStart closing roles.',
+    body:     'Taskara reads your inbox and pipeline, sends outreach, follows up on no-reply, books interviews, and logs every action in your ATS — while you focus on hiring decisions, not logistics.',
+    workflow: ['Email / ATS', 'Outreach sent', 'Interview booked', 'ATS updated'],
+    items:    [
+      'Outreach and no-reply follow-up sequences',
+      'Interview scheduling with calendar sync',
+      'Candidate stage updates in your ATS',
+      'Rejection and nurture sequences',
+      'Audit trail for every candidate touchpoint',
+    ],
+    metrics:      ['Response rate', 'Time to first reply', 'Time to hire', 'Drop-off per stage'],
+    integrations: 'Gmail · Google Calendar · Greenhouse / Lever',
   },
   {
     id: 'startups', label: 'Startups', icon: faBolt,
-    headline: 'Move fast. Execute faster.',
-    body:     "Early teams can't afford wasted cycles. Taskara turns Slack threads and product notes into executed sprint items — assigned, tracked, and closed without a project manager.",
-    items:    ['Chat-to-task extraction', 'Auto-assign by team member', 'Progress tracking without standups', 'Automated status reports'],
+    pain:    'You talk a lot. Execution still gets lost.',
+    headline: 'From Slack chaos\nto shipped work.',
+    body:     "Taskara turns messy threads, product notes, and voice memos into owned tasks — assigned, tracked, and closed without a project manager or daily standup.",
+    workflow: ['Slack / Docs', 'Tasks extracted', 'Owner assigned', 'Status sent'],
+    items:    [
+      'Chat and doc to structured task extraction',
+      'Auto-assign by role and current workload',
+      'Weekly velocity and status reports',
+      'GitHub and Notion two-way sync',
+      'Ownerless task detection and escalation',
+    ],
+    metrics:      ['Tasks completed / week', 'Idea → execution time', '% tasks without owner', 'Team velocity'],
+    integrations: 'Slack · GitHub · Notion / ClickUp',
   },
   {
     id: 'agencies', label: 'Agencies', icon: faBuilding,
-    headline: 'Deliver more. Manage less.',
-    body:     'Run client projects without drowning in coordination. Taskara keeps deliverables moving, clients updated, and your team focused on work that actually matters.',
-    items:    ['Client brief to task breakdown', 'Auto-generated status updates', 'Deadline and bottleneck detection', 'Cross-project visibility'],
+    pain:    'Coordination overhead kills your margins.',
+    headline: 'Stop chasing approvals.\nStart delivering.',
+    body:     'Taskara breaks client briefs into deliverables, chases approvals, sends status updates, and flags delays — before they become misses.',
+    workflow: ['Client brief', 'Tasks created', 'Client updated', 'Delay flagged'],
+    items:    [
+      'Brief to task breakdown',
+      'Automated client status updates',
+      'Approval request and follow-up sequences',
+      'Deadline and bottleneck detection',
+      'Cross-account project visibility',
+    ],
+    metrics:      ['On-time delivery %', 'Client response time', 'Active delays', 'Team utilization'],
+    integrations: 'Email · Slack / WhatsApp · ClickUp / Notion',
   },
   {
     id: 'realestate', label: 'Real Estate', icon: faBuilding,
-    headline: 'Every deal has 40 moving parts. Let AI track them.',
-    body:     'From lead intake to closing, Taskara automates the follow-ups, documentation requests, and coordination that slow every transaction down.',
-    items:    ['Lead follow-up sequences', 'Document request automation', 'Client communication tracking', 'Deal pipeline task generation'],
+    pain:    'Everything depends on follow-ups and documents.',
+    headline: 'Every deal has 40 moving parts.\nTrack all of them.',
+    body:     'From lead inquiry to closing, Taskara automates follow-up sequences, document requests, deal stage updates, and multi-party coordination — so nothing falls through.',
+    workflow: ['Lead / CRM', 'Follow-up sent', 'Docs requested', 'Stage updated'],
+    items:    [
+      'Lead follow-up sequences by source',
+      'Document request and reminder automation',
+      'Deal stage tracking and next-action triggers',
+      'Multi-party coordination (agent, buyer, broker)',
+      'Compliance-ready communication logs',
+    ],
+    metrics:      ['Lead response time', 'Conversion rate', 'Deal completion time', 'Missing docs count'],
+    integrations: 'WhatsApp · Gmail · HubSpot / CRM · Google Drive',
   },
 ];
 
@@ -142,9 +188,9 @@ const STEPS = [
 ];
 
 const PAIN_CARDS = [
-  { emoji: '📋', title: 'You track it. It stays there.',   desc: "Every day you open the same list. You move things. You add comments. Nothing gets executed." },
-  { emoji: '📅', title: 'Follow-ups eat your calendar.',   desc: 'Reminders. Check-ins. Nudges. Manual messages. You spend more time chasing work than doing it.' },
-  { emoji: '⏳', title: 'Speed dies at handoff.',          desc: "Assigning a task takes longer than doing it. By the time it's delegated, context is already lost." },
+  { emoji: '📋', title: 'Your list grows. Nothing closes.', desc: "You track tasks. You move them. You comment on them. But the follow-through still requires you — every single time." },
+  { emoji: '📅', title: 'Follow-up is a full-time job.',   desc: 'Reminders. Nudges. Check-ins. Manual messages. You spend more calendar time chasing work than doing it. Things still slip.' },
+  { emoji: '⏳', title: 'Context dies at handoff.',        desc: "By the time a task is delegated, half the context is gone. The next action takes longer than the original work would have." },
 ];
 
 /* ─── Component ─────────────────────────────────────────────────── */
@@ -501,7 +547,12 @@ export default function LandingPage() {
                 <FontAwesomeIcon icon={f.icon} />
               </div>
               <h3 style={{ fontWeight: '700', fontSize: '15px', color: NAVY, marginBottom: '8px' }}>{f.title}</h3>
-              <p style={{ color: SLATE, fontSize: '14px', lineHeight: 1.65, margin: 0 }}>{f.desc}</p>
+              <p style={{ color: SLATE, fontSize: '14px', lineHeight: 1.65, marginBottom: f.trust ? '14px' : 0 }}>{f.desc}</p>
+              {f.trust && (
+                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600', letterSpacing: '0.01em', borderTop: `1px solid ${BORDER}`, paddingTop: '10px' }}>
+                  {f.trust}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -541,13 +592,53 @@ export default function LandingPage() {
           {/* Tab content */}
           {activeCase && (
             <div key={activeCase.id} className="lp-usecase-grid" style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', alignItems: 'center',
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', alignItems: 'start',
             }}>
+              {/* Left — headline, pain, body, CTA */}
               <div>
-                <h3 style={{ fontSize: '24px', fontWeight: '800', color: NAVY, letterSpacing: '-0.025em', marginBottom: '14px', lineHeight: 1.3 }}>
+                <div style={{
+                  display: 'inline-block', background: '#FEF2F2', color: '#DC2626',
+                  border: '1px solid #FECACA', borderRadius: '6px',
+                  padding: '3px 10px', fontSize: '12px', fontWeight: '600', marginBottom: '14px',
+                }}>
+                  {activeCase.pain}
+                </div>
+                <h3 style={{
+                  fontSize: '24px', fontWeight: '800', color: NAVY,
+                  letterSpacing: '-0.025em', marginBottom: '14px', lineHeight: 1.25,
+                  whiteSpace: 'pre-line',
+                }}>
                   {activeCase.headline}
                 </h3>
-                <p style={{ fontSize: '16px', color: SLATE, lineHeight: 1.7, marginBottom: '28px' }}>{activeCase.body}</p>
+                <p style={{ fontSize: '15px', color: SLATE, lineHeight: 1.7, marginBottom: '24px' }}>
+                  {activeCase.body}
+                </p>
+
+                {/* Workflow chain */}
+                <div style={{ marginBottom: '28px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '10px' }}>
+                    How it runs
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    {activeCase.workflow.map((step, i) => (
+                      <React.Fragment key={i}>
+                        <div style={{
+                          background: i === 0 ? '#F1F5F9' : i === activeCase.workflow.length - 1 ? '#ECFDF5' : BLUE_SOFT,
+                          color:      i === 0 ? '#475569' : i === activeCase.workflow.length - 1 ? '#059669' : BLUE,
+                          border:     `1px solid ${i === 0 ? '#E2E8F0' : i === activeCase.workflow.length - 1 ? '#A7F3D0' : '#BFDBFE'}`,
+                          borderRadius: '6px', padding: '4px 10px',
+                          fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap',
+                        }}>
+                          {step}
+                        </div>
+                        {i < activeCase.workflow.length - 1 && (
+                          <FontAwesomeIcon icon={faArrowRight} style={{ color: '#CBD5E1', fontSize: '10px', flexShrink: 0 }} />
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+
                 <Link to="/register">
                   <button className="lp-btn-primary" style={{
                     display: 'inline-flex', alignItems: 'center', gap: '7px',
@@ -559,22 +650,57 @@ export default function LandingPage() {
                   </button>
                 </Link>
               </div>
-              <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '26px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '18px' }}>
-                  What Taskara handles
-                </div>
-                {activeCase.items.map(item => (
-                  <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '13px' }}>
-                    <div style={{
-                      width: 18, height: 18, borderRadius: '50%',
-                      background: BLUE_SOFT, display: 'flex',
-                      alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px',
-                    }}>
-                      <FontAwesomeIcon icon={faCheck} style={{ color: BLUE, fontSize: '9px' }} />
-                    </div>
-                    <span style={{ fontSize: '14px', color: '#374151', lineHeight: 1.5 }}>{item}</span>
+
+              {/* Right — checklist + metrics + integrations */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Checklist */}
+                <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '22px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '16px' }}>
+                    What Taskara handles
                   </div>
-                ))}
+                  {activeCase.items.map(item => (
+                    <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '11px' }}>
+                      <div style={{
+                        width: 18, height: 18, borderRadius: '50%',
+                        background: BLUE_SOFT, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px',
+                      }}>
+                        <FontAwesomeIcon icon={faCheck} style={{ color: BLUE, fontSize: '9px' }} />
+                      </div>
+                      <span style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Metrics */}
+                <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '22px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '14px' }}>
+                    What gets measured
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    {activeCase.metrics.map(m => (
+                      <div key={m} style={{
+                        background: '#F8FAFC', border: `1px solid ${BORDER}`,
+                        borderRadius: '6px', padding: '8px 12px',
+                        fontSize: '12px', color: '#374151', fontWeight: '500',
+                      }}>
+                        {m}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Integrations */}
+                <div style={{
+                  background: BLUE_SOFT, border: '1px solid #BFDBFE',
+                  borderRadius: '10px', padding: '14px 18px',
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                }}>
+                  <FontAwesomeIcon icon={faPlug} style={{ color: BLUE, fontSize: '13px', flexShrink: 0 }} />
+                  <span style={{ fontSize: '12px', color: '#1D4ED8', fontWeight: '600' }}>
+                    {activeCase.integrations}
+                  </span>
+                </div>
               </div>
             </div>
           )}
