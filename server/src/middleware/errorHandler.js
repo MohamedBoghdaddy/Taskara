@@ -1,5 +1,5 @@
 const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
+  console.error(err?.stack || err?.message || err);
 
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(e => e.message);
@@ -17,6 +17,8 @@ const errorHandler = (err, req, res, next) => {
 
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
+    ...(err.code ? { code: err.code } : {}),
+    ...(err.details ? { details: err.details } : {}),
   });
 };
 

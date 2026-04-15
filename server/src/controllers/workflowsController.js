@@ -13,7 +13,9 @@ const {
   listExecutionItems,
   updateExecutionItem,
 } = require("../services/workflows/workflowService");
+const { syncOnboardingAfterApproval } = require("../services/operations/opsService");
 const { getWorkspaceMembership, getWorkspaceRole } = require("../services/workflows/assignmentService");
+const { assertWorkflowCreationAllowed } = require("../services/subscriptions/subscriptionUsageService");
 
 const parseBoolean = (value, fallback = false) => {
   if (value === undefined || value === null) return fallback;
@@ -85,10 +87,14 @@ const getItems = asyncHandler(async (req, res) => {
 
 const ingest = asyncHandler(async (req, res) => {
   const workspaceId = await requireWorkspaceAccess(req, ["owner", "admin", "editor"]);
+  const usageSummary = await assertWorkflowCreationAllowed(workspaceId, req.user._id);
   const result = await ingestWorkflowInput({
     workspaceId,
     userId: req.user._id,
-    autoExecute: parseBoolean(req.body?.autoExecute, true),
+    autoExecute:
+      usageSummary.planDef?.autoExecution === false
+        ? false
+        : parseBoolean(req.body?.autoExecute, true),
     ...req.body,
   });
   res.status(result.duplicate ? 200 : 201).json(result);
@@ -123,6 +129,11 @@ const approveItem = asyncHandler(async (req, res) => {
     decision: req.body.decision,
     comment: req.body?.comment || "",
   });
+  await syncOnboardingAfterApproval({
+    workspaceId,
+    item,
+    decision: req.body.decision,
+  }).catch(() => null);
   res.json(item);
 });
 

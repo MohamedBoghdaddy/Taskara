@@ -3,6 +3,28 @@ const ExecutionItem = require("../../models/ExecutionItem");
 const { getTemplate } = require("./helpers");
 
 const SYSTEM_OF_RECORD_ONLY = new Set(["ats", "crm", "google_drive", "notion", "clickup"]);
+const ALL_INTEGRATION_PROVIDERS = [
+  "email",
+  "slack",
+  "github",
+  "google_calendar",
+  "notion",
+  "clickup",
+  "whatsapp",
+  "ats",
+  "crm",
+  "google_drive",
+];
+const MASKED_SECRET = "[configured]";
+const SENSITIVE_KEYS = new Set([
+  "accessToken",
+  "refreshToken",
+  "clientSecret",
+  "apiKey",
+  "apiToken",
+  "webhookVerifyToken",
+  "webhookUrl",
+]);
 const DIRECT_PROVIDER_DETAILS = {
   email: () => {
     const configured = process.env.NODE_ENV !== "production" || (process.env.EMAIL_HOST && process.env.EMAIL_PORT);
@@ -17,17 +39,17 @@ const DIRECT_PROVIDER_DETAILS = {
     return {
       connected: true,
       ready: true,
-      status: doc.slack.defaultChannel ? "connected" : "connected_unlabeled_target",
+      status: doc.slack.defaultChannel ? "connected" : "connected_webhook_target",
       details: doc.slack.defaultChannel
         ? [`Default Slack target: ${doc.slack.defaultChannel}`]
-        : ["Slack webhook is connected but no default channel label is saved."],
+        : ["Slack webhook is connected and writable, but no human-readable channel label is saved."],
     };
   },
   github: (doc) => {
     if (!doc?.github?.accessToken) {
       return { connected: false, ready: false, status: "not_connected", details: ["GitHub access token is missing."] };
     }
-    const repo = doc.github.repos?.[0];
+    const repo = (doc.github.repos || []).find((entry) => entry?.owner && entry?.repo);
     if (!["export", "both"].includes(doc.github.syncDirection || "import")) {
       return {
         connected: true,
@@ -78,11 +100,12 @@ const DIRECT_PROVIDER_DETAILS = {
         details: ["Google Calendar is connected but push sync is disabled for this workspace."],
       };
     }
+    const targetCalendar = doc.googleCalendar.calendarId || "primary";
     return {
       connected: true,
       ready: true,
-      status: doc.googleCalendar.calendarId ? "connected" : "connected_needs_calendar_mapping",
-      details: [`Calendar target: ${doc.googleCalendar.calendarId || "primary"}`],
+      status: doc.googleCalendar.calendarId ? "connected" : "connected_default_primary",
+      details: [`Calendar target: ${targetCalendar}`],
     };
   },
   notion: (doc) => {
@@ -149,6 +172,31 @@ const PROTECTED_PROVIDER_DETAILS = {
   },
 };
 
+const maskSecrets = (value) => {
+  if (Array.isArray(value)) return value.map((entry) => maskSecrets(entry));
+  if (!value || typeof value !== "object") return value;
+
+  const clone = { ...value };
+  for (const [key, nestedValue] of Object.entries(clone)) {
+    if (SENSITIVE_KEYS.has(key) && nestedValue) {
+      clone[key] = MASKED_SECRET;
+      continue;
+    }
+    if (nestedValue && typeof nestedValue === "object") {
+      clone[key] = maskSecrets(nestedValue);
+    }
+  }
+  return clone;
+};
+
+const sanitizeIntegrationSettings = (doc, { readiness = null } = {}) => {
+  if (!doc) return null;
+  const sanitized = maskSecrets(doc.toObject ? doc.toObject() : doc);
+  delete sanitized.__v;
+  if (readiness) sanitized.readiness = readiness;
+  return sanitized;
+};
+
 const getConnectedProviders = async (workspaceId) => {
   const docs = await IntegrationSettings.find({ workspaceId, isActive: true });
   const providers = {};
@@ -162,10 +210,18 @@ const validateProviderMapping = async (workspaceId, provider, options = {}) => {
   const docs = options.docs || (await getConnectedProviders(workspaceId)).docs;
   if (DIRECT_PROVIDER_DETAILS[provider]) {
     const mapping = DIRECT_PROVIDER_DETAILS[provider](findProviderDoc(docs, provider));
-    return { provider, ...mapping };
+    return {
+      provider,
+      ...mapping,
+      writebackReady: Boolean(mapping.connected && mapping.ready),
+    };
   }
   if (PROTECTED_PROVIDER_DETAILS[provider]) {
-    return { provider, ...PROTECTED_PROVIDER_DETAILS[provider] };
+    return {
+      provider,
+      ...PROTECTED_PROVIDER_DETAILS[provider],
+      writebackReady: false,
+    };
   }
   return {
     provider,
@@ -173,6 +229,7 @@ const validateProviderMapping = async (workspaceId, provider, options = {}) => {
     ready: false,
     status: "not_connected",
     details: [`${provider} is not configured for this workspace.`],
+    writebackReady: false,
   };
 };
 
@@ -189,6 +246,25 @@ const buildIntegrationCoverage = async (workspaceId, audienceType) => {
         writeMode: SYSTEM_OF_RECORD_ONLY.has(provider) ? "protected" : "direct",
         status: mapping.status,
         details: mapping.details,
+        writebackReady: Boolean(mapping.writebackReady),
+      };
+    }),
+  );
+};
+
+const getIntegrationReadinessReport = async (workspaceId, providers = ALL_INTEGRATION_PROVIDERS) => {
+  const { docs } = await getConnectedProviders(workspaceId);
+  return Promise.all(
+    providers.map(async (provider) => {
+      const readiness = await validateProviderMapping(workspaceId, provider, { docs });
+      return {
+        provider,
+        connected: Boolean(readiness.connected),
+        ready: Boolean(readiness.ready),
+        status: readiness.status,
+        writebackReady: Boolean(readiness.writebackReady),
+        details: readiness.details || [],
+        settings: sanitizeIntegrationSettings(findProviderDoc(docs, provider), { readiness }),
       };
     }),
   );
@@ -249,9 +325,12 @@ const planProtectedSync = async ({ itemId, provider, reason }) =>
   });
 
 module.exports = {
+  ALL_INTEGRATION_PROVIDERS,
   buildIntegrationCoverage,
   getConnectedProviders,
+  getIntegrationReadinessReport,
   planProtectedSync,
   recordSyncResult,
+  sanitizeIntegrationSettings,
   validateProviderMapping,
 };

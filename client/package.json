@@ -38,6 +38,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:workflow-ui": "react-scripts test --watchAll=false --runInBand --testPathPattern=workflow",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

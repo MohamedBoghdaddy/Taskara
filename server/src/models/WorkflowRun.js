@@ -35,7 +35,7 @@ const workflowRunSchema = new mongoose.Schema(
       title: { type: String, default: "" },
       rawText: { type: String, default: "" },
       payload: { type: mongoose.Schema.Types.Mixed, default: {} },
-      triggerMode: { type: String, enum: ["manual", "connector", "webhook"], default: "manual" },
+      triggerMode: { type: String, enum: ["manual", "connector", "webhook", "onboarding", "verification"], default: "manual" },
     },
     extractionSummary: {
       itemCount: { type: Number, default: 0 },

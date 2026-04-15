@@ -172,6 +172,19 @@ const executionItemSchema = new mongoose.Schema(
       outcomeStatus: { type: String, default: "" },
       lastOutcomeAt: { type: Date, default: null },
     },
+    workerState: {
+      lockId: { type: String, default: "" },
+      lockExpiresAt: { type: Date, default: null },
+      lastPickedAt: { type: Date, default: null },
+      lastFinishedAt: { type: Date, default: null },
+      lastOutcome: {
+        type: String,
+        enum: ["idle", "picked", "skipped", "executed", "failed", "retry_scheduled"],
+        default: "idle",
+      },
+      lastError: { type: String, default: "" },
+      attemptCount: { type: Number, default: 0 },
+    },
     followUp: {
       active: { type: Boolean, default: false },
       cadenceStep: { type: Number, default: 0 },

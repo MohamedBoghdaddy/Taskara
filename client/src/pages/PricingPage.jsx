@@ -1,259 +1,329 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getCurrentPlan, upgradePlan } from '../api/index';
+import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import FeatureGuide from '../components/common/FeatureGuide';
+import { getAllPlans, getCurrentPlan, upgradePlan } from '../api';
 import {
-  GemFilledIcon, CheckIcon, CloseIcon, RocketIcon,
-  UsersIcon, BrainIcon, StarFilledIcon,
+  BrainIcon,
+  CheckIcon,
+  GemFilledIcon,
+  RocketIcon,
+  StarFilledIcon,
+  TrophyIcon,
+  UsersIcon,
+  WorkflowIcon,
 } from '../components/common/Icons';
 
-const PLANS = [
-  {
-    key: 'free',
-    name: 'Personal Starter',
-    price: 0,
-    period: 'forever',
-    tagline: 'Get started for free',
-    color: '#6b7280',
-    icon: <StarFilledIcon color="#6b7280" />,
-    features: [
-      'Inbox & capture',
-      'Basic notes & tasks',
-      'Today page',
-      'Pomodoro timer',
-      'Tags & search',
-      'Daily notes',
-      'Basic reminders',
-      'Limited templates',
-      '1 project, 1 workspace',
-      '100 MB storage',
+const PLAN_COPY = {
+  free: {
+    tagline: 'For a first operator validating one workflow wedge',
+    badge: 'Start here',
+    icon: <StarFilledIcon color="#64748b" />,
+    color: '#64748b',
+    highlights: [
+      'Manual approval required on risky actions',
+      'One connected system',
+      'Guided onboarding and demo mode',
+      'Basic workflow analytics',
     ],
-    missing: ['Backlinks & graph', 'Databases', 'Collaboration', 'AI features', 'Boards & Sprints'],
   },
-  {
-    key: 'pro',
-    name: 'Power User',
-    price: 10,
-    period: 'month',
-    tagline: 'For serious individuals',
-    color: '#6366f1',
-    badge: 'Most popular',
-    icon: <RocketIcon color="#6366f1" />,
-    features: [
-      'Everything in Free',
-      'Backlinks + knowledge graph',
-      'Unlimited projects',
-      'Advanced analytics & focus reports',
-      'Calendar view',
-      'Databases (limited)',
-      'Full templates',
-      'Advanced Pomodoro stats & streaks',
-      'Focus score & burnout detection',
-      '3 workspaces, 5 GB storage',
+  pro: {
+    tagline: 'For a single team running live execution every week',
+    badge: 'Best for first paying teams',
+    icon: <RocketIcon color="#0f766e" />,
+    color: '#0f766e',
+    highlights: [
+      'Auto-execution for safe actions',
+      'Basic connector writeback',
+      'Workflow usage alerts',
+      'Operational analytics',
     ],
-    missing: ['Collaboration / team features', 'Boards & Sprints', 'AI features'],
   },
-  {
-    key: 'team',
-    name: 'Collaboration',
-    price: 18,
-    period: 'user/month',
-    tagline: 'For startups & small teams',
-    color: '#8b5cf6',
-    icon: <UsersIcon color="#8b5cf6" />,
-    features: [
-      'Everything in Pro',
-      'Shared workspaces & teamspaces',
-      'Role-based permissions',
-      'Kanban boards & Sprints',
-      'Full databases & custom views',
-      'Automation rules engine',
-      'Webhooks & integrations',
-      'CSV export',
-      'Team analytics',
-      'Unlimited workspaces, 20 GB storage',
+  team: {
+    tagline: 'For multi-user operations with approvals and routing depth',
+    badge: 'Most common expansion',
+    icon: <UsersIcon color="#2563eb" />,
+    color: '#2563eb',
+    highlights: [
+      'Multi-user workflow ownership',
+      'Higher integration depth',
+      'Priority execution and analytics',
+      'Team routing and override visibility',
     ],
-    missing: ['AI features (add AI plan)'],
   },
-  {
-    key: 'ai',
-    name: 'Intelligence Layer',
-    price: 25,
-    period: 'month',
-    tagline: 'Your AI-powered second brain',
-    color: '#f59e0b',
-    badge: 'Best value',
-    icon: <BrainIcon color="#f59e0b" />,
-    features: [
-      'Everything in Pro or Team',
-      'AI note summaries & rewriting',
-      'AI task extraction from notes',
-      'Auto daily planning',
-      'Smart prioritization',
-      'Semantic search across workspace',
-      'Burnout detection & focus insights',
-      'Meeting notes → tasks',
-      'Voice → task capture',
-      'Knowledge Q&A chatbot',
-      'Auto-linking & backlinks',
-      'Unlimited storage',
+  enterprise: {
+    tagline: 'For high-volume operations with custom controls and support',
+    badge: 'Custom rollout',
+    icon: <BrainIcon color="#7c3aed" />,
+    color: '#7c3aed',
+    highlights: [
+      'Unlimited workflow volume',
+      'Advanced integration programs',
+      'Custom controls and support',
+      'Enterprise rollout readiness',
     ],
-    missing: [],
   },
-];
+};
+
+function UsageCard({ label, counter }) {
+  if (!counter) return null;
+  const percent = counter.unlimited ? 0 : Math.min(counter.percent || 0, 100);
+  return (
+    <div style={{ padding: '18px', borderRadius: '18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '700', marginBottom: '8px' }}>
+        {label}
+      </div>
+      <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>
+        {counter.used}
+        {!counter.unlimited ? <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '6px' }}>/ {counter.limit}</span> : null}
+      </div>
+      {!counter.unlimited ? (
+        <>
+          <div style={{ height: '8px', borderRadius: '999px', background: 'var(--surface-alt)', overflow: 'hidden' }}>
+            <div style={{ width: `${percent}%`, height: '100%', background: percent >= 90 ? 'var(--error)' : percent >= 75 ? '#f59e0b' : 'var(--primary)' }} />
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>{counter.remaining} remaining this month</div>
+        </>
+      ) : (
+        <div style={{ fontSize: '12px', color: 'var(--success)' }}>Unlimited on this plan</div>
+      )}
+    </div>
+  );
+}
 
 export default function PricingPage() {
-  const navigate  = useNavigate();
-  const [current,   setCurrent]   = useState(null);
-  const [currentLabel, setCurrentLabel] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [currentPlan, setCurrentPlan] = useState('free');
+  const [currentPlanDef, setCurrentPlanDef] = useState(null);
+  const [usage, setUsage] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
+  const [upgrading, setUpgrading] = useState('');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
-  const [upgrading, setUpgrading] = useState(null);
+
+  const goTo = (path) => {
+    if (typeof window !== 'undefined') window.location.assign(path);
+  };
 
   useEffect(() => {
-    getCurrentPlan()
-      .then(d => {
-        const planKey = d.subscription?.plan || 'free';
-        setCurrent(planKey);
-        setCurrentLabel(d.isPlatformAdmin ? 'Platform Admin' : d.planDef?.name || PLANS.find(p => p.key === planKey)?.name || 'Personal Starter');
-        setIsPlatformAdmin(Boolean(d.isPlatformAdmin));
+    Promise.all([getAllPlans(), getCurrentPlan()])
+      .then(([plansData, currentData]) => {
+        setPlans(plansData.plans || []);
+        setCurrentPlan(currentData.effectivePlan || currentData.subscription?.plan || 'free');
+        setCurrentPlanDef(currentData.planDef || null);
+        setUsage(currentData.usage || null);
+        setRecommendations(currentData.recommendations || []);
+        setIsPlatformAdmin(Boolean(currentData.isPlatformAdmin));
       })
-      .catch(() => {
-        setCurrent('free');
-        setCurrentLabel('Personal Starter');
+      .catch((error) => {
+        toast.error(error.response?.data?.error || 'Failed to load pricing');
       });
   }, []);
 
+  const orderedPlans = useMemo(
+    () => [...plans].sort((left, right) => {
+      const order = { free: 0, pro: 1, team: 2, enterprise: 3 };
+      return (order[left.key] ?? 99) - (order[right.key] ?? 99);
+    }),
+    [plans],
+  );
+
   const handleUpgrade = async (planKey) => {
-    if (planKey === current) return;
+    if (planKey === currentPlan || isPlatformAdmin) return;
     setUpgrading(planKey);
     try {
-      await upgradePlan(planKey);
-      setCurrent(planKey);
-      toast.success(`Upgraded to ${PLANS.find(p => p.key === planKey)?.name}!`);
-      setTimeout(() => navigate('/dashboard'), 1200);
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Upgrade failed');
-    } finally { setUpgrading(null); }
+      const data = await upgradePlan(planKey);
+      setCurrentPlan(data.effectivePlan || data.subscription?.plan || planKey);
+      setCurrentPlanDef(data.planDef || null);
+      setUsage(data.usage || usage);
+      toast.success(`Plan updated to ${data.planDef?.name || planKey}`);
+      setTimeout(() => goTo('/dashboard'), 1200);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Plan update failed');
+    } finally {
+      setUpgrading('');
+    }
   };
 
   return (
-    <div style={{ padding: '40px 32px', maxWidth: '1100px', margin: '0 auto' }}>
-      {/* How to use guide */}
+    <div style={{ padding: '40px 32px', maxWidth: '1180px', margin: '0 auto' }}>
       <FeatureGuide
-        storageKey="pricing-guide"
-        title="Plans & Pricing"
+        storageKey="workflow-pricing-guide"
+        title="Workflow Packaging"
         icon={<GemFilledIcon />}
-        description="Choose the plan that matches your workflow. You can upgrade or downgrade anytime. All plans include SSL encryption and regular backups."
+        description="Taskara pricing is tied to workflows executed, actions executed, and integrations connected. Packaging follows the operational load the workflow engine carries for each workspace."
         steps={[
-          { icon: <StarFilledIcon />, title: 'Start Free',    body: 'The Free plan includes all core features with no credit card required.' },
-          { icon: <RocketIcon />,    title: 'Go Pro',         body: 'Unlock backlinks, graph, analytics, and advanced Pomodoro stats.' },
-          { icon: <UsersIcon />,     title: 'Team up',        body: 'Collaboration plan adds shared workspaces, boards, sprints, and automations.' },
-          { icon: <BrainIcon />,     title: 'Add AI',         body: 'The AI plan adds summaries, auto-planning, smart search, and your second brain.' },
+          { icon: <WorkflowIcon />, title: 'Count workflows', body: 'Each workflow run consumes monthly workflow capacity.' },
+          { icon: <TrophyIcon />, title: 'Count actions', body: 'Executed actions track the real work Taskara completes.' },
+          { icon: <UsersIcon />, title: 'Count integrations', body: 'Connected systems are limited by plan depth, not just seat count.' },
+          { icon: <RocketIcon />, title: 'Upgrade on usage', body: 'Upgrade prompts appear when your current workflow volume approaches plan limits.' },
         ]}
         tips={[
-          'Upgrade mid-month — charges are prorated',
-          'Teams are billed per seat per month',
-          'Annual billing saves up to 20%',
-          'All data is preserved if you downgrade',
+          'Free is for guided setup and a small monthly volume',
+          'Pro unlocks live auto-execution for safe actions',
+          'Team is the first multi-user operating tier',
+          'Enterprise is for custom rollout and support',
         ]}
-        accentColor="#f59e0b"
+        accentColor="#0f766e"
       />
 
-      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>Simple, Transparent Pricing</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Start free. Upgrade when you need more power.</p>
-        {current && (
-          <p style={{ fontSize: '13px', color: 'var(--primary)', marginTop: '6px' }}>
-            Your current plan: <strong>{currentLabel || PLANS.find(p => p.key === current)?.name}</strong>
+      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <h1 style={{ fontSize: '30px', fontWeight: '800', marginBottom: '10px' }}>Workflow-based pricing</h1>
+        <p style={{ fontSize: '15px', color: 'var(--text-secondary)', margin: '0 auto', maxWidth: '760px', lineHeight: '1.8' }}>
+          Plans scale with the real operational work Taskara executes: workflow runs, actions completed, and integrations connected.
+        </p>
+        {currentPlanDef ? (
+          <p style={{ fontSize: '13px', color: 'var(--primary)', marginTop: '10px' }}>
+            Current package: <strong>{currentPlanDef.name}</strong>
           </p>
-        )}
-        {isPlatformAdmin && (
+        ) : null}
+        {isPlatformAdmin ? (
           <p style={{ fontSize: '13px', color: 'var(--success)', marginTop: '8px' }}>
-            Platform admins have unlimited feature access, workspace capacity, and storage.
+            Platform admin access bypasses workspace packaging limits.
           </p>
-        )}
+        ) : null}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-        {PLANS.map(plan => {
-          const isCurrent = current === plan.key;
+      {usage ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '28px' }}>
+          <div style={{ padding: '20px', borderRadius: '20px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '700', marginBottom: '8px' }}>
+              Package summary
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>
+              {currentPlanDef?.name || 'Workflow Free'}
+            </div>
+            <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.8' }}>
+              Auto-execution: <strong>{currentPlanDef?.autoExecution ? 'enabled' : 'manual'}</strong> · Manual approvals required: <strong>{currentPlanDef?.manualApprovalsRequired ? 'yes' : 'no'}</strong>
+            </div>
+            {(recommendations || []).length ? (
+              <div style={{ marginTop: '12px', display: 'grid', gap: '6px' }}>
+                {recommendations.map((message) => (
+                  <div key={message} style={{ fontSize: '12px', color: '#b45309', lineHeight: '1.6' }}>
+                    • {message}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <UsageCard label="Workflows this month" counter={usage.workflowsExecuted} />
+          <UsageCard label="Actions this month" counter={usage.actionsExecuted} />
+          <UsageCard label="Connected systems" counter={usage.integrationsConnected} />
+        </div>
+      ) : null}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+        {orderedPlans.map((plan) => {
+          const presentation = PLAN_COPY[plan.key] || PLAN_COPY.free;
+          const isCurrent = currentPlan === plan.key;
           return (
             <div
               key={plan.key}
               style={{
                 background: 'var(--surface)',
-                border: `2px solid ${isCurrent ? plan.color : 'var(--border)'}`,
-                borderRadius: '12px',
+                border: `2px solid ${isCurrent ? presentation.color : 'var(--border)'}`,
+                borderRadius: '18px',
                 padding: '24px',
                 position: 'relative',
-                transition: 'box-shadow 0.2s',
               }}
-              onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.boxShadow = `0 4px 20px ${plan.color}33`; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
             >
-              {/* Badge */}
-              {plan.badge && (
-                <div style={{
-                  position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)',
-                  background: plan.color, color: '#fff', fontSize: '11px', fontWeight: '700',
-                  padding: '3px 12px', borderRadius: '99px', whiteSpace: 'nowrap',
-                }}>
-                  {plan.badge}
+              {presentation.badge ? (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '-12px',
+                    left: '20px',
+                    background: presentation.color,
+                    color: '#fff',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                  }}
+                >
+                  {presentation.badge}
                 </div>
-              )}
-              {isCurrent && (
-                <div style={{
-                  position: 'absolute', top: '-12px', right: '16px',
-                  background: 'var(--success)', color: '#fff',
-                  fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '99px',
-                  display: 'flex', alignItems: 'center', gap: '4px',
-                }}>
+              ) : null}
+              {isCurrent ? (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '-12px',
+                    right: '20px',
+                    background: 'var(--success)',
+                    color: '#fff',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
                   <CheckIcon size="xs" /> Current
                 </div>
-              )}
+              ) : null}
 
-              {/* Plan header */}
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: plan.color, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {plan.icon} {plan.name}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: presentation.color }}>
+                {presentation.icon}
+                <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {plan.name}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '32px', fontWeight: '800', color: 'var(--text-primary)' }}>${plan.price}</span>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>/{plan.period}</span>
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{plan.tagline}</div>
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                {plan.priceLabel || `$${plan.price}`}
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                / {plan.billingPeriod || 'month'}
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.7', marginBottom: '18px', minHeight: '44px' }}>
+                {presentation.tagline}
               </div>
 
-              {/* CTA */}
               <button
                 onClick={() => handleUpgrade(plan.key)}
                 disabled={isCurrent || isPlatformAdmin || upgrading === plan.key}
                 style={{
-                  width: '100%', padding: '10px', borderRadius: 'var(--radius)',
-                  border: 'none', cursor: isCurrent || isPlatformAdmin ? 'default' : 'pointer',
-                  background: isCurrent ? 'var(--surface-alt)' : plan.color,
+                  width: '100%',
+                  padding: '11px 14px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: isCurrent || isPlatformAdmin ? 'default' : 'pointer',
+                  background: isCurrent ? 'var(--surface-alt)' : presentation.color,
                   color: isCurrent ? 'var(--text-muted)' : '#fff',
-                  fontWeight: '600', fontSize: '14px', marginBottom: '20px',
-                  opacity: upgrading && upgrading !== plan.key ? 0.7 : 1,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  marginBottom: '18px',
                 }}
               >
-                {upgrading === plan.key ? 'Upgrading…' : isCurrent ? 'Current Plan' : isPlatformAdmin ? 'Included with Admin' : plan.price === 0 ? 'Get Started Free' : `Upgrade to ${plan.name}`}
+                {upgrading === plan.key
+                  ? 'Updating…'
+                  : isCurrent
+                    ? 'Current package'
+                    : isPlatformAdmin
+                      ? 'Included with admin'
+                      : plan.key === 'enterprise'
+                        ? 'Switch to enterprise'
+                        : `Upgrade to ${plan.name}`}
               </button>
 
-              {/* Features */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {plan.features.map(f => (
-                  <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'grid', gap: '8px', marginBottom: '16px' }}>
+                {[
+                  `${plan.workflowLimit === -1 ? 'Unlimited' : plan.workflowLimit} workflows / month`,
+                  `${plan.actionLimit === -1 ? 'Unlimited' : plan.actionLimit} actions / month`,
+                  `${plan.integrationLimit === -1 ? 'Unlimited' : plan.integrationLimit} integrations`,
+                  plan.autoExecution ? 'Auto-execution enabled' : 'Manual execution mode',
+                ].map((line) => (
+                  <div key={line} style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                     <CheckIcon size="xs" style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
-                    <span>{f}</span>
+                    <span>{line}</span>
                   </div>
                 ))}
-                {plan.missing.map(f => (
-                  <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: 'var(--text-muted)', opacity: 0.6 }}>
-                    <CloseIcon size="xs" style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <span>{f}</span>
+              </div>
+
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {presentation.highlights.map((feature) => (
+                  <div key={feature} style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                    • {feature}
                   </div>
                 ))}
               </div>
@@ -261,10 +331,6 @@ export default function PricingPage() {
           );
         })}
       </div>
-
-      <p style={{ textAlign: 'center', marginTop: '32px', fontSize: '13px', color: 'var(--text-muted)' }}>
-        All plans include SSL encryption, regular backups, and priority support. Cancel anytime.
-      </p>
     </div>
   );
 }

@@ -14,7 +14,7 @@ const isPlatformAdminUser = (user) => (
 );
 
 const ADMIN_PLAN_DEF = {
-  ...PLANS.ai,
+  ...PLANS.enterprise,
   name: 'Platform Admin',
   projectLimit: -1,
   workspaceLimit: -1,
@@ -25,7 +25,7 @@ const buildAdminSubscription = (user, workspaceId) => ({
   _id: 'platform-admin',
   workspaceId,
   userId: user?._id,
-  plan: 'ai',
+  plan: 'enterprise',
   effectivePlan: 'admin',
   status: 'active',
   isPlatformAdmin: true,

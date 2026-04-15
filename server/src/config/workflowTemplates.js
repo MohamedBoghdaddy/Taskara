@@ -46,6 +46,12 @@ const WORKFLOW_TEMPLATES = {
     syncTargets: ["ats", "google_calendar", "email"],
     syncSummary: "ATS, Google Calendar, and email stay in sync with every touchpoint.",
     trustControls: BASE_TRUST_CONTROLS,
+    onboarding: {
+      requiredIntegration: "email",
+      recommendedFallbackIntegration: "google_calendar",
+      demoWorkflowType: "candidate_outreach",
+      savedMinutesEstimate: 18,
+    },
     stages: [
       { id: "sourced", label: "Sourced", color: "#94A3B8" },
       { id: "contacted", label: "Contacted", color: "#2563EB" },
@@ -171,6 +177,12 @@ const WORKFLOW_TEMPLATES = {
     syncTargets: ["slack", "github", "notion", "clickup"],
     syncSummary: "Slack, GitHub, and project docs stay aligned without manual updates.",
     trustControls: BASE_TRUST_CONTROLS,
+    onboarding: {
+      requiredIntegration: "slack",
+      recommendedFallbackIntegration: "github",
+      demoWorkflowType: "issue_routing",
+      savedMinutesEstimate: 22,
+    },
     stages: [
       { id: "captured", label: "Captured", color: "#94A3B8" },
       { id: "triaged", label: "Triaged", color: "#2563EB" },
@@ -287,6 +299,12 @@ const WORKFLOW_TEMPLATES = {
     syncTargets: ["email", "slack", "whatsapp", "clickup", "notion"],
     syncSummary: "Client comms and project systems stay current without account managers chasing updates.",
     trustControls: BASE_TRUST_CONTROLS,
+    onboarding: {
+      requiredIntegration: "email",
+      recommendedFallbackIntegration: "slack",
+      demoWorkflowType: "approval_chase",
+      savedMinutesEstimate: 20,
+    },
     stages: [
       { id: "brief_received", label: "Brief received", color: "#94A3B8" },
       { id: "scoped", label: "Scoped", color: "#2563EB" },
@@ -409,6 +427,12 @@ const WORKFLOW_TEMPLATES = {
     syncTargets: ["crm", "whatsapp", "email", "google_drive", "google_calendar"],
     syncSummary: "CRM records, document requests, and follow-up history stay aligned across the deal.",
     trustControls: BASE_TRUST_CONTROLS,
+    onboarding: {
+      requiredIntegration: "email",
+      recommendedFallbackIntegration: "whatsapp",
+      demoWorkflowType: "document_chase",
+      savedMinutesEstimate: 25,
+    },
     stages: [
       { id: "new_lead", label: "New lead", color: "#94A3B8" },
       { id: "contacted", label: "Contacted", color: "#2563EB" },

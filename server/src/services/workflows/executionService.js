@@ -9,6 +9,7 @@ const StartupInitiative = require("../../models/StartupInitiative");
 const githubService = require("../integrations/githubService");
 const googleCalendarService = require("../integrations/googleCalendarService");
 const { sendSlackMessage } = require("../integrations/slackService");
+const { assertActionExecutionAllowed } = require("../subscriptions/subscriptionUsageService");
 const { sendEmail } = require("../../utils/email");
 const {
   addDays,
@@ -431,6 +432,8 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
   };
 
   try {
+    await assertActionExecutionAllowed(item.workspaceId, userId);
+
     if (action.channel === "email") {
       const emailPayload = await buildEmailPayload(item, actionId);
       if (!emailPayload.to) {
@@ -560,6 +563,9 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
   } catch (error) {
     actionLog.status = "failed";
     actionLog.reason = error.message || "Action failed";
+    if (Number(error?.status) === 402) {
+      item.status = "blocked";
+    }
     item.auditTrail.push(
       buildAuditEntry(
         "note",

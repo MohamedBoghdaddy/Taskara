@@ -1,44 +1,110 @@
 /**
  * Subscription — tracks each workspace's current plan.
- * Plans: free | pro | team | ai
+ * Plans are workflow-volume based rather than seat-only.
  */
 const mongoose = require('mongoose');
 
 const PLANS = {
   free: {
-    name:           'Personal Starter',
+    name:           'Workflow Free',
     price:          0,
+    priceLabel:     '$0',
+    billingPeriod:  'month',
+    workflowLimit:  15,
+    actionLimit:    60,
+    integrationLimit: 1,
+    seatGuidance:   '1 operator',
+    autoExecution:  false,
+    manualApprovalsRequired: true,
     projectLimit:   1,
     workspaceLimit: 1,
     storageGB:      0.1,
-    features: ['inbox','notes_basic','tasks_basic','today','pomodoro_basic','tags','search_basic','daily_notes','templates_limited','reminders_basic'],
-    blocked:  ['backlinks','graph','databases','collaboration','ai','advanced_analytics','boards','sprints','timeline','canvas','webhooks','automations','version_history','csv_export'],
+    features: [
+      'inbox','notes_basic','tasks_basic','today','pomodoro_basic','tags','search_basic','daily_notes',
+      'templates_limited','reminders_basic','workflow_core','workflow_demo_mode','workflow_manual_approvals',
+      'workflow_usage_meter'
+    ],
+    blocked:  [
+      'backlinks','graph','databases','collaboration','ai','advanced_analytics','boards','sprints','timeline',
+      'canvas','webhooks','automations','version_history','csv_export','workflow_auto_execution',
+      'workflow_advanced_analytics','workflow_priority_execution'
+    ],
   },
   pro: {
-    name:           'Power User',
-    price:          10,
+    name:           'Workflow Pro',
+    price:          79,
+    priceLabel:     '$79',
+    billingPeriod:  'month',
+    workflowLimit:  250,
+    actionLimit:    1200,
+    integrationLimit: 3,
+    seatGuidance:   'up to 3 operators',
+    autoExecution:  true,
+    manualApprovalsRequired: false,
     projectLimit:   -1, // unlimited
     workspaceLimit: 3,
     storageGB:      5,
-    features: ['inbox','notes','tasks','today','pomodoro','tags','search','daily_notes','templates','reminders','backlinks','graph','calendar','databases_limited','custom_views','analytics','focus_reports'],
+    features: [
+      'inbox','notes','tasks','today','pomodoro','tags','search','daily_notes','templates','reminders','backlinks',
+      'graph','calendar','databases_limited','custom_views','analytics','focus_reports','workflow_core',
+      'workflow_auto_execution','workflow_usage_meter','workflow_analytics','workflow_priority_execution'
+    ],
     blocked:  ['collaboration','ai','sprints','timeline','canvas','webhooks','automations','teamspaces'],
   },
   team: {
-    name:           'Collaboration',
-    price:          18,
+    name:           'Workflow Team',
+    price:          249,
+    priceLabel:     '$249',
+    billingPeriod:  'month',
+    workflowLimit:  1500,
+    actionLimit:    8000,
+    integrationLimit: 8,
+    seatGuidance:   'multi-user team',
+    autoExecution:  true,
+    manualApprovalsRequired: false,
     projectLimit:   -1,
     workspaceLimit: -1,
     storageGB:      20,
-    features: ['inbox','notes','tasks','today','pomodoro','tags','search','daily_notes','templates','reminders','backlinks','graph','calendar','databases','custom_views','analytics','focus_reports','collaboration','boards','sprints','automations','teamspaces','timeline','csv_export','webhooks'],
+    features: [
+      'inbox','notes','tasks','today','pomodoro','tags','search','daily_notes','templates','reminders','backlinks',
+      'graph','calendar','databases','custom_views','analytics','focus_reports','collaboration','boards','sprints',
+      'automations','teamspaces','timeline','csv_export','webhooks','workflow_core','workflow_auto_execution',
+      'workflow_usage_meter','workflow_analytics','workflow_priority_execution','workflow_team_routing'
+    ],
     blocked:  ['ai'],
   },
-  ai: {
-    name:           'Intelligence Layer',
-    price:          25,
+  enterprise: {
+    name:           'Workflow Enterprise',
+    price:          999,
+    priceLabel:     'Custom',
+    billingPeriod:  'month',
+    workflowLimit:  -1,
+    actionLimit:    -1,
+    integrationLimit: -1,
+    seatGuidance:   'custom',
+    autoExecution:  true,
+    manualApprovalsRequired: false,
     projectLimit:   -1,
     workspaceLimit: -1,
     storageGB:      50,
     features: ['*'], // all features
+    blocked:  [],
+  },
+  ai: {
+    name:           'Workflow Enterprise',
+    price:          999,
+    priceLabel:     'Custom',
+    billingPeriod:  'month',
+    workflowLimit:  -1,
+    actionLimit:    -1,
+    integrationLimit: -1,
+    seatGuidance:   'custom',
+    autoExecution:  true,
+    manualApprovalsRequired: false,
+    projectLimit:   -1,
+    workspaceLimit: -1,
+    storageGB:      50,
+    features: ['*'],
     blocked:  [],
   },
 };

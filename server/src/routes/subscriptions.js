@@ -3,8 +3,13 @@ const router       = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const Subscription = require('../models/Subscription');
-const { PLANS }    = require('../models/Subscription');
 const { ADMIN_PLAN_DEF, buildAdminSubscription, isPlatformAdminUser } = require('../utils/platformAdmin');
+const {
+  getOrCreateSubscription,
+  getUsageSummary,
+  getVisiblePlans,
+  normalizePlanKey,
+} = require('../services/subscriptions/subscriptionUsageService');
 
 const getWorkspaceId = (req) => req.user.defaultWorkspaceId?.toString();
 
@@ -14,26 +19,30 @@ router.get('/current', authenticate, asyncHandler(async (req, res) => {
     return res.json({
       subscription: buildAdminSubscription(req.user, getWorkspaceId(req)),
       planDef: ADMIN_PLAN_DEF,
+      usage: {
+        workflowsExecuted: { used: 0, limit: -1, remaining: -1, unlimited: true, percent: 0 },
+        actionsExecuted: { used: 0, limit: -1, remaining: -1, unlimited: true, percent: 0 },
+        integrationsConnected: { used: 0, limit: -1, remaining: -1, unlimited: true, percent: 0 },
+      },
       isPlatformAdmin: true,
     });
   }
 
-  let sub = await Subscription.findOne({ workspaceId: getWorkspaceId(req) });
-  if (!sub) {
-    // Auto-create free plan
-    sub = await Subscription.create({
-      workspaceId: getWorkspaceId(req),
-      userId:      req.user._id,
-      plan:        'free',
-      status:      'active',
-    });
-  }
-  res.json({ subscription: sub, planDef: PLANS[sub.plan], isPlatformAdmin: false });
+  const summary = await getUsageSummary(getWorkspaceId(req), req.user._id);
+  res.json({
+    subscription: summary.subscription,
+    effectivePlan: summary.planKey,
+    planDef: summary.planDef,
+    usage: summary.limits,
+    usageCounters: summary.usage,
+    recommendations: summary.recommendations,
+    isPlatformAdmin: false,
+  });
 }));
 
 // GET /api/subscriptions/plans — list all plans
 router.get('/plans', asyncHandler(async (req, res) => {
-  res.json({ plans: PLANS });
+  res.json({ plans: getVisiblePlans() });
 }));
 
 // POST /api/subscriptions/upgrade — upgrade plan (mock for now)
@@ -46,15 +55,17 @@ router.post('/upgrade', authenticate, asyncHandler(async (req, res) => {
     });
   }
 
-  const { plan } = req.body;
-  if (!PLANS[plan]) return res.status(400).json({ error: 'Invalid plan' });
+  const requestedPlan = normalizePlanKey(req.body?.plan);
+  const availablePlans = new Set(getVisiblePlans().map((plan) => plan.key));
+  if (!availablePlans.has(requestedPlan)) return res.status(400).json({ error: 'Invalid plan' });
 
   const sub = await Subscription.findOneAndUpdate(
     { workspaceId: getWorkspaceId(req) },
-    { plan, status: 'active', currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+    { plan: requestedPlan, status: 'active', currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
     { upsert: true, new: true }
   );
-  res.json({ subscription: sub, planDef: PLANS[plan] });
+  const summary = await getUsageSummary(getWorkspaceId(req), req.user._id);
+  res.json({ subscription: sub, effectivePlan: summary.planKey, planDef: summary.planDef, usage: summary.limits });
 }));
 
 // GET /api/subscriptions/check/:feature — check if workspace has feature
@@ -63,9 +74,9 @@ router.get('/check/:feature', authenticate, asyncHandler(async (req, res) => {
     return res.json({ allowed: true, plan: 'admin', isPlatformAdmin: true });
   }
 
-  const sub = await Subscription.findOne({ workspaceId: getWorkspaceId(req) });
+  const sub = await getOrCreateSubscription(getWorkspaceId(req), req.user._id);
   if (!sub) return res.json({ allowed: req.params.feature === 'free' });
-  res.json({ allowed: sub.hasFeature(req.params.feature), plan: sub.plan, isPlatformAdmin: false });
+  res.json({ allowed: sub.hasFeature(req.params.feature), plan: normalizePlanKey(sub.plan), isPlatformAdmin: false });
 }));
 
 module.exports = router;

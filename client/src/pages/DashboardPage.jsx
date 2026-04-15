@@ -17,7 +17,14 @@ import {
   getWorkflowDashboard,
   ingestWorkflowInput,
 } from "../api/workflows";
+import {
+  completeOnboarding,
+  getOnboardingStatus,
+  runOnboardingDemo,
+  selectOnboardingAudience,
+} from "../api/operations";
 import { AUDIENCE_CONTENT, AUDIENCE_LIST } from "../data/workflowAudienceContent";
+import { getCurrentPlan } from "../api";
 import { useAuthStore } from "../store/authStore";
 
 const tone = {
@@ -32,6 +39,16 @@ const tone = {
   paused: { bg: "#fef3c7", color: "#92400e" },
   failed: { bg: "#fee2e2", color: "#b91c1c" },
 };
+
+const formatLabel = (value = "") => String(value).replace(/_/g, " ");
+
+const getLatestSyncLog = (item) => {
+  const syncLogs = item?.syncLogs || [];
+  return syncLogs.length ? syncLogs[syncLogs.length - 1] : null;
+};
+
+const hasScheduledFollowUp = (item) =>
+  Boolean(item?.followUp?.active || (item?.actionLogs || []).some((entry) => entry.status === "scheduled"));
 
 function StatCard({ label, value, detail, icon }) {
   return (
@@ -74,6 +91,59 @@ function MetricCard({ label, value }) {
   );
 }
 
+function UsageMeter({ label, usage }) {
+  if (!usage) return null;
+  const percent = usage.unlimited ? 0 : Math.min(usage.percent || 0, 100);
+  return (
+    <div style={{ padding: "14px", borderRadius: "18px", background: "#ffffff", border: "1px solid rgba(148,163,184,0.16)" }}>
+      <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: "8px" }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", marginBottom: "8px" }}>
+        <div style={{ fontSize: "22px", fontWeight: 900, letterSpacing: "-0.04em", color: "#0f172a" }}>
+          {usage.used}
+          {!usage.unlimited ? <span style={{ fontSize: "12px", color: "#64748b", marginLeft: "6px" }}>/ {usage.limit}</span> : null}
+        </div>
+        <div style={{ fontSize: "12px", color: percent >= 90 ? "#b91c1c" : percent >= 75 ? "#b45309" : "#0f766e", fontWeight: 800 }}>
+          {usage.unlimited ? "Unlimited" : `${percent}% used`}
+        </div>
+      </div>
+      {!usage.unlimited ? (
+        <div style={{ height: "8px", borderRadius: "999px", background: "#e2e8f0", overflow: "hidden" }}>
+          <div style={{ width: `${percent}%`, height: "100%", background: percent >= 90 ? "#ef4444" : percent >= 75 ? "#f59e0b" : "#0f766e" }} />
+        </div>
+      ) : null}
+      <div style={{ fontSize: "12px", color: "#64748b", marginTop: "8px" }}>
+        {usage.unlimited ? "No plan cap" : `${usage.remaining} remaining this month`}
+      </div>
+    </div>
+  );
+}
+
+function WarningStrip({ items = [] }) {
+  if (!items.length) return null;
+  return (
+    <div style={{ display: "grid", gap: "10px", marginBottom: "24px" }}>
+      {items.map((entry) => (
+        <div
+          key={`${entry.kind}-${entry.message}`}
+          style={{
+            padding: "14px 16px",
+            borderRadius: "18px",
+            background: entry.kind === "danger" ? "#fff1f2" : "#fff7ed",
+            border: `1px solid ${entry.kind === "danger" ? "rgba(244,63,94,0.18)" : "rgba(251,146,60,0.22)"}`,
+            color: entry.kind === "danger" ? "#be123c" : "#9a3412",
+            fontSize: "13px",
+            lineHeight: 1.7,
+          }}
+        >
+          <strong>{entry.title}</strong> {entry.message}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ActionButton({ label, onClick, disabled, variant = "secondary" }) {
   const palette =
     variant === "primary"
@@ -103,8 +173,151 @@ function ActionButton({ label, onClick, disabled, variant = "secondary" }) {
   );
 }
 
-function WorkflowItemCard({ item, onApprove, onReject, onPause, onResume, onCancel, onRun, onClaim }) {
+function OnboardingPanel({
+  onboarding,
+  audience,
+  saving,
+  onSelectAudience,
+  onRunDemo,
+  onComplete,
+  onConnectIntegration,
+}) {
+  if (!onboarding || onboarding.completedAt) return null;
+
+  const stepTone = (step) =>
+    onboarding.currentStep === step
+      ? { bg: "rgba(15,118,110,0.10)", border: "rgba(15,118,110,0.18)", color: "#0f766e" }
+      : onboarding.currentStep > step
+        ? { bg: "#dcfce7", border: "rgba(34,197,94,0.18)", color: "#15803d" }
+        : { bg: "#ffffff", border: "rgba(148,163,184,0.18)", color: "#475569" };
+
+  return (
+    <div style={{ padding: "24px", borderRadius: "24px", background: "rgba(255,255,255,0.94)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: "0 18px 60px rgba(15,23,42,0.06)", marginBottom: "24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "14px", flexWrap: "wrap", marginBottom: "18px" }}>
+        <div>
+          <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "8px" }}>
+            First 10 users onboarding
+          </div>
+          <div style={{ fontSize: "26px", fontWeight: 900, letterSpacing: "-0.04em", color: "#0f172a", marginBottom: "8px" }}>
+            Run one guided workflow before you go live
+          </div>
+          <div style={{ fontSize: "14px", lineHeight: 1.8, color: "#475569", maxWidth: "860px" }}>
+            Taskara will walk through source, action, result, and approval using the live workflow engine. Demo mode stays available when the required connector is not ready yet.
+          </div>
+        </div>
+        <div style={{ minWidth: "260px", padding: "16px 18px", borderRadius: "18px", background: onboarding.integrationReady ? "#ecfdf5" : "#fff7ed", border: `1px solid ${onboarding.integrationReady ? "rgba(16,185,129,0.18)" : "rgba(251,146,60,0.18)"}` }}>
+          <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "8px" }}>
+            Required integration
+          </div>
+          <div style={{ fontSize: "20px", fontWeight: 800, letterSpacing: "-0.03em", color: "#0f172a", marginBottom: "6px" }}>
+            {onboarding.requiredIntegration || "Not selected yet"}
+          </div>
+          <div style={{ fontSize: "13px", color: "#475569", lineHeight: 1.7 }}>
+            {onboarding.integrationReady
+              ? "Writeback ready for the guided run."
+              : onboarding.demoAvailable
+                ? "Not ready yet. You can still use demo mode for the first walkthrough."
+                : onboarding.integrationStatus?.details?.[0] || "This integration still needs setup."}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px", marginBottom: "18px" }}>
+        {[1, 2, 3, 4, 5, 6].map((step) => {
+          const toneValue = stepTone(step);
+          const labels = {
+            1: "Choose workflow",
+            2: "Connect one tool",
+            3: "Run guided workflow",
+            4: "Approve or reject",
+            5: "Review the result",
+            6: "Run your real workflow",
+          };
+          return (
+            <div key={step} style={{ padding: "12px 14px", borderRadius: "16px", background: toneValue.bg, border: `1px solid ${toneValue.border}`, color: toneValue.color }}>
+              <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "6px" }}>
+                Step {step}
+              </div>
+              <div style={{ fontSize: "13px", fontWeight: 700, lineHeight: 1.5 }}>{labels[step]}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "grid", gap: "16px" }}>
+        <div>
+          <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "10px" }}>
+            Step 1
+          </div>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {AUDIENCE_LIST.map((entry) => (
+              <button
+                key={entry.key}
+                onClick={() => onSelectAudience(entry.key)}
+                disabled={saving}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "999px",
+                  border: `1px solid ${audience === entry.key ? "rgba(15,118,110,0.18)" : "rgba(148,163,184,0.18)"}`,
+                  background: audience === entry.key ? "rgba(15,118,110,0.10)" : "#ffffff",
+                  color: audience === entry.key ? "#0f766e" : "#334155",
+                  fontWeight: 800,
+                  cursor: saving ? "not-allowed" : "pointer",
+                }}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <ActionButton label="Open integrations" onClick={onConnectIntegration} />
+          <ActionButton label={saving ? "Preparing..." : "Run guided demo"} variant="primary" onClick={onRunDemo} disabled={saving} />
+          {onboarding.currentStep >= 5 ? (
+            <ActionButton label="Run your real workflow" variant="primary" onClick={onComplete} disabled={saving} />
+          ) : null}
+        </div>
+
+        <div style={{ padding: "16px 18px", borderRadius: "18px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.14)" }}>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginBottom: "8px" }}>
+            Current guided state
+          </div>
+          <div style={{ fontSize: "13px", color: "#475569", lineHeight: 1.8 }}>
+            {onboarding.resultSummary || "Choose a workflow type, connect one required integration, or start the guided demo."}
+          </div>
+          {onboarding.currentStep >= 4 ? (
+            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "10px" }}>
+              {onboarding.approvalDecision
+                ? `Approval decision recorded: ${onboarding.approvalDecision}.`
+                : "Use the approval buttons on the workflow item below to complete the trust check."}
+            </div>
+          ) : null}
+          {onboarding.currentStep >= 5 ? (
+            <div style={{ fontSize: "12px", color: "#0f766e", marginTop: "10px", fontWeight: 700 }}>
+              Estimated manual time removed: about {onboarding.savedMinutesEstimate || 0} minutes on the first run.
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowItemCard({
+  item,
+  onApprove,
+  onReject,
+  onPause,
+  onResume,
+  onCancel,
+  onRun,
+  onClaim,
+  onStopFollowUp,
+  onUndo,
+}) {
   const statusTone = tone[item.status] || tone.ready;
+  const latestSync = getLatestSyncLog(item);
   return (
     <div
       style={{
@@ -120,7 +333,7 @@ function WorkflowItemCard({ item, onApprove, onReject, onPause, onResume, onCanc
           <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", marginBottom: "8px" }}>
             <div style={{ fontSize: "18px", fontWeight: 800, letterSpacing: "-0.03em", color: "#0f172a" }}>{item.title}</div>
             <div style={{ padding: "6px 10px", borderRadius: "999px", background: statusTone.bg, color: statusTone.color, fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {String(item.status).replace(/_/g, " ")}
+              {formatLabel(item.status)}
             </div>
           </div>
           <div style={{ fontSize: "14px", lineHeight: 1.7, color: "#475569", maxWidth: "820px" }}>{item.description || item.sourceContext?.excerpt}</div>
@@ -154,6 +367,34 @@ function WorkflowItemCard({ item, onApprove, onReject, onPause, onResume, onCanc
               Due {new Date(item.dueAt).toLocaleString()}
             </div>
           ) : null}
+        </div>
+        <div style={{ padding: "14px", borderRadius: "16px", background: "#f8fafc" }}>
+          <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: "8px" }}>
+            Linked task and outcome
+          </div>
+          <div style={{ fontSize: "13px", lineHeight: 1.7, color: "#334155" }}>
+            {item.linkedTaskId ? `Linked task: ${item.linkedTaskId}` : "No linked task yet."}
+          </div>
+          <div style={{ fontSize: "12px", color: "#64748b", marginTop: "6px" }}>
+            {item.traceability?.outcomeSummary || "Outcome trace will appear here after execution."}
+          </div>
+        </div>
+        <div style={{ padding: "14px", borderRadius: "16px", background: "#f8fafc" }}>
+          <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: "8px" }}>
+            Follow-up and sync state
+          </div>
+          <div style={{ fontSize: "13px", lineHeight: 1.7, color: "#334155" }}>
+            {item.followUp?.stopReason
+              ? `Follow-up stopped: ${formatLabel(item.followUp.stopReason)}`
+              : item.followUp?.active
+                ? `Next follow-up ${item.followUp.nextRunAt ? new Date(item.followUp.nextRunAt).toLocaleString() : "scheduled"}`
+                : "No active follow-up cadence."}
+          </div>
+          <div style={{ fontSize: "12px", color: "#64748b", marginTop: "6px" }}>
+            {latestSync
+              ? `${latestSync.provider}: ${formatLabel(latestSync.status)}${latestSync.details?.reason ? ` - ${latestSync.details.reason}` : latestSync.details?.error ? ` - ${latestSync.details.error}` : ""}`
+              : "No sync attempts recorded yet."}
+          </div>
         </div>
       </div>
 
@@ -191,6 +432,10 @@ function WorkflowItemCard({ item, onApprove, onReject, onPause, onResume, onCanc
         )}
         <ActionButton label="Cancel" variant="danger" onClick={onCancel} />
         <ActionButton label="Route to me" onClick={onClaim} />
+        {hasScheduledFollowUp(item) ? <ActionButton label="Stop follow-up" onClick={onStopFollowUp} /> : null}
+        {(item.actionLogs || []).some((entry) => entry.status === "executed") ? (
+          <ActionButton label="Undo last action" onClick={onUndo} />
+        ) : null}
       </div>
 
       <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: "8px" }}>
@@ -214,6 +459,8 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const [audience, setAudience] = useState("startups");
   const [dashboard, setDashboard] = useState(null);
+  const [onboarding, setOnboarding] = useState(null);
+  const [planState, setPlanState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -223,11 +470,21 @@ export default function DashboardPage() {
     autoExecute: true,
   });
 
+  const goTo = (path) => {
+    if (typeof window !== "undefined") window.location.assign(path);
+  };
+
   const refresh = useCallback(async (nextAudience = audience) => {
     setLoading(true);
     try {
-      const data = await getWorkflowDashboard(nextAudience);
+      const [data, onboardingData, planData] = await Promise.all([
+        getWorkflowDashboard(nextAudience),
+        getOnboardingStatus().catch(() => null),
+        getCurrentPlan().catch(() => null),
+      ]);
       setDashboard(data);
+      setOnboarding(onboardingData?.onboarding || null);
+      setPlanState(planData || null);
     } catch (error) {
       toast.error(error.response?.data?.error || "Failed to load execution hub");
     } finally {
@@ -238,6 +495,12 @@ export default function DashboardPage() {
   useEffect(() => {
     refresh(audience);
   }, [audience, refresh]);
+
+  useEffect(() => {
+    if (onboarding?.currentStep > 1 && onboarding?.audienceType && onboarding.audienceType !== audience) {
+      setAudience(onboarding.audienceType);
+    }
+  }, [audience, onboarding?.audienceType, onboarding?.currentStep]);
 
   useEffect(() => {
     const readsFirst = dashboard?.audience?.readsFirst;
@@ -288,6 +551,76 @@ export default function DashboardPage() {
   };
 
   const audienceInfo = AUDIENCE_CONTENT[audience];
+  const blockers = [
+    ...(dashboard?.integrationCoverage || [])
+      .filter((entry) => !entry.writebackReady)
+      .slice(0, 3)
+      .map((entry) => ({
+        kind: "warning",
+        title: `${entry.provider} needs attention.`,
+        message: entry.details?.[0] || "Writeback is not ready for this workflow.",
+      })),
+    ...(dashboard?.summary?.pendingApprovals
+      ? [
+          {
+            kind: "danger",
+            title: "Approvals waiting.",
+            message: `${dashboard.summary.pendingApprovals} risky action(s) are paused until an operator approves or rejects them.`,
+          },
+        ]
+      : []),
+    ...(planState?.recommendations || []).slice(0, 2).map((message) => ({
+      kind: "warning",
+      title: "Plan limit approaching.",
+      message,
+    })),
+  ];
+
+  const handleSelectAudience = async (nextAudience) => {
+    setSaving(true);
+    try {
+      const data = await selectOnboardingAudience(nextAudience);
+      setOnboarding(data.onboarding);
+      setAudience(nextAudience);
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Failed to update onboarding workflow type");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRunDemo = async () => {
+    setSaving(true);
+    try {
+      await runOnboardingDemo(audience);
+      toast.success("Guided workflow started");
+      await refresh(audience);
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Failed to run guided onboarding");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCompleteOnboarding = async () => {
+    setSaving(true);
+    try {
+      const result = await completeOnboarding();
+      setOnboarding(result.onboarding);
+      const example = dashboard?.emptyStateExample || {};
+      setForm((current) => ({
+        ...current,
+        sourceType: example.sourceType || current.sourceType,
+        title: example.title || current.title,
+        text: example.text || current.text,
+      }));
+      toast.success("Guided onboarding completed");
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Failed to complete onboarding");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div
@@ -349,12 +682,48 @@ export default function DashboardPage() {
           <div style={{ padding: "60px", textAlign: "center", color: "#64748b" }}>Loading workflow execution data...</div>
         ) : (
           <>
+            <OnboardingPanel
+              onboarding={onboarding}
+              audience={audience}
+              saving={saving}
+              onSelectAudience={handleSelectAudience}
+              onRunDemo={handleRunDemo}
+              onComplete={handleCompleteOnboarding}
+              onConnectIntegration={() => goTo("/integrations")}
+            />
+
+            <WarningStrip items={blockers} />
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginBottom: "24px" }}>
               <StatCard label="Active workflows" value={dashboard.summary.activeCount} detail="Execution items currently moving through the workflow." icon={<WorkflowIcon size="sm" color="#0f766e" />} />
               <StatCard label="Pending approvals" value={dashboard.summary.pendingApprovals} detail="Risky external actions waiting for operator approval." icon={<ShieldIcon size="sm" color="#0f766e" />} />
               <StatCard label="Completed this week" value={dashboard.summary.completedThisWeek} detail="Workflow items that reached a finished state in the last 7 days." icon={<CheckCircleIcon size="sm" color="#0f766e" />} />
               <StatCard label="Scheduled follow-ups" value={dashboard.summary.scheduledFollowUps} detail="Active sequences with timing controls and stop conditions." icon={<ClockIcon size="sm" color="#0f766e" />} />
             </div>
+
+            {planState ? (
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) repeat(auto-fit, minmax(210px, 1fr))", gap: "14px", marginBottom: "24px" }}>
+                <div style={{ padding: "22px", borderRadius: "24px", background: "rgba(255,255,255,0.92)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: "0 18px 60px rgba(15,23,42,0.06)" }}>
+                  <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "10px" }}>
+                    Current package
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: "26px", fontWeight: 900, letterSpacing: "-0.04em", color: "#0f172a", marginBottom: "6px" }}>
+                        {planState.planDef?.name || "Workflow Free"}
+                      </div>
+                      <div style={{ fontSize: "14px", color: "#475569", lineHeight: 1.8, maxWidth: "620px" }}>
+                        Pricing is based on workflows executed, actions executed, and integrations connected. Upgrade when usage or automation depth outgrows the current package.
+                      </div>
+                    </div>
+                    <ActionButton label="See pricing" onClick={() => goTo("/pricing")} />
+                  </div>
+                </div>
+                <UsageMeter label="Workflows / month" usage={planState.usage?.workflowsExecuted} />
+                <UsageMeter label="Actions / month" usage={planState.usage?.actionsExecuted} />
+                <UsageMeter label="Integrations" usage={planState.usage?.integrationsConnected} />
+              </div>
+            ) : null}
 
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)", gap: "18px", marginBottom: "24px" }}>
               <div style={{ padding: "24px", borderRadius: "24px", background: "rgba(255,255,255,0.92)", border: "1px solid rgba(148,163,184,0.18)", boxShadow: "0 18px 60px rgba(15,23,42,0.06)" }}>
@@ -368,14 +737,15 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() =>
+                    onClick={() => {
+                      const example = dashboard.emptyStateExample || {};
                       setForm((current) => ({
                         ...current,
-                        sourceType: dashboard.emptyStateExample.sourceType,
-                        title: dashboard.emptyStateExample.title,
-                        text: dashboard.emptyStateExample.text,
-                      }))
-                    }
+                        sourceType: example.sourceType || current.sourceType,
+                        title: example.title || current.title,
+                        text: example.text || current.text,
+                      }));
+                    }}
                     style={{
                       padding: "10px 14px",
                       borderRadius: "999px",
@@ -466,10 +836,20 @@ export default function DashboardPage() {
                   </div>
                   <div style={{ display: "grid", gap: "10px" }}>
                     {dashboard.integrationCoverage.map((entry) => (
-                      <div key={entry.provider} style={{ padding: "12px 14px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.14)", display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
-                        <div style={{ fontWeight: 700, color: "#0f172a" }}>{entry.provider}</div>
-                        <div style={{ fontSize: "12px", fontWeight: 800, color: entry.connected ? "#0f766e" : "#b45309" }}>
-                          {entry.status.replace(/_/g, " ")}
+                      <div key={entry.provider} style={{ padding: "12px 14px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.14)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
+                          <div style={{ fontWeight: 700, color: "#0f172a" }}>{entry.provider}</div>
+                          <div style={{ fontSize: "12px", fontWeight: 800, color: entry.connected ? "#0f766e" : "#b45309" }}>
+                            {formatLabel(entry.status)}
+                          </div>
+                        </div>
+                        {entry.details?.[0] ? (
+                          <div style={{ fontSize: "12px", color: "#64748b", lineHeight: 1.6, marginTop: "6px" }}>
+                            {entry.details[0]}
+                          </div>
+                        ) : null}
+                        <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "6px" }}>
+                          {entry.connected ? "Connected" : "Not connected"} | {entry.ready ? "Writeback ready" : "Needs attention"}
                         </div>
                       </div>
                     ))}
@@ -502,6 +882,8 @@ export default function DashboardPage() {
                       onCancel={() => runItemAction(() => controlWorkflowItem(item._id, "cancel"), "Workflow cancelled")}
                       onRun={() => runItemAction(() => executeWorkflowItem(item._id), "Ready actions executed")}
                       onClaim={() => runItemAction(() => assignWorkflowItem(item._id, user?._id), "You now own this workflow item")}
+                      onStopFollowUp={() => runItemAction(() => controlWorkflowItem(item._id, "stop_followup"), "Follow-up cadence stopped")}
+                      onUndo={() => runItemAction(() => controlWorkflowItem(item._id, "undo_last_action"), "Last action reset for review")}
                     />
                   ))
                 )}
@@ -540,6 +922,20 @@ export default function DashboardPage() {
                       Migration safety preview
                     </div>
                   </div>
+                  <div style={{ marginBottom: "12px", fontSize: "13px", color: dashboard.migrationPreview?.validation?.readyToImport ? "#0f766e" : "#b45309" }}>
+                    {dashboard.migrationPreview?.validation?.readyToImport
+                      ? "Mapping looks safe for preview."
+                      : "Preview found field warnings that need review before import."}
+                  </div>
+                  {(dashboard.migrationPreview?.validation?.warnings || []).length ? (
+                    <div style={{ display: "grid", gap: "8px", marginBottom: "12px" }}>
+                      {dashboard.migrationPreview.validation.warnings.map((warning) => (
+                        <div key={warning} style={{ padding: "10px 12px", borderRadius: "14px", background: "#fff7ed", border: "1px solid rgba(251,146,60,0.18)", color: "#9a3412", fontSize: "12px", lineHeight: 1.6 }}>
+                          {warning}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   <div style={{ display: "grid", gap: "10px" }}>
                     {(dashboard.migrationPreview?.mappingPreview || []).map((entry) => (
                       <div key={entry.sourceField} style={{ padding: "12px 14px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.14)" }}>
@@ -547,6 +943,9 @@ export default function DashboardPage() {
                         <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a" }}>{entry.targetField}</div>
                       </div>
                     ))}
+                    {(dashboard.migrationPreview?.mappingPreview || []).length === 0 ? (
+                      <div style={{ color: "#475569", lineHeight: 1.7 }}>No migration mappings are loaded for this audience yet.</div>
+                    ) : null}
                   </div>
                 </div>
 

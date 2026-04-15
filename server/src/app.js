@@ -35,6 +35,7 @@ const subscriptionsRoutes = require("./routes/subscriptions");
 const noteVersionsRoutes = require("./routes/noteVersions");
 const integrationsRoutes = require("./routes/integrations");
 const workflowsRoutes = require("./routes/workflows");
+const operationsRoutes = require("./routes/operations");
 
 const app = express();
 const corsOrigin = createCorsOriginHandler();
@@ -91,6 +92,7 @@ app.use("/api/subscriptions", subscriptionsRoutes);
 app.use("/api/note-versions", noteVersionsRoutes);
 app.use("/api/integrations", integrationsRoutes);
 app.use("/api/workflows", workflowsRoutes);
+app.use("/api/ops", operationsRoutes);
 
 app.use(errorHandler);
 

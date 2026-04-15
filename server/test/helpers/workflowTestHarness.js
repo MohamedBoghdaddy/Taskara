@@ -17,8 +17,10 @@ const RealEstateLead = require("../../src/models/RealEstateLead");
 const StartupInitiative = require("../../src/models/StartupInitiative");
 const Task = require("../../src/models/Task");
 const User = require("../../src/models/User");
+const WorkerJobRun = require("../../src/models/WorkerJobRun");
 const WorkflowRun = require("../../src/models/WorkflowRun");
 const Workspace = require("../../src/models/Workspace");
+const WorkspaceOperationalState = require("../../src/models/WorkspaceOperationalState");
 const WorkspaceMember = require("../../src/models/WorkspaceMember");
 
 const parseResponse = async (response) => {
@@ -174,8 +176,10 @@ const createHarness = async () => {
     StartupInitiative,
     Task,
     User,
+    WorkerJobRun,
     WorkflowRun,
     Workspace,
+    WorkspaceOperationalState,
     WorkspaceMember,
     authHeadersFor,
     close,

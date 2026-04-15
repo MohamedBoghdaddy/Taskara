@@ -204,6 +204,7 @@ function ImportResult({ result, color = 'success' }) {
 
 export default function IntegrationsPage() {
   const [connected, setConnected] = useState({});
+  const [providerReadiness, setProviderReadiness] = useState({});
   const [loadingConnected, setLoadingConnected] = useState(true);
 
   // ── load connected state on mount ─────────────────────────────────────────
@@ -211,6 +212,9 @@ export default function IntegrationsPage() {
     try {
       const data = await api.getConnected();
       setConnected(data.connected || {});
+      setProviderReadiness(
+        Object.fromEntries((data.providers || []).map((entry) => [entry.provider, entry])),
+      );
     } catch (_) {}
     finally { setLoadingConnected(false); }
   }, []);
@@ -273,24 +277,34 @@ export default function IntegrationsPage() {
       {/* Status summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', marginBottom: '24px' }}>
         {[
+          { key: 'email',            label: 'Email' },
           { key: 'slack',            label: 'Slack' },
           { key: 'github',           label: 'GitHub' },
           { key: 'google_calendar',  label: 'Google Calendar' },
           { key: 'notion',           label: 'Notion' },
           { key: 'whatsapp',         label: 'WhatsApp' },
           { key: 'clickup',          label: 'ClickUp' },
-        ].map(({ key, label }) => (
+        ].map(({ key, label }) => {
+          const readiness = providerReadiness[key];
+          const ready = readiness?.writebackReady;
+          const connectedState = key === 'email' ? readiness?.connected : connected[key];
+          return (
           <div key={key} style={{
             padding: '10px 12px', background: 'var(--surface)',
-            border: `1px solid ${connected[key] ? 'var(--success)44' : 'var(--border)'}`,
+            border: `1px solid ${ready ? 'var(--success)44' : connectedState ? 'rgba(245,158,11,0.28)' : 'var(--border)'}`,
             borderRadius: 'var(--radius)',
           }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
-            <div style={{ fontSize: '13px', fontWeight: '600', color: connected[key] ? 'var(--success)' : 'var(--text-muted)' }}>
-              {connected[key] ? '● Connected' : '○ Not connected'}
+            <div style={{ fontSize: '13px', fontWeight: '600', color: ready ? 'var(--success)' : connectedState ? '#b45309' : 'var(--text-muted)' }}>
+              {ready ? '● Ready' : connectedState ? '◐ Needs setup' : '○ Not connected'}
             </div>
+            {readiness?.details?.[0] ? (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: '1.5' }}>
+                {readiness.details[0]}
+              </div>
+            ) : null}
           </div>
-        ))}
+        )})}
       </div>
 
       {/* ── Todoist ─────────────────────────────────────────────────────────── */}

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { updateProfile } from '../api/auth';
+import { getOperationsOverview, runConnectorVerification, runWorkflowVerification } from '../api/operations';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import FeatureGuide from '../components/common/FeatureGuide';
@@ -9,6 +10,7 @@ import {
   UserPlusIcon, UsersIcon, SaveIcon, TimerIcon, SliderIcon, CheckIcon,
   InfoIcon, FlashIcon, SunIcon, MoonIcon, LayoutIcon,
   LockIcon, KeyIcon, UserShieldIcon, AlarmIcon, ClockIcon, BreakIcon,
+  WorkflowIcon, PlugIcon, AnalyticsIcon, ShieldIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 
@@ -32,6 +34,9 @@ export default function SettingsPage() {
     defaultLongBreakMinutes: preferences?.defaultLongBreakMinutes || 15,
   });
   const [saving, setSaving] = useState(false);
+  const [opsOverview, setOpsOverview] = useState(null);
+  const [opsLoading, setOpsLoading] = useState(true);
+  const [opsAction, setOpsAction] = useState('');
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -59,13 +64,64 @@ export default function SettingsPage() {
     } catch { toast.error('Failed to save'); } finally { setSaving(false); }
   };
 
+  const loadOpsOverview = useCallback(async () => {
+    setOpsLoading(true);
+    try {
+      const data = await getOperationsOverview();
+      setOpsOverview(data);
+    } catch (error) {
+      if (error.response?.status !== 403) {
+        toast.error(error.response?.data?.error || 'Failed to load production readiness status');
+      }
+    } finally {
+      setOpsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOpsOverview();
+  }, [loadOpsOverview]);
+
+  const handleRunWorkflowTest = async (audienceType) => {
+    setOpsAction(`workflow-${audienceType}`);
+    try {
+      const data = await runWorkflowVerification(audienceType);
+      toast.success(data.result?.passed ? `${audienceType} workflow test passed` : `${audienceType} workflow test finished with blockers`);
+      await loadOpsOverview();
+    } catch (error) {
+      toast.error(error.response?.data?.error || `Failed to run ${audienceType} workflow test`);
+    } finally {
+      setOpsAction('');
+    }
+  };
+
+  const handleRunConnectorTest = async (provider) => {
+    setOpsAction(`connector-${provider}`);
+    try {
+      const data = await runConnectorVerification(provider);
+      toast.success(data.result?.passed ? `${provider} connector test passed` : `${provider} connector test finished with warnings`);
+      await loadOpsOverview();
+    } catch (error) {
+      toast.error(error.response?.data?.error || `Failed to test ${provider}`);
+    } finally {
+      setOpsAction('');
+    }
+  };
+
   const sectionStyle = { padding: '24px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: '20px' };
   const sectionHeadStyle = { fontSize: '15px', fontWeight: '600', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' };
   const numInputStyle = { width: '100%', padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' };
   const labelStyle = { fontSize: '13px', fontWeight: '500', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' };
 
+  const sectionCard = { padding: '20px', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' };
+  const launchTone = opsOverview?.launchStatus?.status === 'green'
+    ? { bg: 'var(--success)12', border: 'var(--success)44', color: 'var(--success)' }
+    : opsOverview?.launchStatus?.status === 'yellow'
+      ? { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.28)', color: '#b45309' }
+      : { bg: 'rgba(239,68,68,0.10)', border: 'rgba(239,68,68,0.24)', color: '#b91c1c' };
+
   return (
-    <div style={{ padding: '32px', maxWidth: '600px' }}>
+    <div style={{ padding: '32px', maxWidth: '1040px' }}>
 
       <FeatureGuide
         storageKey="settings-guide"
@@ -207,6 +263,193 @@ export default function SettingsPage() {
           ))}
         </div>
       </div>
+
+      {/* Production readiness */}
+      {opsOverview ? (
+        <div style={sectionStyle}>
+          <h2 style={sectionHeadStyle}>
+            <ShieldIcon style={{ color: 'var(--primary)' }} size="sm" />
+            Production Readiness
+          </h2>
+
+          <div style={{ ...sectionCard, background: launchTone.bg, borderColor: launchTone.border, marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  Launch Status
+                </div>
+                <div style={{ fontSize: '26px', fontWeight: '800', color: launchTone.color, marginBottom: '6px' }}>
+                  {opsOverview.launchStatus?.go ? 'GO' : 'NO-GO'}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.7' }}>
+                  System mode: <strong>{opsOverview.system?.mode}</strong> · Worker: <strong>{opsOverview.workerHealth?.status}</strong> · Approval system: <strong>{opsOverview.approvalSystem?.status}</strong>
+                </div>
+              </div>
+              <Button variant="secondary" onClick={loadOpsOverview} disabled={opsLoading}>
+                {opsLoading ? 'Refreshing…' : 'Refresh status'}
+              </Button>
+            </div>
+            {(opsOverview.launchStatus?.blockers || []).length ? (
+              <div style={{ marginTop: '14px', display: 'grid', gap: '8px' }}>
+                {opsOverview.launchStatus.blockers.map((reason) => (
+                  <div key={reason} style={{ fontSize: '12px', color: launchTone.color, lineHeight: '1.6' }}>
+                    • {reason}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {(opsOverview.launchStatus?.warnings || []).length ? (
+              <div style={{ marginTop: '12px', display: 'grid', gap: '8px' }}>
+                {opsOverview.launchStatus.warnings.map((reason) => (
+                  <div key={reason} style={{ fontSize: '12px', color: '#b45309', lineHeight: '1.6' }}>
+                    • {reason}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+            {[
+              { label: 'Workflow success', value: `${opsOverview.monitoring?.workflowSuccessRate || 0}%`, icon: <WorkflowIcon size="sm" /> },
+              { label: 'Failed execution %', value: `${opsOverview.monitoring?.failedExecutionPct || 0}%`, icon: <AnalyticsIcon size="sm" /> },
+              { label: 'Connector failure %', value: `${opsOverview.monitoring?.connectorFailureRate || 0}%`, icon: <PlugIcon size="sm" /> },
+              { label: 'Worker errors', value: String(opsOverview.monitoring?.workerJobs?.errorCount || 0), icon: <ShieldIcon size="sm" /> },
+            ].map((card) => (
+              <div key={card.label} style={sectionCard}>
+                <div style={{ marginBottom: '8px', color: 'var(--primary)' }}>{card.icon}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '6px' }}>
+                  {card.label}
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)' }}>{card.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '16px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gap: '16px' }}>
+              <div style={sectionCard}>
+                <div style={sectionHeadStyle}>
+                  <ShieldIcon size="sm" style={{ color: 'var(--primary)' }} />
+                  Launch Checklist
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {(opsOverview.checklist || []).map((entry) => (
+                    <div key={entry.key} style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '6px' }}>
+                        <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{entry.label}</strong>
+                        <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: entry.status === 'ready' ? 'var(--success)' : entry.status === 'blocked' ? 'var(--error)' : '#b45309' }}>
+                          {entry.status}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{entry.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={sectionCard}>
+                <div style={sectionHeadStyle}>
+                  <WorkflowIcon size="sm" style={{ color: 'var(--primary)' }} />
+                  Workflow Verification
+                </div>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {['recruiters', 'startups', 'agencies', 'realestate'].map((audienceType) => {
+                    const result = (opsOverview.workflowTests || []).find((entry) => entry.key === audienceType);
+                    return (
+                      <div key={audienceType} style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
+                          <strong style={{ fontSize: '13px', color: 'var(--text-primary)', textTransform: 'capitalize' }}>{audienceType.replace('realestate', 'real estate')}</strong>
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleRunWorkflowTest(audienceType)}
+                            disabled={opsAction === `workflow-${audienceType}`}
+                            style={{ fontSize: '12px', padding: '8px 10px' }}
+                          >
+                            {opsAction === `workflow-${audienceType}` ? 'Running…' : 'Run workflow test'}
+                          </Button>
+                        </div>
+                        <div style={{ fontSize: '12px', color: result?.passed ? 'var(--success)' : result?.status === 'warning' ? '#b45309' : 'var(--text-muted)', marginBottom: '6px' }}>
+                          {result ? `${result.status} · ${result.lastRunAt ? new Date(result.lastRunAt).toLocaleString() : 'not run yet'}` : 'Not run yet'}
+                        </div>
+                        {(result?.reasons || []).slice(0, 2).map((reason) => (
+                          <div key={reason} style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                            • {reason}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '16px' }}>
+              <div style={sectionCard}>
+                <div style={sectionHeadStyle}>
+                  <PlugIcon size="sm" style={{ color: 'var(--primary)' }} />
+                  Connector Readiness
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {(opsOverview.connectorReadiness || []).map((entry) => (
+                    <div key={entry.provider} style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '6px' }}>
+                        <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{entry.provider}</strong>
+                        <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: entry.writebackReady ? 'var(--success)' : entry.connected ? '#b45309' : 'var(--text-muted)' }}>
+                          {entry.writebackReady ? 'ready' : entry.status}
+                        </span>
+                      </div>
+                      {(entry.details || []).slice(0, 1).map((detail) => (
+                        <div key={detail} style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '8px' }}>
+                          {detail}
+                        </div>
+                      ))}
+                      {['email', 'slack', 'github', 'google_calendar'].includes(entry.provider) ? (
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleRunConnectorTest(entry.provider)}
+                          disabled={opsAction === `connector-${entry.provider}`}
+                          style={{ fontSize: '12px', padding: '8px 10px' }}
+                        >
+                          {opsAction === `connector-${entry.provider}` ? 'Testing…' : entry.provider === 'slack' ? 'Send test message' : entry.provider === 'google_calendar' ? 'Create test event' : 'Run connector test'}
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={sectionCard}>
+                <div style={sectionHeadStyle}>
+                  <AnalyticsIcon size="sm" style={{ color: 'var(--primary)' }} />
+                  Recent Verification Logs
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {[...(opsOverview.workflowTests || []), ...(opsOverview.connectorTests || [])]
+                    .sort((left, right) => new Date(right.lastRunAt || 0) - new Date(left.lastRunAt || 0))
+                    .slice(0, 6)
+                    .map((entry) => (
+                      <div key={`${entry.key}-${entry.lastRunAt || 'none'}`} style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
+                          {entry.label || entry.key}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                          {entry.status} · {entry.lastRunAt ? new Date(entry.lastRunAt).toLocaleString() : 'not run yet'}
+                        </div>
+                        {(entry.logs || []).slice(0, 2).map((log) => (
+                          <div key={log} style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                            • {log}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  {opsLoading ? <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loading recent logs…</div> : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
