@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const path = require("path");
 const { errorHandler } = require("./middleware/errorHandler");
+const { createCorsOriginHandler } = require("./config/origins");
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 const authRoutes = require("./routes/auth");
@@ -35,6 +36,7 @@ const noteVersionsRoutes = require("./routes/noteVersions");
 const integrationsRoutes = require("./routes/integrations");
 
 const app = express();
+const corsOrigin = createCorsOriginHandler();
 
 app.use(
   helmet({
@@ -43,7 +45,7 @@ app.use(
 );
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: corsOrigin,
     credentials: true,
   }),
 );

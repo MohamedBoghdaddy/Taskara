@@ -15,8 +15,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAuthStore } from '../store/authStore';
-
-const SOCKET_URL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+import { SOCKET_URL } from '../api/base';
 
 let sharedSocket = null; // module-level singleton
 

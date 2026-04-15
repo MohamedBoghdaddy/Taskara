@@ -6,6 +6,7 @@ import FeatureGuide from '../components/common/FeatureGuide';
 import Tooltip from '../components/common/Tooltip';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { buildApiUrl } from '../api/base';
 import {
   BacklogIcon, SprintIcon, TaskIcon, AddIcon, EditIcon, DeleteIcon,
   PlayIcon, CheckCircleIcon, CloseIcon, DragIcon, MoveIcon,
@@ -25,7 +26,7 @@ const authHeader = () => {
 };
 
 const api = async (method, path, body) => {
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(buildApiUrl(path), {
     method, headers: authHeader(),
     body: body ? JSON.stringify(body) : undefined,
   });

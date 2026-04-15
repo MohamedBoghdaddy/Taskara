@@ -16,7 +16,6 @@ const BLUE      = '#2563EB';
 const BLUE_SOFT = '#EFF6FF';
 const BLUE_MID  = '#60A5FA';
 const NAVY      = '#0F172A';
-const NAVBAR_BG = '#FCFCFC';
 const SLATE     = '#64748B';
 const BORDER    = '#E2E8F0';
 
@@ -194,6 +193,7 @@ const PAIN_CARDS = [
   { emoji: '⏳', title: 'Context dies at handoff.',        desc: "By the time a task is delegated, half the context is gone. The next action takes longer than the original work would have." },
 ];
 
+
 /* ─── Component ─────────────────────────────────────────────────── */
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState('recruiters');
@@ -230,21 +230,21 @@ export default function LandingPage() {
 
   /* ════════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ minHeight: '100vh', background: '#FFFFFF', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div className="lp-page" style={{ minHeight: '100vh', background: '#FFFFFF', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
 
       {/* ══ NAVBAR ════════════════════════════════════════════════ */}
-      <header style={{
+      <header className={`lp-navbar${scrolled ? ' is-scrolled' : ''}`} style={{
         position: 'sticky', top: 0, zIndex: 100, height: '64px',
         padding: '0 48px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background:    scrolled ? 'rgba(252, 252, 252, 0.57)' : NAVBAR_BG,
+        background:    scrolled ? 'rgba(252, 252, 252, 0.57)' : '#FCFCFC',
         backdropFilter: scrolled ? 'blur(12px)'            : 'none',
         borderBottom:  scrolled ? `1px solid ${BORDER}`   : '1px solid transparent',
         transition: 'background 0.25s, border-color 0.25s, backdrop-filter 0.25s',
       }}>
         {/* Logo */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
-          <img src={logo1} alt="Taskara" style={{ height: '34px', objectFit: 'contain' }} />
+        <Link to="/" className="lp-brand-link" style={{ display: 'flex', alignItems: 'center' }}>
+          <img src={logo1} alt="Taskara" className="lp-brand-logo" style={{ height: '34px', objectFit: 'contain' }} />
         </Link>
 
         {/* Nav links */}
@@ -258,9 +258,9 @@ export default function LandingPage() {
         </nav>
 
         {/* Auth CTAs */}
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="lp-navbar-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <Link to="/login">
-            <button className="lp-btn-ghost" style={{
+            <button className="lp-btn-ghost lp-navbar-button lp-navbar-button-ghost" style={{
               padding: '8px 20px', background: 'none',
               border: `1px solid ${BORDER}`, borderRadius: '8px',
               cursor: 'pointer', color: '#374151', fontWeight: '500', fontSize: '14px',
@@ -269,7 +269,7 @@ export default function LandingPage() {
             </button>
           </Link>
           <Link to="/register">
-            <button className="lp-btn-primary" style={{
+            <button className="lp-btn-primary lp-navbar-button lp-navbar-button-primary" style={{
               padding: '8px 20px', background: BLUE, border: 'none',
               borderRadius: '8px', cursor: 'pointer', color: '#fff',
               fontWeight: '600', fontSize: '14px',

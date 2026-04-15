@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Button from '../components/common/Button';
 import toast from 'react-hot-toast';
 import client from '../api/client';
+import { buildApiUrl } from '../api/base';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
   PlugIcon, CloudIcon, CheckCircleIcon, ExternalLinkIcon,
@@ -988,7 +989,7 @@ function WhatsAppSection({ connected, onConnected, onDisconnect }) {
     finally { setLoading(false); }
   };
 
-  const webhookUrl = `${window.location.origin.replace('3000', '5000')}/api/integrations/whatsapp/webhook`;
+  const webhookUrl = buildApiUrl('/integrations/whatsapp/webhook');
 
   return (
     <IntegrationCard

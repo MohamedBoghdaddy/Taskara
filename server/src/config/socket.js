@@ -8,13 +8,16 @@
  */
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { createCorsOriginHandler } = require('./origins');
 
 let io;
 
 function initSocket(httpServer) {
+  const corsOrigin = createCorsOriginHandler();
+
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || '*',
+      origin: corsOrigin,
       methods: ['GET', 'POST'],
       credentials: true,
     },
