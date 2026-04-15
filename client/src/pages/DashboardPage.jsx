@@ -201,7 +201,7 @@ function WorkflowItemCard({ item, onApprove, onReject, onPause, onResume, onCanc
           <div key={`${entry.type}-${index}`} style={{ padding: "12px 14px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.14)" }}>
             <div style={{ fontSize: "13px", color: "#0f172a", fontWeight: 700 }}>{entry.message}</div>
             <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
-              {new Date(entry.at).toLocaleString()} · {entry.actorType}
+              {new Date(entry.at).toLocaleString()} | {entry.actorType}
             </div>
           </div>
         ))}
@@ -541,7 +541,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div style={{ display: "grid", gap: "10px" }}>
-                    {dashboard.migrationPreview.mappingPreview.map((entry) => (
+                    {(dashboard.migrationPreview?.mappingPreview || []).map((entry) => (
                       <div key={entry.sourceField} style={{ padding: "12px 14px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.14)" }}>
                         <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "4px" }}>{entry.sourceField}</div>
                         <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a" }}>{entry.targetField}</div>
@@ -575,7 +575,7 @@ export default function DashboardPage() {
                       <div key={run._id} style={{ padding: "12px 14px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.14)" }}>
                         <div style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a", marginBottom: "4px" }}>{run.input?.title || audienceInfo.label}</div>
                         <div style={{ fontSize: "13px", color: "#475569", lineHeight: 1.7 }}>
-                          {run.workflowType} · {run.status} · {run.extractionSummary?.itemCount || 0} item(s)
+                          {run.workflowType} | {run.status} | {run.extractionSummary?.itemCount || 0} item(s)
                         </div>
                       </div>
                     ))}

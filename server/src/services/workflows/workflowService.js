@@ -342,7 +342,7 @@ const createExecutionItemDocs = async ({
       stage: getWorkflowType(audienceType, workflowType)?.stage || "",
       executionPlan,
       approvalRequired: executionPlan.some((step) => step.requiresApproval),
-      approvalStatus: executionPlan.some((step) => step.requiresApproval) ? "pending" : "not_required",
+      approvalStatus: "not_required",
       createdByAI: true,
       riskLevel: calculateRiskLevel(template, workflowType),
       entityRefs,
@@ -384,7 +384,7 @@ const createExecutionItemDocs = async ({
   return { createdItems, duplicateItems };
 };
 
-const updateRunSummary = async (runId) => {
+const updateRunSummary = async (runId, duplicateCount = 0) => {
   const items = await ExecutionItem.find({ workflowRunId: runId });
   const confidenceAverage =
     items.length > 0
@@ -401,9 +401,9 @@ const updateRunSummary = async (runId) => {
   const runStatus =
     items.length === 0
       ? "duplicate"
-      : executionSummary.blockedCount > 0
-        ? "executing"
-        : items.every((item) => ["completed", "scheduled", "awaiting_approval"].includes(item.status))
+      : items.some((item) => item.status === "failed")
+        ? "failed"
+        : items.every((item) => ["completed", "cancelled"].includes(item.status))
           ? "completed"
           : "executing";
 
@@ -413,7 +413,7 @@ const updateRunSummary = async (runId) => {
       status: runStatus,
       extractionSummary: {
         itemCount: items.length,
-        duplicateCount: 0,
+        duplicateCount,
         groupedCount: new Set(items.map((item) => item.groupKey)).size,
         confidenceAverage: toMetricValue(confidenceAverage, 2),
       },
@@ -515,7 +515,7 @@ const ingestWorkflowInput = async ({
     items = executed;
   }
 
-  const updatedRun = await updateRunSummary(workflowRun._id);
+  const updatedRun = await updateRunSummary(workflowRun._id, duplicateItems.length);
 
   await logActivity({
     workspaceId,
@@ -615,7 +615,7 @@ const computeStartupMetrics = async (workspaceId, audienceType) => {
       if (!firstExecution) return null;
       return (new Date(firstExecution.at).getTime() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60);
     })
-    .filter(Boolean);
+    .filter((value) => value !== null);
 
   return {
     execution_velocity: completedLastWeek.length,

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "seed:workflow-demo": "node scripts/seedWorkflowDemo.js",
+    "verify:workflow-demo": "node scripts/verifyWorkflowPaths.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

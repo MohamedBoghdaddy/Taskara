@@ -25,20 +25,26 @@ function AnalyticsGroup({ audience, metrics }) {
           </div>
         </div>
         <div style={{ padding: "10px 14px", borderRadius: "999px", background: "rgba(15,118,110,0.10)", border: "1px solid rgba(15,118,110,0.16)", color: "#0f766e", fontWeight: 800, fontSize: "12px" }}>
-          {audience.measuredResults.join(" · ")}
+          {audience.measuredResults.join(" | ")}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
-        {Object.entries(metrics || {}).map(([key, value]) => (
-          <div key={key} style={{ padding: "18px", borderRadius: "18px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.16)" }}>
-            <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: "8px" }}>
-              {key.replace(/_/g, " ")}
+      {(Object.keys(metrics || {}).length === 0) ? (
+        <div style={{ padding: "18px", borderRadius: "18px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.16)", color: "#64748b", lineHeight: 1.7 }}>
+          No workflow data yet for this audience. Seed demo data or ingest a live workflow source to start measuring outcomes.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+          {Object.entries(metrics || {}).map(([key, value]) => (
+            <div key={key} style={{ padding: "18px", borderRadius: "18px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.16)" }}>
+              <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: "8px" }}>
+                {key.replace(/_/g, " ")}
+              </div>
+              <div style={{ fontSize: "30px", fontWeight: 900, letterSpacing: "-0.05em", color: "#0f172a" }}>{value}</div>
             </div>
-            <div style={{ fontSize: "30px", fontWeight: 900, letterSpacing: "-0.05em", color: "#0f172a" }}>{value}</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

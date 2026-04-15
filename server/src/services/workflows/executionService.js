@@ -1,6 +1,7 @@
 const ActionApproval = require("../../models/ActionApproval");
 const AgencyAccount = require("../../models/AgencyAccount");
 const Candidate = require("../../models/Candidate");
+const DocumentChecklist = require("../../models/DocumentChecklist");
 const ExecutionItem = require("../../models/ExecutionItem");
 const IntegrationSettings = require("../../models/IntegrationSettings");
 const RealEstateLead = require("../../models/RealEstateLead");
@@ -21,6 +22,11 @@ const getActionConfig = (item, actionId) => getTemplate(item.audienceType)?.acti
 const getActionStep = (item, actionId) => item.executionPlan.find((step) => step.id === actionId);
 
 const getActionLog = (item, actionId) => item.actionLogs.find((step) => step.actionId === actionId);
+
+const getCurrentApproval = async (item) => {
+  if (!item.approvalId) return null;
+  return ActionApproval.findById(item.approvalId);
+};
 
 const resolveRecipient = async (item) => {
   const payload = item.sourceContext?.payload || {};
@@ -92,6 +98,43 @@ const buildSlackPayload = (item, actionId) => ({
     .join(" | "),
 });
 
+const buildActionPreview = async (item, actionId) => {
+  const action = getActionConfig(item, actionId);
+  if (!action) return { title: item.title, description: item.description || item.sourceContext?.excerpt || "" };
+
+  if (action.channel === "email") {
+    const emailPayload = await buildEmailPayload(item, actionId);
+    return emailPayload.preview || {};
+  }
+
+  if (action.channel === "slack") {
+    return buildSlackPayload(item, actionId);
+  }
+
+  if (action.channel === "github") {
+    return {
+      title: item.title,
+      body: item.description || item.sourceContext?.excerpt || "",
+      priority: item.priority,
+      audienceType: item.audienceType,
+    };
+  }
+
+  if (action.channel === "calendar") {
+    return {
+      title: item.title,
+      dueAt: item.dueAt || null,
+      stage: item.stage || "",
+    };
+  }
+
+  return {
+    title: item.title,
+    description: item.description || item.sourceContext?.excerpt || "",
+    channel: action.channel,
+  };
+};
+
 const updateEntityState = async (item, actionId) => {
   if (item.entityRefs?.candidateId) {
     const stageMap = {
@@ -108,10 +151,37 @@ const updateEntityState = async (item, actionId) => {
       message: getActionConfig(item, actionId)?.label || actionId,
       metadata: { executionItemId: item._id },
     };
+    const set = stageMap[actionId] ? { currentStage: stageMap[actionId] } : {};
+    if (actionId === "send_outreach") {
+      set["outreachSequence.active"] = true;
+      set["outreachSequence.nextFollowUpAt"] = item.followUp?.nextRunAt || null;
+    }
+    if (actionId === "send_followup") {
+      set["outreachSequence.followUpsSent"] = (item.followUp?.attempts || 0) + 1;
+      set["outreachSequence.nextFollowUpAt"] = item.followUp?.nextRunAt || null;
+    }
+    if (actionId === "schedule_interview") {
+      set["scheduling.status"] = "booked";
+      set["scheduling.conflictState"] = "clear";
+    }
+    if (actionId === "collect_feedback") {
+      set["feedbackCollection.requestedAt"] = new Date();
+      set["feedbackCollection.pendingCount"] = Math.max(item.sourceContext?.payload?.interviewerCount || 1, 1);
+    }
+    if (actionId === "send_rejection") {
+      set["rejectionFlow.lastSentAt"] = new Date();
+      set["outreachSequence.active"] = false;
+      set["outreachSequence.stopReason"] = "rejected";
+    }
+    if (actionId === "add_to_nurture") {
+      set["rejectionFlow.nurtureEnabled"] = true;
+      set["outreachSequence.active"] = false;
+      set["outreachSequence.stopReason"] = "nurture";
+    }
     await Candidate.updateOne(
       { _id: item.entityRefs.candidateId },
       {
-        $set: stageMap[actionId] ? { currentStage: stageMap[actionId] } : {},
+        $set: set,
         $push: { activityLog: activity },
       },
     );
@@ -121,16 +191,67 @@ const updateEntityState = async (item, actionId) => {
     const set = {};
     if (["assign_owner", "group_initiative"].includes(actionId)) set.status = "active";
     if (actionId === "post_status_slack") set.statusSummary = `Latest status posted at ${new Date().toISOString()}`;
+    if (actionId === "assign_owner" && item.assignee?.userId) set.ownerId = item.assignee.userId;
+    if (actionId === "extract_tasks") {
+      set["metrics.totalItems"] = Math.max((item.sourceContext?.payload?.taskCount || 1), 1);
+    }
+    if (actionId === "assign_owner") {
+      set["metrics.unownedItems"] = item.assignee?.userId ? 0 : 1;
+    }
+    if (actionId === "create_github_issue") {
+      set["metrics.completedItems"] = Math.max(item.status === "completed" ? 1 : 0, 0);
+    }
     await StartupInitiative.updateOne({ _id: item.entityRefs.initiativeId }, { $set: set });
   }
 
   if (item.entityRefs?.accountId) {
     const set = {};
-    if (actionId === "send_status") set.lastClientUpdateAt = new Date();
+    if (actionId === "send_status") {
+      set.lastClientUpdateAt = new Date();
+      set.status = "active";
+    }
     if (actionId === "chase_approval") {
       set.status = "active";
     }
-    await AgencyAccount.updateOne({ _id: item.entityRefs.accountId }, { $set: set });
+    const push = {};
+    if (actionId === "break_brief") {
+      const deliverables = (item.sourceContext?.rawText || item.description || item.title)
+        .split(/\n+/)
+        .map((entry) => entry.replace(/^[\-\*\d\.\)\s]+/, "").trim())
+        .filter((entry) => entry.length >= 4)
+        .slice(0, 3)
+        .map((entry) => ({
+          title: entry,
+          status: "planned",
+          dueAt: item.dueAt || null,
+          ownerId: item.assignee?.userId || null,
+        }));
+      if (deliverables.length) push.deliverables = { $each: deliverables };
+      set.status = "active";
+    }
+    if (actionId === "assign_internal" && item.assignee?.userId) {
+      set.ownerId = item.assignee.userId;
+    }
+    if (actionId === "chase_approval") {
+      push.approvals = {
+        $each: [
+          {
+            label: item.title,
+            status: "pending",
+            requestedAt: new Date(),
+            pendingOn: item.sourceContext?.payload?.clientName || item.groupLabel || "Client",
+            channel: "email",
+          },
+        ],
+      };
+    }
+    await AgencyAccount.updateOne(
+      { _id: item.entityRefs.accountId },
+      {
+        ...(Object.keys(set).length ? { $set: set } : {}),
+        ...(Object.keys(push).length ? { $push: push } : {}),
+      },
+    );
   }
 
   if (item.entityRefs?.leadId) {
@@ -140,10 +261,20 @@ const updateEntityState = async (item, actionId) => {
       request_docs: "under_contract",
       update_stage: item.stage || "qualified",
     };
+    const set = stageMap[actionId] ? { currentStage: stageMap[actionId] } : {};
+    if (actionId === "send_initial_followup") {
+      set.nextRequiredAction = "Wait for reply or request qualifying documents";
+    }
+    if (actionId === "request_docs") {
+      set.nextRequiredAction = "Collect requested documents";
+    }
+    if (actionId === "update_stage") {
+      set.nextRequiredAction = "Advance milestone after the next completed action";
+    }
     await RealEstateLead.updateOne(
       { _id: item.entityRefs.leadId },
       {
-        $set: stageMap[actionId] ? { currentStage: stageMap[actionId] } : {},
+        $set: set,
         $push: {
           communicationTrail: {
             at: new Date(),
@@ -155,17 +286,37 @@ const updateEntityState = async (item, actionId) => {
         },
       },
     );
+    if (actionId === "request_docs" && item.entityRefs?.documentChecklistId) {
+      const checklist = await DocumentChecklist.findById(item.entityRefs.documentChecklistId);
+      if (checklist) {
+        checklist.items = checklist.items.map((entry) =>
+          entry.status === "missing"
+            ? {
+                ...(typeof entry.toObject === "function" ? entry.toObject() : entry),
+                status: "requested",
+                requestedAt: new Date(),
+                lastReminderAt: new Date(),
+              }
+            : entry,
+        );
+        checklist.missingCount = checklist.items.filter((entry) => entry.status !== "approved").length;
+        checklist.nextReminderAt = addDays(new Date(), 3);
+        await checklist.save();
+      }
+    }
   }
 };
 
-const recalculateStatus = (item) => {
-  if (item.status === "paused" || item.status === "cancelled") return item.status;
-  if (item.approvalStatus === "pending") return "awaiting_approval";
+const recalculateStatus = (item, options = {}) => {
+  const { ignoreControlState = false } = options;
+  if (!ignoreControlState && (item.status === "paused" || item.status === "cancelled")) return item.status;
+  if (item.approvalStatus === "rejected") return "blocked";
+  if (item.actionLogs.some((entry) => entry.status === "awaiting_approval")) return "awaiting_approval";
   if (item.actionLogs.some((entry) => entry.status === "failed")) return "failed";
-  if (item.actionLogs.some((entry) => entry.status === "scheduled")) return "scheduled";
   if (item.actionLogs.every((entry) => ["executed", "skipped", "cancelled"].includes(entry.status))) {
     return "completed";
   }
+  if (item.actionLogs.some((entry) => entry.status === "scheduled")) return "scheduled";
   if (item.actionLogs.some((entry) => entry.status === "executed")) return "in_progress";
   return "ready";
 };
@@ -174,11 +325,26 @@ const ensureApproval = async (item, actionId, userId) => {
   const action = getActionConfig(item, actionId);
   if (!action?.requiresApproval) return null;
 
-  if (item.approvalId && item.approvalStatus === "pending") {
-    return ActionApproval.findById(item.approvalId);
+  const existingApproval = await getCurrentApproval(item);
+  if (existingApproval?.actionId === actionId) {
+    if (existingApproval.status === "approved") {
+      item.approvalRequired = true;
+      item.approvalStatus = "approved";
+      return existingApproval;
+    }
+
+    if (existingApproval.status === "pending") {
+      item.approvalRequired = true;
+      item.approvalStatus = "pending";
+      item.status = "awaiting_approval";
+      const actionLog = getActionLog(item, actionId);
+      if (actionLog && actionLog.status !== "cancelled") actionLog.status = "awaiting_approval";
+      await item.save();
+      return existingApproval;
+    }
   }
 
-  const preview = await buildEmailPayload(item, actionId);
+  const preview = await buildActionPreview(item, actionId);
   const approval = await ActionApproval.create({
     workspaceId: item.workspaceId,
     executionItemId: item._id,
@@ -191,7 +357,7 @@ const ensureApproval = async (item, actionId, userId) => {
     approvalMode: action.risky ? "high_risk" : "manual",
     riskLevel: action.risky ? "high" : "medium",
     reason: `${action.label} is configured to require approval before external delivery.`,
-    payloadPreview: preview.preview || {},
+    payloadPreview: preview,
   });
 
   item.approvalId = approval._id;
@@ -216,7 +382,8 @@ const ensureApproval = async (item, actionId, userId) => {
   return approval;
 };
 
-const executeSingleAction = async (item, actionId, userId, force = false) => {
+const executeSingleAction = async (item, actionId, userId, options = {}) => {
+  const { force = false } = options;
   const action = getActionConfig(item, actionId);
   if (!action) throw { status: 400, message: `Unknown workflow action: ${actionId}` };
 
@@ -231,12 +398,15 @@ const executeSingleAction = async (item, actionId, userId, force = false) => {
     return { status: "scheduled", actionId };
   }
 
-  if (action.requiresApproval && item.approvalStatus !== "approved" && !force) {
-    await ensureApproval(item, actionId, userId);
-    return { status: "awaiting_approval", actionId };
+  if (action.requiresApproval) {
+    const approval = await ensureApproval(item, actionId, userId);
+    if (approval?.status !== "approved") {
+      return { status: "awaiting_approval", actionId };
+    }
   }
 
   actionLog.attemptCount += 1;
+  actionLog.reason = "";
   let result = {};
   let syncProvider = action.channel;
   let syncStatus = "synced";
@@ -358,7 +528,7 @@ const executeSingleAction = async (item, actionId, userId, force = false) => {
       await updateEntityState(item, actionId);
     }
 
-    if (actionLog.status !== "skipped" || syncStatus !== "synced") {
+    if (action.channel !== "internal" && (actionLog.status !== "skipped" || syncStatus !== "synced")) {
       await recordSyncResult({
         itemId: item._id,
         provider: syncProvider,
@@ -406,6 +576,17 @@ const executeSingleAction = async (item, actionId, userId, force = false) => {
 const scheduleFollowUp = async (item, reason = "automatic") => {
   const template = getTemplate(item.audienceType);
   if (!template?.followUpCadence?.length) return item;
+  if (item.followUp?.stopReason) return item;
+  if (item.followUp.attempts >= template.followUpCadence.length) {
+    item.followUp.active = false;
+    item.followUp.stopReason = "max_attempts_reached";
+    item.followUp.nextRunAt = null;
+    item.auditTrail.push(
+      buildAuditEntry("followup_stopped", "Follow-up cadence stopped after max attempts.", { reason }),
+    );
+    await item.save();
+    return item;
+  }
 
   const cadence = template.followUpCadence[Math.min(item.followUp.attempts, template.followUpCadence.length - 1)];
   if (!cadence) return item;
@@ -439,25 +620,29 @@ const scheduleFollowUp = async (item, reason = "automatic") => {
 const executeReadyPlan = async ({ workspaceId, itemId, userId, force = false }) => {
   const item = await ExecutionItem.findOne({ _id: itemId, workspaceId });
   if (!item) throw { status: 404, message: "Execution item not found" };
-  if (["paused", "cancelled", "completed"].includes(item.status)) return item;
+  if (["paused", "cancelled", "completed", "blocked"].includes(item.status)) return item;
 
   for (const step of item.executionPlan) {
     if (["done", "skipped", "failed"].includes(step.status)) continue;
+    const log = getActionLog(item, step.id);
+    if (log?.status === "cancelled") {
+      step.status = "skipped";
+      continue;
+    }
     if (step.scheduledFor && new Date(step.scheduledFor) > new Date() && !force) {
-      const log = getActionLog(item, step.id);
       if (log) log.status = "scheduled";
       item.status = "scheduled";
       await item.save();
       break;
     }
 
-    const result = await executeSingleAction(item, step.id, userId, force);
-    if (result.status === "awaiting_approval" || result.status === "failed") break;
+    const result = await executeSingleAction(item, step.id, userId, { force });
+    if (["awaiting_approval", "failed", "scheduled"].includes(result.status)) break;
   }
 
   if (["candidate_outreach", "lead_followup", "approval_chase"].includes(item.workflowType)) {
     const alreadyScheduled = item.followUp?.active || item.actionLogs.some((entry) => entry.status === "scheduled");
-    if (!alreadyScheduled && item.status !== "awaiting_approval") {
+    if (!alreadyScheduled && !["awaiting_approval", "blocked", "failed", "cancelled", "paused", "completed"].includes(item.status)) {
       await scheduleFollowUp(item);
     }
   }
@@ -494,8 +679,17 @@ const decideApproval = async ({ workspaceId, itemId, userId, decision, comment =
 
   if (decision === "reject") {
     item.status = "blocked";
+    item.followUp.active = false;
+    item.followUp.nextRunAt = null;
+    item.followUp.stopReason = "approval_rejected";
     const pendingAction = item.actionLogs.find((entry) => entry.status === "awaiting_approval");
-    if (pendingAction) pendingAction.status = "cancelled";
+    if (pendingAction) {
+      pendingAction.status = "cancelled";
+      const pendingStep = getActionStep(item, pendingAction.actionId);
+      if (pendingStep && !["done", "failed", "skipped"].includes(pendingStep.status)) {
+        pendingStep.status = "skipped";
+      }
+    }
     await item.save();
     return item;
   }
@@ -505,7 +699,7 @@ const decideApproval = async ({ workspaceId, itemId, userId, decision, comment =
 
   if (pendingAction) {
     const refreshedItem = await ExecutionItem.findById(item._id);
-    await executeSingleAction(refreshedItem, pendingAction.actionId, userId, true);
+    await executeSingleAction(refreshedItem, pendingAction.actionId, userId, { force: true });
   }
 
   return executeReadyPlan({ workspaceId, itemId: item._id, userId, force: false });
@@ -518,21 +712,44 @@ const applyControlAction = async ({ workspaceId, itemId, userId, action }) => {
   if (action === "pause") {
     item.status = "paused";
     item.followUp.active = false;
+    item.followUp.stopReason = item.followUp.stopReason || "paused";
     item.auditTrail.push(buildAuditEntry("paused", "Workflow paused.", {}, "user", userId));
   } else if (action === "resume") {
-    item.status = recalculateStatus(item) === "completed" ? "ready" : recalculateStatus(item);
+    if (item.status === "cancelled") throw { status: 400, message: "Cancelled workflow items cannot be resumed" };
+    item.followUp.stopReason = item.followUp.stopReason === "paused" ? "" : item.followUp.stopReason;
+    item.status = recalculateStatus(item, { ignoreControlState: true });
     item.auditTrail.push(buildAuditEntry("resumed", "Workflow resumed.", {}, "user", userId));
   } else if (action === "cancel") {
     item.status = "cancelled";
     item.followUp.active = false;
+    item.followUp.nextRunAt = null;
+    item.followUp.stopReason = "cancelled";
     item.approvalStatus = item.approvalStatus === "pending" ? "cancelled" : item.approvalStatus;
     item.actionLogs.forEach((entry) => {
       if (["pending", "scheduled", "awaiting_approval"].includes(entry.status)) entry.status = "cancelled";
     });
+    item.executionPlan.forEach((step) => {
+      if (!["done", "failed", "skipped"].includes(step.status)) step.status = "skipped";
+    });
+    const approval = await getCurrentApproval(item);
+    if (approval?.status === "pending") {
+      approval.status = "cancelled";
+      approval.decisionComment = "Cancelled by workspace operator";
+      approval.decidedAt = new Date();
+      await approval.save();
+    }
     item.auditTrail.push(buildAuditEntry("cancelled", "Workflow cancelled.", {}, "user", userId));
   } else if (action === "stop_followup") {
     item.followUp.active = false;
+    item.followUp.nextRunAt = null;
     item.followUp.stopReason = "manual_stop";
+    item.actionLogs.forEach((entry) => {
+      if (entry.status === "scheduled") entry.status = "cancelled";
+    });
+    item.executionPlan.forEach((step) => {
+      if (step.status === "waiting") step.status = "skipped";
+    });
+    item.status = recalculateStatus(item, { ignoreControlState: true });
     item.auditTrail.push(
       buildAuditEntry("followup_stopped", "Follow-up cadence stopped manually.", {}, "user", userId),
     );
@@ -542,7 +759,10 @@ const applyControlAction = async ({ workspaceId, itemId, userId, action }) => {
     if (["internal", "ats", "crm"].includes(getActionConfig(item, lastExecuted.actionId)?.channel)) {
       lastExecuted.status = "pending";
       lastExecuted.executedAt = null;
-      item.status = "ready";
+      lastExecuted.result = {};
+      const step = getActionStep(item, lastExecuted.actionId);
+      if (step) step.status = "pending";
+      item.status = recalculateStatus(item, { ignoreControlState: true });
       item.auditTrail.push(
         buildAuditEntry(
           "note",
@@ -567,6 +787,8 @@ const applyControlAction = async ({ workspaceId, itemId, userId, action }) => {
     throw { status: 400, message: "Unsupported control action" };
   }
 
+  item.traceability.outcomeStatus = item.status;
+  item.traceability.lastOutcomeAt = new Date();
   await item.save();
   return item;
 };

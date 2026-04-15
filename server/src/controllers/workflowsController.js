@@ -18,6 +18,7 @@ const { getWorkspaceRole } = require("../services/workflows/assignmentService");
 const getWorkspaceId = (req) => req.user?.defaultWorkspaceId?.toString() || req.query.workspaceId;
 
 const requireRole = async (req, allowedRoles) => {
+  if (req.user?.isPlatformAdmin) return;
   const role = await getWorkspaceRole(getWorkspaceId(req), req.user._id);
   if (!allowedRoles.includes(role)) {
     throw {
@@ -100,11 +101,21 @@ const controlItem = asyncHandler(async (req, res) => {
 });
 
 const assignItem = asyncHandler(async (req, res) => {
-  await requireRole(req, ["owner", "admin"]);
+  const requestedAssigneeId = req.body?.assigneeId || null;
+  const currentRole = req.user?.isPlatformAdmin ? "owner" : await getWorkspaceRole(getWorkspaceId(req), req.user._id);
+  const isSelfClaim = requestedAssigneeId && String(requestedAssigneeId) === String(req.user._id);
+
+  if (!["owner", "admin"].includes(currentRole) && !(currentRole === "editor" && isSelfClaim)) {
+    throw {
+      status: 403,
+      message: "This action requires owner/admin access unless you are claiming the item for yourself.",
+    };
+  }
+
   const item = await applyManualOverride({
     workspaceId: getWorkspaceId(req),
     itemId: req.params.id,
-    assigneeId: req.body?.assigneeId || null,
+    assigneeId: requestedAssigneeId,
     actorId: req.user._id,
   });
   res.json(item);
