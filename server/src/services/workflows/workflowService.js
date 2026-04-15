@@ -8,10 +8,11 @@ const StartupInitiative = require("../../models/StartupInitiative");
 const WorkflowRun = require("../../models/WorkflowRun");
 const WorkspaceMember = require("../../models/WorkspaceMember");
 const { logActivity } = require("../../utils/activityLogger");
-const { AUDIENCE_KEYS } = require("../../config/workflowTemplates");
+const { AUDIENCE_KEYS, resolveAudienceKey } = require("../../config/workflowTemplates");
 const { applyManualOverride, suggestAssignee } = require("./assignmentService");
 const { buildIntegrationCoverage } = require("./syncService");
 const { applyControlAction, decideApproval, executeReadyPlan } = require("./executionService");
+const { createLinkedTaskForExecutionItem, syncLinkedTaskFromExecutionItem } = require("./taskLinkService");
 const {
   ACTIVE_ITEM_STATUSES,
   buildAuditEntry,
@@ -49,6 +50,7 @@ const defaultMigrationTarget = {
   documents: "document checklist",
   next_action: "execution plan",
   deliverable: "execution item title",
+  account: "agency account",
   approver: "approval queue",
   due_date: "dueAt",
   phone: "source reference",
@@ -56,6 +58,35 @@ const defaultMigrationTarget = {
   lead_name: "lead profile",
   deal_stage: "stage",
   initiative: "group label",
+};
+const migrationValidationRules = {
+  recruiters: {
+    supportedFields: ["candidate_name", "email", "stage", "notes", "history", "owner", "status"],
+    requiredAny: [["candidate_name", "email"]],
+  },
+  startups: {
+    supportedFields: ["thread_url", "initiative", "owner", "status", "repo", "history", "title", "description"],
+    requiredAny: [["thread_url", "initiative"], ["title"]],
+  },
+  agencies: {
+    supportedFields: ["account", "deliverable", "due_date", "approver", "status", "history", "owner"],
+    requiredAny: [["account"], ["deliverable"]],
+  },
+  realestate: {
+    supportedFields: ["lead_name", "phone", "deal_stage", "documents", "next_action", "history", "email"],
+    requiredAny: [["lead_name", "phone", "email"]],
+  },
+};
+
+const resolveAudienceOrThrow = (audienceType, { allowDefault = false } = {}) => {
+  if (!audienceType) {
+    if (allowDefault) return "startups";
+    throw { status: 400, message: "audienceType is required" };
+  }
+
+  const resolved = resolveAudienceKey(audienceType);
+  if (!resolved) throw { status: 400, message: `Unknown audience type: ${audienceType}` };
+  return resolved;
 };
 
 const extractEmail = (text = "", payload = {}, keys = []) => {
@@ -378,6 +409,7 @@ const createExecutionItemDocs = async ({
     );
 
     await item.save();
+    await createLinkedTaskForExecutionItem(item);
     createdItems.push(item);
   }
 
@@ -437,9 +469,24 @@ const ingestWorkflowInput = async ({
   workflowType,
   triggerMode = "manual",
 }) => {
-  const normalizedAudience = normalizeAudienceKey(audienceType);
+  if (!workspaceId) throw { status: 400, message: "workspaceId is required" };
+  if (!userId) throw { status: 400, message: "userId is required" };
+  const normalizedAudience = resolveAudienceOrThrow(audienceType);
   const template = getTemplate(normalizedAudience);
   if (!template) throw { status: 400, message: "Unknown audience type" };
+  if (!sourceType) throw { status: 400, message: "sourceType is required" };
+  if (!template.sourceTypes?.includes(sourceType)) {
+    throw {
+      status: 400,
+      message: `Unsupported sourceType "${sourceType}" for audience "${normalizedAudience}"`,
+    };
+  }
+  if (!String(title || text).trim() && !Object.keys(payload || {}).length) {
+    throw { status: 400, message: "Workflow input requires title, text, or payload content" };
+  }
+  if (workflowType && !template.workflowTypes?.[workflowType]) {
+    throw { status: 400, message: `Unknown workflow type: ${workflowType}` };
+  }
 
   const resolvedWorkflowType = workflowType || inferWorkflowType(normalizedAudience, text || title, payload);
   const sourceFingerprint = makeFingerprint({
@@ -534,8 +581,9 @@ const ingestWorkflowInput = async ({
 };
 
 const listExecutionItems = async (workspaceId, query = {}) => {
+  if (!workspaceId) throw { status: 400, message: "workspaceId is required" };
   const filter = { workspaceId };
-  if (query.audienceType) filter.audienceType = normalizeAudienceKey(query.audienceType);
+  if (query.audienceType) filter.audienceType = resolveAudienceOrThrow(query.audienceType);
   if (query.status) filter.status = query.status;
   if (query.workflowType) filter.workflowType = query.workflowType;
   if (query.approvalStatus) filter.approvalStatus = query.approvalStatus;
@@ -568,6 +616,7 @@ const updateExecutionItem = async (workspaceId, userId, itemId, updates) => {
     buildAuditEntry("status_changed", "Workflow item updated manually.", trackedChanges, "user", userId),
   );
   await item.save();
+  await syncLinkedTaskFromExecutionItem(item);
 
   await logActivity({
     workspaceId,
@@ -674,7 +723,8 @@ const computeRealEstateMetrics = async (workspaceId) => {
 };
 
 const getWorkflowAnalytics = async (workspaceId, audienceType) => {
-  const normalizedAudience = normalizeAudienceKey(audienceType);
+  if (!workspaceId) throw { status: 400, message: "workspaceId is required" };
+  const normalizedAudience = resolveAudienceOrThrow(audienceType, { allowDefault: true });
   if (normalizedAudience === "recruiters") return computeRecruiterMetrics(workspaceId);
   if (normalizedAudience === "startups") return computeStartupMetrics(workspaceId, normalizedAudience);
   if (normalizedAudience === "agencies") return computeAgencyMetrics(workspaceId, normalizedAudience);
@@ -682,6 +732,7 @@ const getWorkflowAnalytics = async (workspaceId, audienceType) => {
 };
 
 const getAllAudienceAnalytics = async (workspaceId) => {
+  if (!workspaceId) throw { status: 400, message: "workspaceId is required" };
   const entries = await Promise.all(
     AUDIENCE_KEYS.map(async (audienceType) => ({
       audienceType,
@@ -694,22 +745,66 @@ const getAllAudienceAnalytics = async (workspaceId) => {
 };
 
 const buildMigrationPreview = ({ audienceType, sourceSystem, fields }) => {
-  const template = getTemplate(audienceType);
-  const sourceFields = fields?.length ? fields : template.migrationFields;
+  const normalizedAudience = resolveAudienceOrThrow(audienceType);
+  const template = getTemplate(normalizedAudience);
+  const sourceFields = Array.isArray(fields) && fields.length ? fields : template.migrationFields;
+  const rules = migrationValidationRules[normalizedAudience] || { supportedFields: [], requiredAny: [] };
+  const uniqueFields = [...new Set(sourceFields.map((field) => String(field).trim()).filter(Boolean))];
+  const unsupportedFields = uniqueFields.filter((field) => !rules.supportedFields.includes(field));
+  const unknownFields = uniqueFields.filter((field) => !defaultMigrationTarget[field]);
+  const requiredFieldIssues = rules.requiredAny
+    .filter((group) => !group.some((field) => uniqueFields.includes(field)))
+    .map((group) => ({
+      requiredAnyOf: group,
+      message: `Provide at least one of: ${group.join(", ")}`,
+    }));
+  const warnings = [];
+
+  if (unsupportedFields.length) {
+    warnings.push("Some source fields are unsupported and will need manual handling before import.");
+  }
+  if (unknownFields.length) {
+    warnings.push("Some source fields do not have a default target and will map to custom metadata.");
+  }
+  if (requiredFieldIssues.length) {
+    warnings.push("Required workflow fields are missing for a safe import preview.");
+  }
 
   return {
+    audienceType: normalizedAudience,
     sourceSystem: sourceSystem || template.readsFirst,
     targetWorkflow: template.workflowChain.join(" -> "),
-    mappingPreview: sourceFields.map((field) => ({
+    mappingPreview: uniqueFields.map((field) => ({
       sourceField: field,
       targetField: defaultMigrationTarget[field] || "custom metadata",
-      compatibility: defaultMigrationTarget[field] ? "high" : "review",
+      compatibility: unsupportedFields.includes(field)
+        ? "unsupported"
+        : defaultMigrationTarget[field]
+          ? "high"
+          : "review",
+      warning: unsupportedFields.includes(field)
+        ? "Unsupported source field for the current audience template."
+        : unknownFields.includes(field)
+          ? "No default mapping. This field would require a custom metadata mapping."
+          : "",
     })),
+    validation: {
+      readyToImport: unsupportedFields.length === 0 && requiredFieldIssues.length === 0,
+      unsupportedFields,
+      unknownFields,
+      requiredFieldIssues,
+      warnings,
+    },
     safeguards: [
       "Mapping preview before import",
       "History preserved in source context and audit trail",
       "Manual correction hooks after import",
       "Rollback by cancelling imported execution runs",
+    ],
+    correctionNotes: [
+      "Unsupported fields must be mapped manually before import.",
+      "Required-field mismatches should be corrected before Taskara creates execution runs.",
+      "Actual import remains protected until connector-specific mappings are confirmed.",
     ],
   };
 };
@@ -722,7 +817,8 @@ const buildEntitySummary = async (workspaceId) => ({
 });
 
 const getWorkflowDashboard = async (workspaceId, audienceType) => {
-  const normalizedAudience = normalizeAudienceKey(audienceType);
+  if (!workspaceId) throw { status: 400, message: "workspaceId is required" };
+  const normalizedAudience = resolveAudienceOrThrow(audienceType, { allowDefault: true });
   const template = getTemplate(normalizedAudience);
   const [items, approvals, runs, metrics, integrationCoverage, entitySummary] = await Promise.all([
     ExecutionItem.find({ workspaceId, audienceType: normalizedAudience }).sort({ updatedAt: -1 }).limit(10),

@@ -10,6 +10,7 @@ let recurrenceQueue  = null;
 let webhooksQueue    = null;
 let analyticsQueue   = null;
 let notificationsQueue = null;
+let workflowsQueue = null;
 
 const makeQueue = (name, connection) => {
   if (!Queue || !connection) return null;
@@ -27,6 +28,7 @@ const initQueues = (redisConnection) => {
   webhooksQueue     = makeQueue('webhooks',     redisConnection);
   analyticsQueue    = makeQueue('analytics',    redisConnection);
   notificationsQueue = makeQueue('notifications', redisConnection);
+  workflowsQueue = makeQueue('workflows', redisConnection);
   console.log('[Jobs] Queues initialized');
 };
 
@@ -35,9 +37,10 @@ const addRecurrenceJob   = (data) => recurrenceQueue?.add('process-recurrence', 
 const addWebhookJob      = (data, opts = {}) => webhooksQueue?.add('deliver-webhook', data, opts);
 const addAnalyticsJob    = (data) => analyticsQueue?.add('daily-snapshot', data, { jobId: `analytics-${data.date || Date.now()}` });
 const addNotificationJob = (data) => notificationsQueue?.add('send-notification', data);
+const addWorkflowJob     = (data, opts = {}) => workflowsQueue?.add('process-workflows', data, opts);
 
 module.exports = {
   initQueues,
-  getQueues: () => ({ remindersQueue, recurrenceQueue, webhooksQueue, analyticsQueue, notificationsQueue }),
-  addReminderJob, addRecurrenceJob, addWebhookJob, addAnalyticsJob, addNotificationJob,
+  getQueues: () => ({ remindersQueue, recurrenceQueue, webhooksQueue, analyticsQueue, notificationsQueue, workflowsQueue }),
+  addReminderJob, addRecurrenceJob, addWebhookJob, addAnalyticsJob, addNotificationJob, addWorkflowJob,
 };

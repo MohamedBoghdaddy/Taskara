@@ -128,7 +128,9 @@ const executionItemSchema = new mongoose.Schema(
     assignee: {
       userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
       name: { type: String, default: "" },
+      email: { type: String, default: "" },
       reason: { type: String, default: "" },
+      teamRole: { type: String, default: "" },
       routingRole: { type: String, default: "" },
       loadSnapshot: { type: Number, default: 0 },
       manualOverride: { type: Boolean, default: false },

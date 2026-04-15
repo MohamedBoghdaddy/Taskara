@@ -514,10 +514,12 @@ const WORKFLOW_TEMPLATES = {
 
 const AUDIENCE_KEYS = Object.keys(WORKFLOW_TEMPLATES);
 
-const normalizeAudienceKey = (input) => {
-  if (!input) return "startups";
-  return AUDIENCE_ALIASES[String(input).toLowerCase()] || "startups";
+const resolveAudienceKey = (input) => {
+  if (!input) return null;
+  return AUDIENCE_ALIASES[String(input).toLowerCase()] || null;
 };
+
+const normalizeAudienceKey = (input, fallback = "startups") => resolveAudienceKey(input) || fallback;
 
 const getTemplate = (input) => {
   const key = normalizeAudienceKey(input);
@@ -536,6 +538,7 @@ const getWorkflowType = (audienceType, workflowType) => {
 module.exports = {
   WORKFLOW_TEMPLATES,
   AUDIENCE_KEYS,
+  resolveAudienceKey,
   normalizeAudienceKey,
   getTemplate,
   getWorkflowType,

@@ -13,9 +13,9 @@ const createTransporter = () => {
 };
 
 const sendEmail = async ({ to, subject, html, text }) => {
-  if (process.env.NODE_ENV === 'development') {
+  if (['development', 'test'].includes(process.env.NODE_ENV)) {
     console.log(`[EMAIL] To: ${to}, Subject: ${subject}`);
-    return { messageId: 'dev-mode' };
+    return { messageId: `${process.env.NODE_ENV}-mode` };
   }
 
   const transporter = createTransporter();

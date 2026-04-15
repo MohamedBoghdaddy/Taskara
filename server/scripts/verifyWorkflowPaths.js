@@ -50,8 +50,8 @@ const run = async () => {
   const failedItem = items.find((item) => item.status === "failed");
   assert(failedItem, "Expected a failed workflow item");
   assert(
-    failedItem.syncLogs.some((entry) => entry.status === "failed"),
-    "Failed workflow item should include a failed sync log",
+    failedItem.syncLogs.some((entry) => ["failed", "awaiting_connector"].includes(entry.status)),
+    "Failed workflow item should include a visible sync failure or connector-blocked log",
   );
 
   const recruiterItems = items.filter((item) => item.audienceType === "recruiters");

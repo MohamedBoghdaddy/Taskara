@@ -13,19 +13,48 @@ const {
   listExecutionItems,
   updateExecutionItem,
 } = require("../services/workflows/workflowService");
-const { getWorkspaceRole } = require("../services/workflows/assignmentService");
+const { getWorkspaceMembership, getWorkspaceRole } = require("../services/workflows/assignmentService");
 
-const getWorkspaceId = (req) => req.user?.defaultWorkspaceId?.toString() || req.query.workspaceId;
+const parseBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+  }
+  return fallback;
+};
 
-const requireRole = async (req, allowedRoles) => {
-  if (req.user?.isPlatformAdmin) return;
-  const role = await getWorkspaceRole(getWorkspaceId(req), req.user._id);
-  if (!allowedRoles.includes(role)) {
+const getWorkspaceId = (req) =>
+  req.user?.defaultWorkspaceId?.toString() ||
+  req.params.workspaceId ||
+  req.body?.workspaceId ||
+  req.query.workspaceId;
+
+const requireWorkspaceId = (req) => {
+  const workspaceId = getWorkspaceId(req);
+  if (!workspaceId) {
+    throw { status: 400, message: "workspaceId is required for workflow operations" };
+  }
+  return workspaceId;
+};
+
+const requireWorkspaceAccess = async (req, allowedRoles = ["viewer", "editor", "admin", "owner"]) => {
+  const workspaceId = requireWorkspaceId(req);
+  if (req.user?.isPlatformAdmin) return workspaceId;
+
+  const membership = await getWorkspaceMembership(workspaceId, req.user._id);
+  if (!membership) {
+    throw { status: 403, message: "Access denied to this workspace" };
+  }
+  if (!allowedRoles.includes(membership.role)) {
     throw {
       status: 403,
       message: `This action requires one of: ${allowedRoles.join(", ")}`,
     };
   }
+  return workspaceId;
 };
 
 const getTemplates = asyncHandler(async (req, res) => {
@@ -33,66 +62,74 @@ const getTemplates = asyncHandler(async (req, res) => {
 });
 
 const getDashboard = asyncHandler(async (req, res) => {
-  const data = await getWorkflowDashboard(getWorkspaceId(req), req.query.audienceType);
+  const workspaceId = await requireWorkspaceAccess(req);
+  const data = await getWorkflowDashboard(workspaceId, req.query.audienceType);
   res.json(data);
 });
 
 const getAnalytics = asyncHandler(async (req, res) => {
+  const workspaceId = await requireWorkspaceAccess(req);
   if (req.query.audienceType) {
-    const metrics = await getWorkflowAnalytics(getWorkspaceId(req), req.query.audienceType);
+    const metrics = await getWorkflowAnalytics(workspaceId, req.query.audienceType);
     return res.json({ metrics });
   }
-  const entries = await getAllAudienceAnalytics(getWorkspaceId(req));
+  const entries = await getAllAudienceAnalytics(workspaceId);
   res.json({ entries });
 });
 
 const getItems = asyncHandler(async (req, res) => {
-  const items = await listExecutionItems(getWorkspaceId(req), req.query);
+  const workspaceId = await requireWorkspaceAccess(req);
+  const items = await listExecutionItems(workspaceId, req.query);
   res.json({ items });
 });
 
 const ingest = asyncHandler(async (req, res) => {
+  const workspaceId = await requireWorkspaceAccess(req, ["owner", "admin", "editor"]);
   const result = await ingestWorkflowInput({
-    workspaceId: getWorkspaceId(req),
+    workspaceId,
     userId: req.user._id,
+    autoExecute: parseBoolean(req.body?.autoExecute, true),
     ...req.body,
   });
   res.status(result.duplicate ? 200 : 201).json(result);
 });
 
 const patchItem = asyncHandler(async (req, res) => {
-  const item = await updateExecutionItem(getWorkspaceId(req), req.user._id, req.params.id, req.body);
+  const workspaceId = await requireWorkspaceAccess(req, ["owner", "admin", "editor"]);
+  const item = await updateExecutionItem(workspaceId, req.user._id, req.params.id, req.body);
   res.json(item);
 });
 
 const executeItem = asyncHandler(async (req, res) => {
-  await requireRole(req, ["owner", "admin", "editor"]);
+  const workspaceId = await requireWorkspaceAccess(req, ["owner", "admin", "editor"]);
   const item = await executeReadyPlan({
-    workspaceId: getWorkspaceId(req),
+    workspaceId,
     itemId: req.params.id,
     userId: req.user._id,
-    force: Boolean(req.body?.force),
+    force: parseBoolean(req.body?.force, false),
   });
   res.json(item);
 });
 
 const approveItem = asyncHandler(async (req, res) => {
-  await requireRole(req, ["owner", "admin"]);
-  const decision = req.body?.decision === "reject" ? "reject" : "approve";
+  const workspaceId = await requireWorkspaceAccess(req, ["owner", "admin"]);
+  if (!["approve", "reject"].includes(req.body?.decision)) {
+    throw { status: 400, message: "decision must be either approve or reject" };
+  }
   const item = await decideApproval({
-    workspaceId: getWorkspaceId(req),
+    workspaceId,
     itemId: req.params.id,
     userId: req.user._id,
-    decision,
+    decision: req.body.decision,
     comment: req.body?.comment || "",
   });
   res.json(item);
 });
 
 const controlItem = asyncHandler(async (req, res) => {
-  await requireRole(req, ["owner", "admin", "editor"]);
+  const workspaceId = await requireWorkspaceAccess(req, ["owner", "admin", "editor"]);
   const item = await applyControlAction({
-    workspaceId: getWorkspaceId(req),
+    workspaceId,
     itemId: req.params.id,
     userId: req.user._id,
     action: req.body?.action,
@@ -102,7 +139,8 @@ const controlItem = asyncHandler(async (req, res) => {
 
 const assignItem = asyncHandler(async (req, res) => {
   const requestedAssigneeId = req.body?.assigneeId || null;
-  const currentRole = req.user?.isPlatformAdmin ? "owner" : await getWorkspaceRole(getWorkspaceId(req), req.user._id);
+  const workspaceId = await requireWorkspaceAccess(req);
+  const currentRole = req.user?.isPlatformAdmin ? "owner" : await getWorkspaceRole(workspaceId, req.user._id);
   const isSelfClaim = requestedAssigneeId && String(requestedAssigneeId) === String(req.user._id);
 
   if (!["owner", "admin"].includes(currentRole) && !(currentRole === "editor" && isSelfClaim)) {
@@ -113,7 +151,7 @@ const assignItem = asyncHandler(async (req, res) => {
   }
 
   const item = await applyManualOverride({
-    workspaceId: getWorkspaceId(req),
+    workspaceId,
     itemId: req.params.id,
     assigneeId: requestedAssigneeId,
     actorId: req.user._id,
@@ -122,6 +160,7 @@ const assignItem = asyncHandler(async (req, res) => {
 });
 
 const migrationPreview = asyncHandler(async (req, res) => {
+  await requireWorkspaceAccess(req);
   const preview = buildMigrationPreview(req.body);
   res.json(preview);
 });

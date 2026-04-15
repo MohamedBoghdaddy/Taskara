@@ -15,7 +15,8 @@ const {
   buildAuditEntry,
   getTemplate,
 } = require("./helpers");
-const { planProtectedSync, recordSyncResult } = require("./syncService");
+const { recordSyncResult, validateProviderMapping } = require("./syncService");
+const { syncLinkedTaskFromExecutionItem } = require("./taskLinkService");
 
 const getActionConfig = (item, actionId) => getTemplate(item.audienceType)?.actionCatalog?.[actionId] || null;
 
@@ -35,6 +36,18 @@ const resolveRecipient = async (item) => {
   }
   if (payload.clientEmail) {
     return { email: payload.clientEmail, name: payload.clientName || "Client" };
+  }
+  if (payload.candidateEmail || payload.leadEmail || payload.email) {
+    return {
+      email: payload.candidateEmail || payload.leadEmail || payload.email,
+      name:
+        payload.candidateName ||
+        payload.leadName ||
+        payload.recipientName ||
+        payload.clientName ||
+        payload.name ||
+        "Recipient",
+    };
   }
 
   if (item.entityRefs?.candidateId) {
@@ -410,18 +423,18 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
   let result = {};
   let syncProvider = action.channel;
   let syncStatus = "synced";
+  const failForConfiguration = (provider, reason, status = "awaiting_connector") => {
+    syncProvider = provider;
+    syncStatus = status;
+    actionLog.status = "failed";
+    actionLog.reason = reason;
+  };
 
   try {
     if (action.channel === "email") {
       const emailPayload = await buildEmailPayload(item, actionId);
       if (!emailPayload.to) {
-        await planProtectedSync({
-          itemId: item._id,
-          provider: "email",
-          reason: "No recipient email is available for this workflow item.",
-        });
-        actionLog.status = "skipped";
-        actionLog.reason = "Missing recipient email";
+        failForConfiguration("email", "Missing recipient email");
       } else {
         result = await sendEmail(emailPayload);
         actionLog.status = "executed";
@@ -429,18 +442,18 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
         actionLog.result = { to: emailPayload.to, subject: emailPayload.subject, messageId: result.messageId || "sent" };
       }
     } else if (action.channel === "slack") {
-      const slackSettings = await IntegrationSettings.findOne({
-        workspaceId: item.workspaceId,
-        provider: "slack",
-        isActive: true,
-      });
-      const webhookUrl =
-        slackSettings?.slack?.webhookUrl || item.sourceContext?.payload?.slackWebhookUrl || "";
+      const slackMapping = await validateProviderMapping(item.workspaceId, "slack");
+      const slackSettings = slackMapping.connected
+        ? await IntegrationSettings.findOne({
+            workspaceId: item.workspaceId,
+            provider: "slack",
+            isActive: true,
+          })
+        : null;
+      const webhookUrl = slackSettings?.slack?.webhookUrl || item.sourceContext?.payload?.slackWebhookUrl || "";
 
       if (!webhookUrl) {
-        syncStatus = "awaiting_connector";
-        actionLog.status = "skipped";
-        actionLog.reason = "Slack is not connected";
+        failForConfiguration("slack", slackMapping.details?.[0] || "Slack is not connected");
       } else {
         const payload = buildSlackPayload(item, actionId);
         await sendSlackMessage(webhookUrl, payload);
@@ -449,17 +462,17 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
         actionLog.result = payload;
       }
     } else if (action.channel === "calendar") {
-      const calendarSettings = await IntegrationSettings.findOne({
-        workspaceId: item.workspaceId,
-        provider: "google_calendar",
-        isActive: true,
-      });
+      const calendarMapping = await validateProviderMapping(item.workspaceId, "google_calendar");
+      const calendarSettings = calendarMapping.connected
+        ? await IntegrationSettings.findOne({
+            workspaceId: item.workspaceId,
+            provider: "google_calendar",
+            isActive: true,
+          })
+        : null;
 
-      if (!calendarSettings?.googleCalendar) {
-        syncProvider = "google_calendar";
-        syncStatus = "awaiting_connector";
-        actionLog.status = "skipped";
-        actionLog.reason = "Google Calendar is not connected";
+      if (!calendarSettings?.googleCalendar || !calendarMapping.ready) {
+        failForConfiguration("google_calendar", calendarMapping.details?.[0] || "Google Calendar is not connected");
       } else {
         result = await googleCalendarService.pushTaskToCalendar(
           calendarSettings.googleCalendar,
@@ -477,17 +490,18 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
         actionLog.result = result;
       }
     } else if (action.channel === "github") {
-      const githubSettings = await IntegrationSettings.findOne({
-        workspaceId: item.workspaceId,
-        provider: "github",
-        isActive: true,
-      });
+      const githubMapping = await validateProviderMapping(item.workspaceId, "github");
+      const githubSettings = githubMapping.connected
+        ? await IntegrationSettings.findOne({
+            workspaceId: item.workspaceId,
+            provider: "github",
+            isActive: true,
+          })
+        : null;
 
       const firstRepo = githubSettings?.github?.repos?.[0];
-      if (!githubSettings?.github?.accessToken || !firstRepo) {
-        syncStatus = "awaiting_connector";
-        actionLog.status = "skipped";
-        actionLog.reason = "GitHub token or repo mapping is missing";
+      if (!githubSettings?.github?.accessToken || !firstRepo || !githubMapping.ready) {
+        failForConfiguration("github", githubMapping.details?.[0] || "GitHub token or repo mapping is missing");
       } else {
         result = await githubService.exportTaskAsIssue(
           githubSettings.github.accessToken,
@@ -504,11 +518,15 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
         actionLog.executedAt = new Date();
         actionLog.result = result;
       }
-    } else if (["ats", "crm", "notion", "clickup", "google_drive"].includes(action.channel)) {
-      syncProvider = action.channel;
-      syncStatus = "awaiting_connector";
-      actionLog.status = "skipped";
-      actionLog.reason = "Connector mapping is protected until a system-of-record mapping is approved.";
+    } else if (action.channel === "notion") {
+      const notionMapping = await validateProviderMapping(item.workspaceId, "notion");
+      failForConfiguration("notion", notionMapping.details?.[0] || "Notion mapping is missing");
+    } else if (action.channel === "clickup") {
+      const clickupMapping = await validateProviderMapping(item.workspaceId, "clickup");
+      failForConfiguration("clickup", clickupMapping.details?.[0] || "ClickUp mapping is missing");
+    } else if (["ats", "crm", "google_drive"].includes(action.channel)) {
+      const protectedMapping = await validateProviderMapping(item.workspaceId, action.channel);
+      failForConfiguration(action.channel, protectedMapping.details?.[0] || "Protected system mapping is missing");
     } else {
       actionLog.status = "executed";
       actionLog.executedAt = new Date();
@@ -551,6 +569,14 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
         userId,
       ),
     );
+    if (action.channel !== "internal") {
+      await recordSyncResult({
+        itemId: item._id,
+        provider: syncProvider,
+        status: "failed",
+        details: { actionId, error: error.message || "Action failed" },
+      });
+    }
   }
 
   if (planStep) {
@@ -569,6 +595,7 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
   item.traceability.outcomeStatus = item.status;
   item.traceability.lastOutcomeAt = new Date();
   await item.save();
+  await syncLinkedTaskFromExecutionItem(item);
 
   return { status: actionLog.status, actionId, result: actionLog.result };
 };
@@ -577,6 +604,9 @@ const scheduleFollowUp = async (item, reason = "automatic") => {
   const template = getTemplate(item.audienceType);
   if (!template?.followUpCadence?.length) return item;
   if (item.followUp?.stopReason) return item;
+  if (item.followUp?.active && item.followUp?.nextRunAt && new Date(item.followUp.nextRunAt) > new Date()) {
+    return item;
+  }
   if (item.followUp.attempts >= template.followUpCadence.length) {
     item.followUp.active = false;
     item.followUp.stopReason = "max_attempts_reached";
@@ -585,6 +615,7 @@ const scheduleFollowUp = async (item, reason = "automatic") => {
       buildAuditEntry("followup_stopped", "Follow-up cadence stopped after max attempts.", { reason }),
     );
     await item.save();
+    await syncLinkedTaskFromExecutionItem(item);
     return item;
   }
 
@@ -614,13 +645,16 @@ const scheduleFollowUp = async (item, reason = "automatic") => {
 
   item.status = "scheduled";
   await item.save();
+  await syncLinkedTaskFromExecutionItem(item);
   return item;
 };
 
 const executeReadyPlan = async ({ workspaceId, itemId, userId, force = false }) => {
   const item = await ExecutionItem.findOne({ _id: itemId, workspaceId });
   if (!item) throw { status: 404, message: "Execution item not found" };
-  if (["paused", "cancelled", "completed", "blocked"].includes(item.status)) return item;
+  if (["paused", "cancelled", "completed", "blocked", "failed"].includes(item.status)) {
+    throw { status: 409, message: `Workflow item is ${item.status} and cannot execute.` };
+  }
 
   for (const step of item.executionPlan) {
     if (["done", "skipped", "failed"].includes(step.status)) continue;
@@ -691,15 +725,22 @@ const decideApproval = async ({ workspaceId, itemId, userId, decision, comment =
       }
     }
     await item.save();
+    await syncLinkedTaskFromExecutionItem(item);
     return item;
   }
 
   const pendingAction = item.actionLogs.find((entry) => entry.status === "awaiting_approval");
   await item.save();
+  await syncLinkedTaskFromExecutionItem(item);
 
   if (pendingAction) {
     const refreshedItem = await ExecutionItem.findById(item._id);
     await executeSingleAction(refreshedItem, pendingAction.actionId, userId, { force: true });
+  }
+
+  const postApprovalItem = await ExecutionItem.findById(item._id);
+  if (["paused", "cancelled", "completed", "blocked", "failed"].includes(postApprovalItem.status)) {
+    return postApprovalItem;
   }
 
   return executeReadyPlan({ workspaceId, itemId: item._id, userId, force: false });
@@ -710,16 +751,25 @@ const applyControlAction = async ({ workspaceId, itemId, userId, action }) => {
   if (!item) throw { status: 404, message: "Execution item not found" };
 
   if (action === "pause") {
+    if (["paused", "cancelled", "completed"].includes(item.status)) {
+      throw { status: 409, message: `Workflow item is ${item.status} and cannot be paused.` };
+    }
     item.status = "paused";
     item.followUp.active = false;
     item.followUp.stopReason = item.followUp.stopReason || "paused";
     item.auditTrail.push(buildAuditEntry("paused", "Workflow paused.", {}, "user", userId));
   } else if (action === "resume") {
-    if (item.status === "cancelled") throw { status: 400, message: "Cancelled workflow items cannot be resumed" };
+    if (item.status !== "paused") throw { status: 409, message: "Only paused workflow items can be resumed" };
     item.followUp.stopReason = item.followUp.stopReason === "paused" ? "" : item.followUp.stopReason;
+    if (item.actionLogs.some((entry) => entry.status === "scheduled")) {
+      item.followUp.active = true;
+    }
     item.status = recalculateStatus(item, { ignoreControlState: true });
     item.auditTrail.push(buildAuditEntry("resumed", "Workflow resumed.", {}, "user", userId));
   } else if (action === "cancel") {
+    if (["cancelled", "completed"].includes(item.status)) {
+      throw { status: 409, message: `Workflow item is ${item.status} and cannot be cancelled.` };
+    }
     item.status = "cancelled";
     item.followUp.active = false;
     item.followUp.nextRunAt = null;
@@ -740,14 +790,19 @@ const applyControlAction = async ({ workspaceId, itemId, userId, action }) => {
     }
     item.auditTrail.push(buildAuditEntry("cancelled", "Workflow cancelled.", {}, "user", userId));
   } else if (action === "stop_followup") {
+    const template = getTemplate(item.audienceType);
+    const followUpActionIds = new Set((template?.followUpCadence || []).map((entry) => entry.actionId));
+    if (!item.followUp.active && !item.actionLogs.some((entry) => entry.status === "scheduled" && followUpActionIds.has(entry.actionId))) {
+      throw { status: 409, message: "This workflow item does not have an active follow-up cadence to stop." };
+    }
     item.followUp.active = false;
     item.followUp.nextRunAt = null;
     item.followUp.stopReason = "manual_stop";
     item.actionLogs.forEach((entry) => {
-      if (entry.status === "scheduled") entry.status = "cancelled";
+      if (entry.status === "scheduled" && followUpActionIds.has(entry.actionId)) entry.status = "cancelled";
     });
     item.executionPlan.forEach((step) => {
-      if (step.status === "waiting") step.status = "skipped";
+      if (step.status === "waiting" && followUpActionIds.has(step.id)) step.status = "skipped";
     });
     item.status = recalculateStatus(item, { ignoreControlState: true });
     item.auditTrail.push(
@@ -790,6 +845,7 @@ const applyControlAction = async ({ workspaceId, itemId, userId, action }) => {
   item.traceability.outcomeStatus = item.status;
   item.traceability.lastOutcomeAt = new Date();
   await item.save();
+  await syncLinkedTaskFromExecutionItem(item);
   return item;
 };
 

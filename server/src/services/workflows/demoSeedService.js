@@ -332,6 +332,31 @@ const updateItem = async (itemMap, key, updater) => {
   return itemMap[key];
 };
 
+const ensurePendingApproval = async ({ workspaceId, itemMap, key, userId, force = false }) => {
+  let item = await refreshItem(itemMap, key);
+
+  if (item.approvalStatus === "pending") return item;
+  if (["cancelled", "completed", "blocked", "failed"].includes(item.status)) return item;
+
+  await executeReadyPlan({ workspaceId, itemId: item._id, userId, force });
+  item = await refreshItem(itemMap, key);
+  return item;
+};
+
+const maybeDecideApproval = async ({ workspaceId, itemMap, key, userId, decision, comment = "", force = false }) => {
+  const item = await ensurePendingApproval({ workspaceId, itemMap, key, userId, force });
+  if (item.approvalStatus !== "pending") return item;
+
+  await decideApproval({
+    workspaceId,
+    itemId: item._id,
+    userId,
+    decision,
+    comment,
+  });
+  return refreshItem(itemMap, key);
+};
+
 const setTimestamps = async (Model, id, createdAt, updatedAt) => {
   await Model.updateOne(
     { _id: id },
@@ -453,45 +478,44 @@ const seedWorkflowDemoData = async () => {
     if (result.run?._id) runIds.add(String(result.run._id));
   }
 
-  await decideApproval({ workspaceId, itemId: itemMap.rec_priya._id, userId, decision: "approve" });
-  await refreshItem(itemMap, "rec_priya");
-
-  await decideApproval({ workspaceId, itemId: itemMap.rec_diego._id, userId, decision: "approve" });
-  await refreshItem(itemMap, "rec_diego");
-
-  await decideApproval({
+  await maybeDecideApproval({ workspaceId, itemMap, key: "rec_priya", userId, decision: "approve" });
+  await maybeDecideApproval({ workspaceId, itemMap, key: "rec_diego", userId, decision: "approve" });
+  await maybeDecideApproval({
     workspaceId,
-    itemId: itemMap.rec_amal._id,
+    itemMap,
+    key: "rec_amal",
     userId,
     decision: "reject",
     comment: "Hold rejection until hiring manager review is complete.",
   });
-  await refreshItem(itemMap, "rec_amal");
-
-  await decideApproval({ workspaceId, itemId: itemMap.rec_jordan._id, userId, decision: "approve" });
-  await refreshItem(itemMap, "rec_jordan");
-
-  await decideApproval({ workspaceId, itemId: itemMap.startup_release_triage._id, userId, decision: "approve" });
-  await refreshItem(itemMap, "startup_release_triage");
+  await maybeDecideApproval({ workspaceId, itemMap, key: "rec_jordan", userId, decision: "approve" });
+  await maybeDecideApproval({ workspaceId, itemMap, key: "startup_release_triage", userId, decision: "approve" });
 
   await executeReadyPlan({ workspaceId, itemId: itemMap.agency_northstar_landing._id, userId, force: true });
   await refreshItem(itemMap, "agency_northstar_landing");
 
   await executeReadyPlan({ workspaceId, itemId: itemMap.agency_northstar_social._id, userId, force: true });
   await refreshItem(itemMap, "agency_northstar_social");
-  await decideApproval({ workspaceId, itemId: itemMap.agency_northstar_social._id, userId, decision: "approve" });
-  await refreshItem(itemMap, "agency_northstar_social");
+  await maybeDecideApproval({
+    workspaceId,
+    itemMap,
+    key: "agency_northstar_social",
+    userId,
+    decision: "approve",
+    force: true,
+  });
 
   await executeReadyPlan({ workspaceId, itemId: itemMap.agency_beacon_copy._id, userId, force: true });
   await refreshItem(itemMap, "agency_beacon_copy");
-  await decideApproval({
+  await maybeDecideApproval({
     workspaceId,
-    itemId: itemMap.agency_beacon_copy._id,
+    itemMap,
+    key: "agency_beacon_copy",
     userId,
     decision: "reject",
     comment: "Client update copy needs brand review before sending.",
+    force: true,
   });
-  await refreshItem(itemMap, "agency_beacon_copy");
 
   await applyControlAction({ workspaceId, itemId: itemMap.agency_northstar_status._id, userId, action: "cancel" });
   await refreshItem(itemMap, "agency_northstar_status");
@@ -555,6 +579,23 @@ const seedWorkflowDemoData = async () => {
   await updateItem(itemMap, "re_lina", async (item) => {
     item.dueAt = dateFromNow({ days: -2 });
     item.priority = "urgent";
+    item.status = "scheduled";
+    item.followUp.active = true;
+    item.followUp.cadenceStep = 2;
+    item.followUp.attempts = Math.max(item.followUp.attempts || 0, 1);
+    item.followUp.maxAttempts = Math.max(item.followUp.maxAttempts || 0, 3);
+    item.followUp.nextRunAt = dateFromNow({ hours: 18 });
+    item.followUp.stopReason = "";
+    const scheduledLog = item.actionLogs.find((entry) => entry.actionId === "send_sequence_followup");
+    const scheduledStep = item.executionPlan.find((entry) => entry.id === "send_sequence_followup");
+    if (scheduledLog) {
+      scheduledLog.status = "scheduled";
+      scheduledLog.scheduledFor = item.followUp.nextRunAt;
+    }
+    if (scheduledStep) {
+      scheduledStep.status = "waiting";
+      scheduledStep.scheduledFor = item.followUp.nextRunAt;
+    }
   });
 
   await updateItem(itemMap, "rec_priya", async (item) => {

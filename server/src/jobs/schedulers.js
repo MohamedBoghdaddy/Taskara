@@ -10,13 +10,14 @@ const { startReminderWorker }   = require('./workers/reminderWorker');
 const { startRecurrenceWorker } = require('./workers/recurrenceWorker');
 const { startWebhookWorker }    = require('./workers/webhookWorker');
 const { startAnalyticsWorker }  = require('./workers/analyticsWorker');
+const { startWorkflowWorker }   = require('./workers/workflowWorker');
 
 let workers = [];
 
 const startSchedulers = async (redisConnection) => {
   console.log('[Schedulers] Starting job workers...');
 
-  const { remindersQueue, recurrenceQueue, analyticsQueue } = getQueues();
+  const { remindersQueue, recurrenceQueue, analyticsQueue, workflowsQueue } = getQueues();
 
   // ── Repeating jobs (BullMQ) ──────────────────────────────────────────────
   if (remindersQueue) {
@@ -47,12 +48,22 @@ const startSchedulers = async (redisConnection) => {
     }).catch(() => {});
   }
 
+  if (workflowsQueue) {
+    await workflowsQueue.add('process-workflows', {}, {
+      repeat:  { every: Number(process.env.WORKFLOW_JOB_INTERVAL_MS || 60 * 1000) },
+      jobId:   'workflow-repeat',
+      removeOnComplete: 10,
+      removeOnFail:     5,
+    }).catch(() => {});
+  }
+
   // ── Workers ──────────────────────────────────────────────────────────────
   workers = [
     startReminderWorker(redisConnection),
     startRecurrenceWorker(redisConnection),
     startWebhookWorker(redisConnection),
     startAnalyticsWorker(redisConnection),
+    startWorkflowWorker(redisConnection),
   ].filter(Boolean);
 
   console.log(`[Schedulers] ${workers.length} worker(s) active`);
