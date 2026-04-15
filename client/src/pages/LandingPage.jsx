@@ -16,6 +16,7 @@ const BLUE      = '#2563EB';
 const BLUE_SOFT = '#EFF6FF';
 const BLUE_MID  = '#60A5FA';
 const NAVY      = '#0F172A';
+const NAVBAR_BG = '#FCFCFC';
 const SLATE     = '#64748B';
 const BORDER    = '#E2E8F0';
 
@@ -236,7 +237,7 @@ export default function LandingPage() {
         position: 'sticky', top: 0, zIndex: 100, height: '64px',
         padding: '0 48px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background:    scrolled ? 'rgba(255,255,255,0.96)' : 'transparent',
+        background:    scrolled ? 'rgba(252,252,252,0.96)' : NAVBAR_BG,
         backdropFilter: scrolled ? 'blur(12px)'            : 'none',
         borderBottom:  scrolled ? `1px solid ${BORDER}`   : '1px solid transparent',
         transition: 'background 0.25s, border-color 0.25s, backdrop-filter 0.25s',
