@@ -1,4 +1,5 @@
 import { getNavigationGroups } from "../navigationRegistry";
+import { normalizeVerticalKey } from "../verticals";
 
 const flattenLabels = (groups) => groups.flatMap((group) => group.items.map((item) => item.label));
 
@@ -30,4 +31,9 @@ test("operator surface exposes agency and real-estate execution modules", () => 
       "Settlements",
     ]),
   );
+});
+
+test("frontend vertical normalization matches canonical student and real-estate keys", () => {
+  expect(normalizeVerticalKey("real_estate")).toBe("realestate");
+  expect(normalizeVerticalKey("study")).toBe("student");
 });

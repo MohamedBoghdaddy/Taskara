@@ -1,11 +1,8 @@
 const { getTemplate } = require("../../config/workflowTemplates");
+const { normalizeVerticalKey } = require("../../config/verticals");
 
-const normalizeDashboardVertical = (vertical = "", audienceType = "") => {
-  const candidate = String(vertical || audienceType || "core").toLowerCase();
-  if (candidate === "students" || candidate === "study") return "student";
-  if (candidate === "real-estate" || candidate === "real_estate") return "realestate";
-  return candidate || "core";
-};
+const normalizeDashboardVertical = (vertical = "", audienceType = "") =>
+  normalizeVerticalKey(vertical || audienceType, "core");
 
 const DASHBOARD_LAYOUTS = {
   operator: {

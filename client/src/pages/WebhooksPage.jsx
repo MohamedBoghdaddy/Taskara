@@ -6,7 +6,7 @@ import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
-  BacklinkIcon, AddIcon, CheckCircleIcon, DeleteIcon, ToggleOnIcon, ToggleOffIcon,
+  AddIcon, CheckCircleIcon, DeleteIcon, ToggleOnIcon, ToggleOffIcon,
   BroadcastIcon, SendIcon, ShareIcon, GlobeIcon,
 } from '../components/common/Icons';
 

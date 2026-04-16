@@ -8,14 +8,12 @@ import {
   AIIcon,
   BrainIcon,
   TodayIcon,
-  TaskIcon,
   SendIcon,
   SparkIcon,
   LightbulbIcon,
   WandIcon,
   SearchIcon,
 } from '../components/common/Icons';
-import toast from 'react-hot-toast';
 
 export default function AIPage() {
   const [messages, setMessages] = useState([

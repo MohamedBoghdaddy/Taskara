@@ -1,13 +1,5 @@
-const { normalizeAudienceKey } = require("../../config/workflowTemplates");
+const { normalizeVerticalKey } = require("../../config/verticals");
 const { getWorkspaceContextById } = require("../workspaces/workspaceProfileService");
-
-const normalizePolicyAudience = (value = "") => {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) return "";
-  if (["student", "students", "study"].includes(raw)) return "student";
-  if (["real-estate", "real_estate"].includes(raw)) return "realestate";
-  return normalizeAudienceKey(raw, "");
-};
 
 const BASE_COPY = {
   operator: {
@@ -67,7 +59,7 @@ const toCopyKey = (surfaceMode = "operator", trustProfile = "operator") =>
   surfaceMode === "student" || trustProfile === "student" ? "student" : "operator";
 
 const getWorkflowPolicyContext = async ({ workspaceId, audienceType, surfaceMode, trustProfile } = {}) => {
-  const resolvedAudience = normalizePolicyAudience(audienceType);
+  const resolvedAudience = normalizeVerticalKey(audienceType, "");
   const workspaceContext = workspaceId
     ? await getWorkspaceContextById(workspaceId)
     : {
@@ -77,7 +69,7 @@ const getWorkflowPolicyContext = async ({ workspaceId, audienceType, surfaceMode
         trustProfile: trustProfile || "operator",
       };
 
-  const normalizedAudience = normalizePolicyAudience(resolvedAudience || workspaceContext.vertical) || "core";
+  const normalizedAudience = normalizeVerticalKey(resolvedAudience || workspaceContext.vertical, "core");
   const copyKey = toCopyKey(workspaceContext.surfaceMode, workspaceContext.trustProfile);
   return {
     workspaceContext,

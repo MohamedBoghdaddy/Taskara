@@ -16,7 +16,7 @@
  *   />
  */
 import React, { useState, useEffect } from 'react';
-import { InfoIcon, ChevronDown, ChevronUp, CloseIcon } from './Icons';
+import { InfoIcon, ChevronUp, CloseIcon } from './Icons';
 
 export default function FeatureGuide({
   storageKey,

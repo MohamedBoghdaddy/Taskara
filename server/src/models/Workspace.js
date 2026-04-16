@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { normalizeVerticalKey } = require('../config/verticals');
 
 const workspaceSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -13,6 +14,7 @@ const workspaceSchema = new mongoose.Schema({
     // but all new writes should use the canonical "student" value.
     enum: ['core', 'recruiters', 'agencies', 'realestate', 'startups', 'insurance', 'student', 'students'],
     default: 'core',
+    set: (value) => normalizeVerticalKey(value, value),
   },
   surfaceMode: {
     type: String,

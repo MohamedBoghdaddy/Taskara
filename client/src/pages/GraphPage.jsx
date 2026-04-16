@@ -48,10 +48,7 @@ export default function GraphPage() {
     });
 
     const TYPE_COLORS = { note: '#6366F1', task: '#22C55E', project: '#F59E0B' };
-    let frame = 0;
-
     const tick = () => {
-      frame++;
       // Force-directed layout
       graphData.nodes.forEach(n => {
         const p = positions[n.id];

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getProject, updateProject } from '../api/projects';
-import Button from '../components/common/Button';
+import { getProject } from '../api/projects';
 import Badge from '../components/common/Badge';
 import FeatureGuide from '../components/common/FeatureGuide';
 import Tooltip from '../components/common/Tooltip';
@@ -10,8 +9,6 @@ import {
   TaskIcon,
   NoteIcon,
   CheckCircleIcon,
-  UsersIcon,
-  UserPlusIcon,
   TimerIcon,
   ArrowLeft,
   CheckIcon,

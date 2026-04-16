@@ -24,9 +24,12 @@ export default function CalendarPage() {
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
   useEffect(() => {
+    const rangeStart = startOfWeek(startOfMonth(current), { weekStartsOn: 1 });
+    const rangeEnd = endOfWeek(endOfMonth(current), { weekStartsOn: 1 });
+
     Promise.all([
-      getTasks({ from: calStart.toISOString(), to: calEnd.toISOString() }).then(d => setTasks(d.tasks || [])),
-      getReminders({ from: calStart.toISOString(), to: calEnd.toISOString() }).then(setReminders),
+      getTasks({ from: rangeStart.toISOString(), to: rangeEnd.toISOString() }).then(d => setTasks(d.tasks || [])),
+      getReminders({ from: rangeStart.toISOString(), to: rangeEnd.toISOString() }).then(setReminders),
     ]).catch(() => toast.error('Failed to load calendar data'));
   }, [current]);
 

@@ -11,31 +11,36 @@ const pickProfileUpdates = (body = {}) =>
     return updates;
   }, {});
 
+const sendJson = (res, payload, status = 200) => res.status(status).json(payload);
+
+const sendSerializedUser = async (res, user, status = 200) =>
+  sendJson(res, { user: await serializeUserWithWorkspace(user) }, status);
+
 const register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
-  res.status(201).json(result);
+  return sendJson(res, result, 201);
 });
 
 const login = asyncHandler(async (req, res) => {
   const result = await authService.login(req.body);
-  res.json(result);
+  return sendJson(res, result);
 });
 
 const refresh = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;
-  if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
+  if (!refreshToken) return sendJson(res, { error: 'Refresh token required' }, 400);
   const result = await authService.refresh(refreshToken);
-  res.json(result);
+  return sendJson(res, result);
 });
 
 const logout = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;
   await authService.logout(req.user._id, refreshToken);
-  res.json({ message: 'Logged out successfully' });
+  return sendJson(res, { success: true, message: 'Logged out successfully' });
 });
 
 const getMe = asyncHandler(async (req, res) => {
-  res.json({ user: await serializeUserWithWorkspace(req.user) });
+  return sendSerializedUser(res, req.user);
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
@@ -44,7 +49,7 @@ const updateProfile = asyncHandler(async (req, res) => {
     pickProfileUpdates(req.body),
     { new: true, runValidators: true },
   ).select('-passwordHash -refreshTokens');
-  res.json({ user: await serializeUserWithWorkspace(user) });
+  return sendSerializedUser(res, user);
 });
 
 module.exports = { register, login, refresh, logout, getMe, updateProfile };

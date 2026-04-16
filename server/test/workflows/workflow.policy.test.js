@@ -7,6 +7,7 @@ const {
 } = require("../../src/services/workspaces/workspaceProfileService");
 const { applyWorkflowPolicyToSafety } = require("../../src/services/workflows/workflowPolicyService");
 const { buildDashboardWidgets, getDashboardLayout } = require("../../src/services/dashboards/dashboardRegistryService");
+const { normalizeVerticalKey } = require("../../src/config/verticals");
 const {
   extractAgencyReportIntelligence,
   extractSettlementIntelligence,
@@ -35,6 +36,13 @@ after(async () => {
 
 beforeEach(async () => {
   await harness.resetDatabase();
+});
+
+test("shared vertical normalization keeps legacy aliases compatible while resolving to one canonical key", () => {
+  assert.equal(normalizeVerticalKey("real_estate"), "realestate");
+  assert.equal(normalizeVerticalKey("real-estate"), "realestate");
+  assert.equal(normalizeVerticalKey("study"), "student");
+  assert.equal(normalizeVerticalKey("students"), "student");
 });
 
 test("workspace profiles drive softer student trust copy without removing hard stops", async () => {

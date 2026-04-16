@@ -1,14 +1,15 @@
 const Workspace = require("../../models/Workspace");
+const { CANONICAL_VERTICALS, normalizeVerticalKey } = require("../../config/verticals");
 
 const STUDENT_PROFILE = {
-  vertical: "student",
+  vertical: CANONICAL_VERTICALS.STUDENT,
   surfaceMode: "student",
   featureProfile: "student_survival",
   trustProfile: "student",
 };
 
 const DEFAULT_WORKSPACE_CONTEXT = {
-  vertical: "core",
+  vertical: CANONICAL_VERTICALS.CORE,
   surfaceMode: "operator",
   featureProfile: "core",
   trustProfile: "operator",
@@ -16,38 +17,36 @@ const DEFAULT_WORKSPACE_CONTEXT = {
 
 const AUDIENCE_WORKSPACE_PROFILES = {
   recruiters: {
-    vertical: "recruiters",
+    vertical: CANONICAL_VERTICALS.RECRUITERS,
     surfaceMode: "operator",
     featureProfile: "recruiter_execution",
     trustProfile: "operator",
   },
   agencies: {
-    vertical: "agencies",
+    vertical: CANONICAL_VERTICALS.AGENCIES,
     surfaceMode: "operator",
     featureProfile: "agency_operations",
     trustProfile: "operator",
   },
   realestate: {
-    vertical: "realestate",
+    vertical: CANONICAL_VERTICALS.REAL_ESTATE,
     surfaceMode: "operator",
     featureProfile: "realestate_operations",
     trustProfile: "operator",
   },
   startups: {
-    vertical: "startups",
+    vertical: CANONICAL_VERTICALS.STARTUPS,
     surfaceMode: "operator",
     featureProfile: "startup_execution",
     trustProfile: "operator",
   },
   insurance: {
-    vertical: "insurance",
+    vertical: CANONICAL_VERTICALS.INSURANCE,
     surfaceMode: "operator",
     featureProfile: "insurance_pilot",
     trustProfile: "compliance",
   },
   student: STUDENT_PROFILE,
-  students: STUDENT_PROFILE,
-  study: STUDENT_PROFILE,
 };
 
 const buildWorkspaceContext = (workspace = null) => ({
@@ -55,9 +54,8 @@ const buildWorkspaceContext = (workspace = null) => ({
   ...(workspace
     ? {
         vertical:
-          workspace.vertical === "students"
-            ? "student"
-            : workspace.vertical || DEFAULT_WORKSPACE_CONTEXT.vertical,
+          normalizeVerticalKey(workspace.vertical, workspace.vertical) ||
+          DEFAULT_WORKSPACE_CONTEXT.vertical,
         surfaceMode: workspace.surfaceMode || DEFAULT_WORKSPACE_CONTEXT.surfaceMode,
         featureProfile: workspace.featureProfile || DEFAULT_WORKSPACE_CONTEXT.featureProfile,
         trustProfile: workspace.trustProfile || DEFAULT_WORKSPACE_CONTEXT.trustProfile,
@@ -72,7 +70,7 @@ const getWorkspaceContextById = async (workspaceId) => {
 };
 
 const getAudienceWorkspaceProfile = (audienceType = "") =>
-  AUDIENCE_WORKSPACE_PROFILES[String(audienceType || "").toLowerCase()] || null;
+  AUDIENCE_WORKSPACE_PROFILES[normalizeVerticalKey(audienceType)] || null;
 
 const applyAudienceWorkspaceProfile = async (workspaceId, audienceType) => {
   const profile = getAudienceWorkspaceProfile(audienceType);

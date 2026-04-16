@@ -43,7 +43,6 @@ export default function Tooltip({ content, placement = 'top', delay = 400, child
           fontSize: '11px',
           padding: '4px 8px',
           borderRadius: '4px',
-          whiteSpace: 'nowrap',
           zIndex: 9999,
           pointerEvents: 'none',
           boxShadow: '0 2px 8px rgba(0,0,0,0.2)',

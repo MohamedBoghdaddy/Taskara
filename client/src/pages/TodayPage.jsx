@@ -5,12 +5,11 @@ import { generateDailyNote } from '../api/notes';
 import { getDashboardStats } from '../api/index';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import Input from '../components/common/Input';
 import FeatureGuide from '../components/common/FeatureGuide';
 import Tooltip from '../components/common/Tooltip';
 import {
-  TodayIcon, CheckIcon, TimerIcon, InboxIcon, NoteIcon,
-  FocusIcon, WarnIcon, AddIcon, CheckCircleIcon, TaskIcon,
+  TodayIcon, TimerIcon, InboxIcon, NoteIcon,
+  FocusIcon, WarnIcon, AddIcon, CheckCircleIcon,
 } from '../components/common/Icons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';

@@ -3,10 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import * as sprintApi from '../api/sprints';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
-import Badge from '../components/common/Badge';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
-  SprintIcon, CheckCircleIcon, TimerIcon, BacklogIcon,
+  SprintIcon, CheckCircleIcon, BacklogIcon,
   CloseIcon, ArrowLeft, CheckIcon, PlayIcon, FlashIcon,
 } from '../components/common/Icons';
 

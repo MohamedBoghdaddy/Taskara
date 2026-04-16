@@ -6,9 +6,9 @@ import client from '../api/client';
 import { buildApiUrl } from '../api/base';
 import FeatureGuide from '../components/common/FeatureGuide';
 import {
-  PlugIcon, CloudIcon, CheckCircleIcon, ExternalLinkIcon,
+  PlugIcon, CheckCircleIcon, ExternalLinkIcon,
   ImportIcon, SendIcon, SlackIcon, GitHubIcon, GoogleIcon,
-  TaskIcon, ShareIcon, DeleteIcon, RefreshIcon,
+  ShareIcon, DeleteIcon, RefreshIcon,
 } from '../components/common/Icons';
 
 // Local aliases for readability
@@ -1128,10 +1128,8 @@ function WhatsAppSection({ connected, onConnected, onDisconnect }) {
 function ClickUpSection({ connected, onConnected, onDisconnect }) {
   const [apiKey, setApiKey]   = useState('');
   const [loading, setLoading] = useState(false);
-  const [teams, setTeams]     = useState([]);
   const [spaces, setSpaces]   = useState([]);
   const [lists, setLists]     = useState([]);
-  const [selectedTeam, setSelectedTeam]   = useState('');
   const [selectedSpace, setSelectedSpace] = useState('');
   const [selectedList, setSelectedList]   = useState('');
   const [syncResult, setSyncResult]       = useState(null);
@@ -1143,7 +1141,6 @@ function ClickUpSection({ connected, onConnected, onDisconnect }) {
     try {
       const data = await api.cuConnect({ apiKey: apiKey.trim() });
       const t = data.profile?.teams || [];
-      setTeams(t);
       setTeamName(t[0]?.name || '');
       onConnected();
       toast.success(`Connected to ${t[0]?.name || 'ClickUp'}`);

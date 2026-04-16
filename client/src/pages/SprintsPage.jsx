@@ -13,7 +13,6 @@ import {
 } from '../components/common/Icons';
 
 const STATUS_COLOR = { planning: 'var(--text-muted)', active: 'var(--success)', completed: 'var(--primary)' };
-const STATUS_BG    = { planning: 'var(--surface-alt)', active: '#16a34a22', completed: 'var(--primary)22' };
 
 export default function SprintsPage() {
   const navigate = useNavigate();

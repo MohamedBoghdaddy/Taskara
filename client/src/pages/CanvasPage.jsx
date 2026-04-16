@@ -1,8 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import FeatureGuide from '../components/common/FeatureGuide';
 import {
   PaletteIcon, UndoIcon, RedoIcon, DeleteIcon, DownloadIcon,
-  EditIcon, AlignCenterIcon, BlueprintIcon,
+  BlueprintIcon,
 } from '../components/common/Icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {

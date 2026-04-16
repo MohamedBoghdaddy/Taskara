@@ -25,18 +25,19 @@ import {
   WorkflowIcon,
   ShieldIcon,
 } from "../components/common/Icons";
+import { CANONICAL_VERTICALS, normalizeSurfaceMode, normalizeVerticalKey } from "./verticals";
 
 const normalizeSurfaceContext = (verticalOrContext = {}, surfaceModeArg = "operator") => {
   if (typeof verticalOrContext === "string") {
     return {
-      vertical: verticalOrContext,
-      surfaceMode: surfaceModeArg || "operator",
+      vertical: normalizeVerticalKey(verticalOrContext),
+      surfaceMode: normalizeSurfaceMode(surfaceModeArg),
     };
   }
 
   return {
-    vertical: verticalOrContext?.vertical || "core",
-    surfaceMode: verticalOrContext?.surfaceMode || "operator",
+    vertical: normalizeVerticalKey(verticalOrContext?.vertical, CANONICAL_VERTICALS.CORE),
+    surfaceMode: normalizeSurfaceMode(verticalOrContext?.surfaceMode),
   };
 };
 
@@ -126,5 +127,5 @@ const buildOperatorGroups = () => [
 
 export const getNavigationGroups = (verticalOrContext = {}, surfaceModeArg = "operator") => {
   const { surfaceMode } = normalizeSurfaceContext(verticalOrContext, surfaceModeArg);
-  return surfaceMode === "student" ? buildStudentGroups() : buildOperatorGroups();
+  return surfaceMode === CANONICAL_VERTICALS.STUDENT ? buildStudentGroups() : buildOperatorGroups();
 };

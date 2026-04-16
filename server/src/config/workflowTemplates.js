@@ -1,15 +1,4 @@
-const AUDIENCE_ALIASES = {
-  recruiter: "recruiters",
-  recruiters: "recruiters",
-  startup: "startups",
-  startups: "startups",
-  agency: "agencies",
-  agencies: "agencies",
-  "real-estate": "realestate",
-  real_estate: "realestate",
-  realestate: "realestate",
-  estate: "realestate",
-};
+const { normalizeVerticalKey } = require("./verticals");
 
 const BASE_TRUST_CONTROLS = [
   "Explainable assignment",
@@ -540,8 +529,8 @@ const WORKFLOW_TEMPLATES = {
 const AUDIENCE_KEYS = Object.keys(WORKFLOW_TEMPLATES);
 
 const resolveAudienceKey = (input) => {
-  if (!input) return null;
-  return AUDIENCE_ALIASES[String(input).toLowerCase()] || null;
+  const normalized = normalizeVerticalKey(input);
+  return normalized && WORKFLOW_TEMPLATES[normalized] ? normalized : null;
 };
 
 const normalizeAudienceKey = (input, fallback = "startups") => resolveAudienceKey(input) || fallback;

@@ -1,3 +1,5 @@
+const { normalizeVerticalKey } = require("../../config/verticals");
+
 const MANIFESTS = {
   startups: {
     key: "startups",
@@ -19,14 +21,8 @@ const MANIFESTS = {
   },
 };
 
-const MANIFEST_ALIASES = {
-  study: "student",
-  students: "student",
-  student: "student",
-};
-
 const getVerticalManifest = (key) => {
-  const normalizedKey = MANIFEST_ALIASES[String(key || "").toLowerCase()] || key;
+  const normalizedKey = normalizeVerticalKey(key, key);
   return MANIFESTS[normalizedKey] || null;
 };
 

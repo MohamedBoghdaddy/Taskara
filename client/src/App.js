@@ -93,7 +93,6 @@ export default function App() {
         }}
       />
       <Routes>
-        {/* Public */}
         <Route
           path="/"
           element={
@@ -123,12 +122,13 @@ export default function App() {
           }
         />
 
-        {/* Protected — inside AppLayout */}
+        {/* Public audience pages */}
         <Route path="/for-recruiters" element={<AudienceSolutionPage audienceKey="recruiters" />} />
         <Route path="/for-startups" element={<AudienceSolutionPage audienceKey="startups" />} />
         <Route path="/for-agencies" element={<AudienceSolutionPage audienceKey="agencies" />} />
         <Route path="/for-real-estate" element={<AudienceSolutionPage audienceKey="realestate" />} />
 
+        {/* Protected inside AppLayout */}
         <Route
           element={
             <PrivateRoute>
@@ -140,14 +140,12 @@ export default function App() {
           <Route path="/today" element={<TodayPage />} />
           <Route path="/inbox" element={<InboxPage />} />
 
-          {/* Notes */}
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/notes/new" element={<NoteEditorPage />} />
           <Route path="/notes/:id" element={<NoteEditorPage />} />
           <Route path="/daily/today" element={<DailyNotePage />} />
           <Route path="/daily/:date" element={<DailyNotePage />} />
 
-          {/* Tasks + Work */}
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/boards" element={<BoardPage />} />
           <Route path="/backlog" element={<BacklogPage />} />
@@ -155,35 +153,28 @@ export default function App() {
           <Route path="/sprints/:id" element={<SprintDetailPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
 
-          {/* Projects */}
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
 
-          {/* Focus */}
           <Route path="/pomodoro" element={<PomodoroPage />} />
 
-          {/* Insights */}
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/search" element={<SearchPage />} />
 
-          {/* Knowledge */}
           <Route path="/templates" element={<TemplatesPage />} />
           <Route path="/databases" element={<DatabasesPage />} />
           <Route path="/databases/:id" element={<DatabaseDetailPage />} />
           <Route path="/graph" element={<GraphPage />} />
 
-          {/* Canvas */}
           <Route path="/canvas" element={<CanvasPage />} />
 
-          {/* AI + Team */}
           <Route path="/ai" element={<AIPage />} />
           <Route path="/collaboration" element={<CollaborationPage />} />
           <Route path="/automations" element={<AutomationsPage />} />
           <Route path="/webhooks" element={<WebhooksPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
 
-          {/* Vertical surfaces */}
           <Route path="/agency/dashboard" element={<AgencyDashboardPage />} />
           <Route path="/agency/clients" element={<AgencyClientsPage />} />
           <Route path="/agency/campaigns" element={<AgencyCampaignsPage />} />
@@ -198,11 +189,9 @@ export default function App() {
           <Route path="/real-estate/viewings" element={<RealEstateViewingsPage />} />
           <Route path="/real-estate/settlements" element={<RealEstateSettlementsPage />} />
 
-          {/* Settings + Pricing */}
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/pricing" element={<PricingPage />} />
 
-          {/* Fallback */}
           <Route path="*" element={<Navigate to={getDefaultAuthenticatedPath(user)} replace />} />
         </Route>
       </Routes>
