@@ -38,6 +38,21 @@ import PricingPage from "./pages/PricingPage";
 import CanvasPage from "./pages/CanvasPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import AudienceSolutionPage from "./pages/AudienceSolutionPage";
+import AgencyDashboardPage from "./pages/AgencyDashboardPage";
+import AgencyClientsPage from "./pages/AgencyClientsPage";
+import AgencyCampaignsPage from "./pages/AgencyCampaignsPage";
+import AgencyContentCalendarPage from "./pages/AgencyContentCalendarPage";
+import AgencyReportsPage from "./pages/AgencyReportsPage";
+import AgencyApprovalsPage from "./pages/AgencyApprovalsPage";
+import RealEstateDashboardPage from "./pages/RealEstateDashboardPage";
+import RealEstateLeadsPage from "./pages/RealEstateLeadsPage";
+import RealEstatePropertiesPage from "./pages/RealEstatePropertiesPage";
+import RealEstateDealsPage from "./pages/RealEstateDealsPage";
+import RealEstateSettlementsPage from "./pages/RealEstateSettlementsPage";
+import RealEstateViewingsPage from "./pages/RealEstateViewingsPage";
+
+const getDefaultAuthenticatedPath = (user) =>
+  user?.workspaceContext?.surfaceMode === "student" ? "/today" : "/dashboard";
 
 const PrivateRoute = ({ children }) => {
   const { token } = useAuthStore();
@@ -45,12 +60,12 @@ const PrivateRoute = ({ children }) => {
 };
 
 const PublicRoute = ({ children }) => {
-  const { token } = useAuthStore();
-  return !token ? children : <Navigate to="/dashboard" replace />;
+  const { token, user } = useAuthStore();
+  return !token ? children : <Navigate to={getDefaultAuthenticatedPath(user)} replace />;
 };
 
 export default function App() {
-  const { preferences } = useAuthStore();
+  const { preferences, user } = useAuthStore();
 
   useEffect(() => {
     const theme =
@@ -168,12 +183,27 @@ export default function App() {
           <Route path="/webhooks" element={<WebhooksPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
 
+          {/* Vertical surfaces */}
+          <Route path="/agency/dashboard" element={<AgencyDashboardPage />} />
+          <Route path="/agency/clients" element={<AgencyClientsPage />} />
+          <Route path="/agency/campaigns" element={<AgencyCampaignsPage />} />
+          <Route path="/agency/content" element={<AgencyContentCalendarPage />} />
+          <Route path="/agency/reports" element={<AgencyReportsPage />} />
+          <Route path="/agency/approvals" element={<AgencyApprovalsPage />} />
+
+          <Route path="/real-estate/dashboard" element={<RealEstateDashboardPage />} />
+          <Route path="/real-estate/leads" element={<RealEstateLeadsPage />} />
+          <Route path="/real-estate/properties" element={<RealEstatePropertiesPage />} />
+          <Route path="/real-estate/deals" element={<RealEstateDealsPage />} />
+          <Route path="/real-estate/viewings" element={<RealEstateViewingsPage />} />
+          <Route path="/real-estate/settlements" element={<RealEstateSettlementsPage />} />
+
           {/* Settings + Pricing */}
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/pricing" element={<PricingPage />} />
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to={getDefaultAuthenticatedPath(user)} replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

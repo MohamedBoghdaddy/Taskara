@@ -1,6 +1,15 @@
 const authService = require('../services/auth/authService');
+const User = require('../models/User');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { serializeUser } = require('../utils/serializeUser');
+const { serializeUserWithWorkspace } = require('../utils/serializeUser');
+
+const PROFILE_UPDATE_FIELDS = ['name', 'avatarUrl', 'timezone', 'preferences'];
+
+const pickProfileUpdates = (body = {}) =>
+  PROFILE_UPDATE_FIELDS.reduce((updates, key) => {
+    if (body[key] !== undefined) updates[key] = body[key];
+    return updates;
+  }, {});
 
 const register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
@@ -26,17 +35,16 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 const getMe = asyncHandler(async (req, res) => {
-  res.json({ user: serializeUser(req.user) });
+  res.json({ user: await serializeUserWithWorkspace(req.user) });
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const User = require('../models/User');
-  const updates = {};
-  const allowed = ['name', 'avatarUrl', 'timezone', 'preferences'];
-  allowed.forEach(key => { if (req.body[key] !== undefined) updates[key] = req.body[key]; });
-
-  const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true }).select('-passwordHash -refreshTokens');
-  res.json({ user: serializeUser(user) });
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    pickProfileUpdates(req.body),
+    { new: true, runValidators: true },
+  ).select('-passwordHash -refreshTokens');
+  res.json({ user: await serializeUserWithWorkspace(user) });
 });
 
 module.exports = { register, login, refresh, logout, getMe, updateProfile };

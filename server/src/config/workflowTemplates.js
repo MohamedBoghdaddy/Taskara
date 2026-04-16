@@ -6,6 +6,7 @@ const AUDIENCE_ALIASES = {
   agency: "agencies",
   agencies: "agencies",
   "real-estate": "realestate",
+  real_estate: "realestate",
   realestate: "realestate",
   estate: "realestate",
 };

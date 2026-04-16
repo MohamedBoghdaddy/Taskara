@@ -36,6 +36,11 @@ const noteVersionsRoutes = require("./routes/noteVersions");
 const integrationsRoutes = require("./routes/integrations");
 const workflowsRoutes = require("./routes/workflows");
 const operationsRoutes = require("./routes/operations");
+const agenciesRoutes = require("./routes/agencies");
+const realEstateRoutes = require("./routes/realEstate");
+const startupsRoutes = require("./routes/startups");
+const insuranceRoutes = require("./routes/insurance");
+const studyRoutes = require("./routes/study");
 
 const app = express();
 const corsOrigin = createCorsOriginHandler();
@@ -93,6 +98,12 @@ app.use("/api/note-versions", noteVersionsRoutes);
 app.use("/api/integrations", integrationsRoutes);
 app.use("/api/workflows", workflowsRoutes);
 app.use("/api/ops", operationsRoutes);
+app.use("/api/agencies", agenciesRoutes);
+app.use("/api/real-estate", realEstateRoutes);
+app.use("/api/startups", startupsRoutes);
+app.use("/api/insurance", insuranceRoutes);
+app.use("/api/student", studyRoutes);
+app.use("/api/study", studyRoutes);
 
 app.use(errorHandler);
 

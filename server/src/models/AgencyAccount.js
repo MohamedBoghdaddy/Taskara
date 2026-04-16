@@ -33,6 +33,8 @@ const agencyAccountSchema = new mongoose.Schema(
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     name: { type: String, required: true, trim: true },
     clientName: { type: String, default: "" },
+    serviceTier: { type: String, default: "" },
+    contacts: { type: [mongoose.Schema.Types.Mixed], default: [] },
     status: { type: String, enum: ["active", "watch", "at_risk", "paused"], default: "active" },
     deliverables: { type: [deliverableSchema], default: [] },
     approvals: { type: [agencyApprovalSchema], default: [] },
@@ -45,6 +47,12 @@ const agencyAccountSchema = new mongoose.Schema(
     },
     updateCadenceDays: { type: Number, default: 7 },
     lastClientUpdateAt: { type: Date, default: null },
+    retainerVisibility: {
+      packageLabel: { type: String, default: "" },
+      monthlyAmount: { type: Number, default: 0 },
+      currency: { type: String, default: "USD" },
+      renewalDate: { type: Date, default: null },
+    },
   },
   { timestamps: true },
 );

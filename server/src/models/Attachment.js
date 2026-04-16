@@ -3,7 +3,23 @@ const mongoose = require('mongoose');
 const attachmentSchema = new mongoose.Schema({
   uploadedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   workspaceId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true },
-  entityType:   { type: String, enum: ['Task', 'Card', 'Note', 'User', 'Audio'], default: 'Task' },
+  entityType:   {
+    type: String,
+    enum: [
+      'Task',
+      'Card',
+      'Note',
+      'User',
+      'Audio',
+      'Campaign',
+      'ContentItem',
+      'ClientReport',
+      'Property',
+      'Deal',
+      'Settlement',
+    ],
+    default: 'Task',
+  },
   entityId:     { type: mongoose.Schema.Types.ObjectId, default: null },
   filename:     { type: String, required: true },   // stored filename on disk
   originalName: { type: String, required: true },   // original upload name

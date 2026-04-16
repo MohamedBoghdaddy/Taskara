@@ -1,0 +1,23 @@
+import client from './client';
+
+export const getRealEstateDashboard = () => client.get('/real-estate/dashboard').then((r) => r.data);
+export const getRealEstateLeads = () => client.get('/real-estate/leads').then((r) => r.data);
+export const updateRealEstateLead = (id, data) => client.patch(`/real-estate/leads/${id}`, data).then((r) => r.data);
+export const getOwners = () => client.get('/real-estate/owners').then((r) => r.data);
+export const createOwner = (data) => client.post('/real-estate/owners', data).then((r) => r.data);
+export const updateOwner = (id, data) => client.patch(`/real-estate/owners/${id}`, data).then((r) => r.data);
+export const getProperties = () => client.get('/real-estate/properties').then((r) => r.data);
+export const createProperty = (data) => client.post('/real-estate/properties', data).then((r) => r.data);
+export const updateProperty = (id, data) => client.patch(`/real-estate/properties/${id}`, data).then((r) => r.data);
+export const getDeals = () => client.get('/real-estate/deals').then((r) => r.data);
+export const createDeal = (data) => client.post('/real-estate/deals', data).then((r) => r.data);
+export const updateDeal = (id, data) => client.patch(`/real-estate/deals/${id}`, data).then((r) => r.data);
+export const getViewings = () => client.get('/real-estate/viewings').then((r) => r.data);
+export const createViewing = (data) => client.post('/real-estate/viewings', data).then((r) => r.data);
+export const updateViewing = (id, data) => client.patch(`/real-estate/viewings/${id}`, data).then((r) => r.data);
+export const getSettlements = () => client.get('/real-estate/settlements').then((r) => r.data);
+export const createSettlement = (data) => client.post('/real-estate/settlements', data).then((r) => r.data);
+export const updateSettlement = (id, data) => client.patch(`/real-estate/settlements/${id}`, data).then((r) => r.data);
+export const getMaintenanceRequests = () => client.get('/real-estate/maintenance').then((r) => r.data);
+export const createMaintenanceRequest = (data) => client.post('/real-estate/maintenance', data).then((r) => r.data);
+export const getRealEstateAiSuggestions = (data) => client.post('/real-estate/ai/suggestions', data).then((r) => r.data);
