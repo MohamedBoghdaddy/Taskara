@@ -16,6 +16,7 @@ import {
   executeWorkflowItem,
   getWorkflowDashboard,
   ingestWorkflowInput,
+  submitWorkflowFeedback,
 } from "../api/workflows";
 import {
   completeOnboarding,
@@ -41,6 +42,10 @@ const tone = {
 };
 
 const formatLabel = (value = "") => String(value).replace(/_/g, " ");
+const normalizeConfidenceScore = (value) => {
+  const number = Number(value || 0);
+  return number <= 1 ? Math.round(number * 100) : Math.round(number);
+};
 
 const getLatestSyncLog = (item) => {
   const syncLogs = item?.syncLogs || [];
@@ -50,13 +55,63 @@ const getLatestSyncLog = (item) => {
 const hasScheduledFollowUp = (item) =>
   Boolean(item?.followUp?.active || (item?.actionLogs || []).some((entry) => entry.status === "scheduled"));
 
+const FEEDBACK_OPTIONS = [
+  { key: "wrong_action", label: "Wrong action" },
+  { key: "wrong_assignment", label: "Wrong assignment" },
+  { key: "wrong_output", label: "Wrong output" },
+  { key: "wrong_recipient", label: "Wrong recipient" },
+  { key: "wrong_sync_target", label: "Wrong sync target" },
+  { key: "unclear_explanation", label: "Unclear explanation" },
+  { key: "should_have_required_approval", label: "Should have required approval" },
+];
+
+const TYPICAL_VOLUME = {
+  recruiters: "3-5 workflows per day",
+  startups: "4-7 workflows per day",
+  agencies: "3-6 workflows per day",
+  realestate: "5-8 workflows per day",
+};
+
+const getSafetyTone = (level = "medium") =>
+  level === "high"
+    ? { bg: "#fff1f2", color: "#be123c", border: "rgba(244,63,94,0.18)" }
+    : level === "medium"
+      ? { bg: "#fff7ed", color: "#b45309", border: "rgba(251,146,60,0.20)" }
+      : { bg: "#ecfdf5", color: "#15803d", border: "rgba(16,185,129,0.18)" };
+
+const getNextSafetyAction = (item) => {
+  const relevant =
+    (item?.actionLogs || []).find((entry) => ["awaiting_approval", "scheduled", "pending", "failed"].includes(entry.status)) ||
+    [...(item?.actionLogs || [])].reverse().find((entry) => entry.status === "executed") ||
+    null;
+  return relevant;
+};
+
+const buildTypicalUsage = ({ audienceKey, audienceInfo, planState, integrationCoverage = [] }) => {
+  const readyConnectors = integrationCoverage.filter((entry) => entry.writebackReady).map((entry) => formatLabel(entry.provider));
+  const connectorLabel =
+    readyConnectors.length >= 2
+      ? `${readyConnectors.slice(0, 2).join(" + ")} connected`
+      : readyConnectors.length === 1
+        ? `${readyConnectors[0]} connected`
+        : `${(audienceInfo.syncTargets || []).slice(0, 2).join(" + ")} readying`;
+
+  return [
+    TYPICAL_VOLUME[audienceKey] || "2-4 workflows per day",
+    connectorLabel,
+    planState?.planDef?.autoExecution
+      ? "Auto follow-ups enabled"
+      : "Manual approvals on risky actions",
+  ];
+};
+
 function StatCard({ label, value, detail, icon }) {
   return (
     <div
       style={{
         padding: "20px",
         borderRadius: "20px",
-        background: "rgba(255,255,255,0.88)",
+              background: "rgba(255,255,255,0.88)",
         border: "1px solid rgba(148,163,184,0.18)",
         boxShadow: "0 18px 60px rgba(15,23,42,0.06)",
       }}
@@ -115,6 +170,65 @@ function UsageMeter({ label, usage }) {
       ) : null}
       <div style={{ fontSize: "12px", color: "#64748b", marginTop: "8px" }}>
         {usage.unlimited ? "No plan cap" : `${usage.remaining} remaining this month`}
+      </div>
+    </div>
+  );
+}
+
+function TypicalUsageCard({ items = [] }) {
+  if (!items.length) return null;
+  return (
+    <div
+      style={{
+        padding: "18px",
+        borderRadius: "20px",
+        background: "rgba(255,255,255,0.92)",
+        border: "1px solid rgba(148,163,184,0.18)",
+        boxShadow: "0 18px 60px rgba(15,23,42,0.06)",
+      }}
+    >
+      <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "10px" }}>
+        Typical usage
+      </div>
+      <div style={{ display: "grid", gap: "10px" }}>
+        {items.map((item) => (
+          <div key={item} style={{ display: "flex", gap: "10px", alignItems: "center", color: "#334155", fontSize: "13px", lineHeight: 1.6 }}>
+            <CheckCircleIcon size="xs" color="#0f766e" />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConfidenceCard({ trustSummary }) {
+  if (!trustSummary) return null;
+  const toneValue = getSafetyTone(trustSummary.level);
+  return (
+    <div
+      style={{
+        padding: "18px",
+        borderRadius: "20px",
+        background: toneValue.bg,
+        border: `1px solid ${toneValue.border}`,
+      }}
+    >
+      <div style={{ fontSize: "12px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, marginBottom: "10px" }}>
+        System confidence
+      </div>
+      <div style={{ fontSize: "26px", fontWeight: 900, letterSpacing: "-0.04em", color: toneValue.color, marginBottom: "6px" }}>
+        {trustSummary.label}
+      </div>
+      <div style={{ fontSize: "13px", color: "#475569", lineHeight: 1.7, marginBottom: "10px" }}>
+        {trustSummary.explanation}
+      </div>
+      <div style={{ display: "grid", gap: "6px" }}>
+        {(trustSummary.reasons || []).slice(0, 3).map((reason) => (
+          <div key={reason} style={{ fontSize: "12px", color: toneValue.color, lineHeight: 1.6 }}>
+            {reason}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -315,9 +429,33 @@ function WorkflowItemCard({
   onClaim,
   onStopFollowUp,
   onUndo,
+  onFeedback,
 }) {
+  const [feedbackMode, setFeedbackMode] = useState("");
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [feedbackCategories, setFeedbackCategories] = useState([]);
+  const [feedbackSaved, setFeedbackSaved] = useState("");
   const statusTone = tone[item.status] || tone.ready;
   const latestSync = getLatestSyncLog(item);
+  const nextSafetyAction = getNextSafetyAction(item);
+  const safetyTone = getSafetyTone(nextSafetyAction?.riskLevel || item.riskLevel || "medium");
+  const toggleFeedbackCategory = (key) =>
+    setFeedbackCategories((current) =>
+      current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key],
+    );
+
+  const submitFeedback = async (verdict) => {
+    await onFeedback({
+      verdict,
+      categories: verdict === "incorrect" ? feedbackCategories : [],
+      note: verdict === "incorrect" ? feedbackNote : "",
+    });
+    setFeedbackSaved(verdict);
+    setFeedbackMode("");
+    setFeedbackNote("");
+    setFeedbackCategories([]);
+  };
+
   return (
     <div
       style={{
@@ -352,6 +490,29 @@ function WorkflowItemCard({
           </div>
           <div style={{ fontSize: "13px", lineHeight: 1.7, color: "#334155" }}>
             {item.assignee?.reason || "Assignment is pending."}
+          </div>
+        </div>
+        <div style={{ padding: "14px", borderRadius: "16px", background: safetyTone.bg, border: `1px solid ${safetyTone.border}` }}>
+          <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: "8px" }}>
+            Execution safety
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center", marginBottom: "6px" }}>
+            <div style={{ fontSize: "22px", fontWeight: 900, letterSpacing: "-0.04em", color: "#0f172a" }}>
+              {normalizeConfidenceScore(nextSafetyAction?.confidenceScore ?? item.confidenceScore ?? 0)}/100
+            </div>
+            <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: safetyTone.color }}>
+              {formatLabel(nextSafetyAction?.riskLevel || item.riskLevel || "medium")} risk
+            </div>
+          </div>
+          <div style={{ fontSize: "13px", lineHeight: 1.7, color: "#334155", marginBottom: "6px" }}>
+            {nextSafetyAction?.approvalForced
+              ? "Approval is forced before this step can run."
+              : nextSafetyAction?.approvalRecommended
+                ? "Approval is recommended before this step runs."
+                : "This step is cleared for normal execution if the plan allows it."}
+          </div>
+          <div style={{ fontSize: "12px", color: "#475569", lineHeight: 1.6 }}>
+            {(nextSafetyAction?.riskReasons || item.safetyReasons || []).slice(0, 2).join(" ")}
           </div>
         </div>
         <div style={{ padding: "14px", borderRadius: "16px", background: "#f8fafc" }}>
@@ -450,6 +611,73 @@ function WorkflowItemCard({
             </div>
           </div>
         ))}
+      </div>
+
+      <div style={{ marginTop: "16px", padding: "14px 16px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.14)" }}>
+        <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: "8px" }}>
+          Was this correct?
+        </div>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: feedbackMode === "incorrect" ? "10px" : 0 }}>
+          <ActionButton
+            label={feedbackSaved === "correct" ? "Saved as correct" : "Yes"}
+            onClick={() => submitFeedback("correct")}
+            disabled={feedbackSaved === "correct"}
+            variant="primary"
+          />
+          <ActionButton
+            label={feedbackSaved === "incorrect" ? "Saved as incorrect" : "No"}
+            onClick={() => setFeedbackMode("incorrect")}
+            disabled={feedbackSaved === "incorrect"}
+            variant="danger"
+          />
+        </div>
+        {feedbackMode === "incorrect" ? (
+          <div style={{ display: "grid", gap: "10px" }}>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {FEEDBACK_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  onClick={() => toggleFeedbackCategory(option.key)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: "999px",
+                    border: `1px solid ${feedbackCategories.includes(option.key) ? "rgba(190,24,93,0.18)" : "rgba(148,163,184,0.18)"}`,
+                    background: feedbackCategories.includes(option.key) ? "#fff1f2" : "#ffffff",
+                    color: feedbackCategories.includes(option.key) ? "#be123c" : "#334155",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={feedbackNote}
+              onChange={(event) => setFeedbackNote(event.target.value)}
+              rows={2}
+              placeholder="Optional note for the operator team"
+              style={{
+                padding: "12px 14px",
+                borderRadius: "14px",
+                border: "1px solid rgba(148,163,184,0.18)",
+                background: "#ffffff",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <ActionButton
+                label="Send feedback"
+                variant="danger"
+                onClick={() => submitFeedback("incorrect")}
+                disabled={!feedbackCategories.length}
+              />
+              <ActionButton label="Dismiss" onClick={() => setFeedbackMode("")} />
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -575,6 +803,12 @@ export default function DashboardPage() {
       message,
     })),
   ];
+  const typicalUsage = buildTypicalUsage({
+    audienceKey: audience,
+    audienceInfo,
+    planState,
+    integrationCoverage: dashboard?.integrationCoverage || [],
+  });
 
   const handleSelectAudience = async (nextAudience) => {
     setSaving(true);
@@ -617,6 +851,20 @@ export default function DashboardPage() {
       toast.success("Guided onboarding completed");
     } catch (error) {
       toast.error(error.response?.data?.error || "Failed to complete onboarding");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFeedback = async (itemId, payload) => {
+    setSaving(true);
+    try {
+      await submitWorkflowFeedback(itemId, payload);
+      toast.success(payload.verdict === "correct" ? "Feedback saved as correct" : "Feedback saved for review");
+      await refresh(audience);
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Failed to save workflow feedback");
+      throw error;
     } finally {
       setSaving(false);
     }
@@ -693,6 +941,11 @@ export default function DashboardPage() {
             />
 
             <WarningStrip items={blockers} />
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "14px", marginBottom: "24px" }}>
+              <ConfidenceCard trustSummary={dashboard.trustSummary} />
+              <TypicalUsageCard items={typicalUsage} />
+            </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginBottom: "24px" }}>
               <StatCard label="Active workflows" value={dashboard.summary.activeCount} detail="Execution items currently moving through the workflow." icon={<WorkflowIcon size="sm" color="#0f766e" />} />
@@ -884,6 +1137,7 @@ export default function DashboardPage() {
                       onClaim={() => runItemAction(() => assignWorkflowItem(item._id, user?._id), "You now own this workflow item")}
                       onStopFollowUp={() => runItemAction(() => controlWorkflowItem(item._id, "stop_followup"), "Follow-up cadence stopped")}
                       onUndo={() => runItemAction(() => controlWorkflowItem(item._id, "undo_last_action"), "Last action reset for review")}
+                      onFeedback={(payload) => handleFeedback(item._id, payload)}
                     />
                   ))
                 )}

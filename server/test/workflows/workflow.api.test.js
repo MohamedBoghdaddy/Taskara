@@ -511,3 +511,41 @@ test("approval decisions validate input and non-existent item access fails safel
   const approval = await ActionApproval.findOne({ executionItemId: itemId });
   assert(approval);
 });
+
+test("workflow items expose action-level safety metadata and feedback can be logged through the API", async () => {
+  const owner = await harness.createUser({ email: "feedback-owner@test.local" });
+  await harness.createWorkspace({ owner, name: "Feedback Workspace" });
+
+  const ingestResponse = await post("/api/workflows/ingest", owner, {
+    audienceType: "startups",
+    sourceType: "slack",
+    workflowType: "issue_routing",
+    title: "Slack issue routing",
+    text: "Slack thread about a production bug, repo owner uncertainty, and routing work back to engineering.",
+    payload: {
+      initiativeTitle: "Routing Confidence",
+    },
+    autoExecute: false,
+  });
+
+  assert.equal(ingestResponse.status, 201);
+  const item = ingestResponse.body.items[0];
+  const githubAction = item.actionLogs.find((entry) => entry.actionId === "create_github_issue");
+  assert.equal(typeof githubAction.confidenceScore, "number");
+  assert.ok(["low", "medium", "high"].includes(githubAction.riskLevel));
+  assert.equal(Array.isArray(githubAction.riskReasons), true);
+
+  const feedbackResponse = await post(`/api/workflows/items/${item._id}/feedback`, owner, {
+    verdict: "incorrect",
+    categories: ["wrong_assignment", "should_have_required_approval"],
+    note: "Owner routing looked valid, but the operator would have reviewed it first.",
+  });
+  assert.equal(feedbackResponse.status, 201);
+  assert.equal(feedbackResponse.body.feedback.verdict, "incorrect");
+  assert.equal(feedbackResponse.body.feedback.categories.length, 2);
+
+  const feedback = await harness.WorkflowFeedback.findOne({ executionItemId: item._id });
+  assert(feedback);
+  assert.equal(feedback.verdict, "incorrect");
+  assert.equal(feedback.categories.includes("wrong_assignment"), true);
+});

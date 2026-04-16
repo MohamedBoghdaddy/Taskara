@@ -15,7 +15,7 @@ import {
 
 const PLAN_COPY = {
   free: {
-    tagline: 'For a first operator validating one workflow wedge',
+    tagline: 'For a first operator validating one workflow wedge safely',
     badge: 'Start here',
     icon: <StarFilledIcon color="#64748b" />,
     color: '#64748b',
@@ -27,7 +27,7 @@ const PLAN_COPY = {
     ],
   },
   pro: {
-    tagline: 'For a single team running live execution every week',
+    tagline: 'For one live team running trusted execution every week',
     badge: 'Best for first paying teams',
     icon: <RocketIcon color="#0f766e" />,
     color: '#0f766e',
@@ -39,7 +39,7 @@ const PLAN_COPY = {
     ],
   },
   team: {
-    tagline: 'For multi-user operations with approvals and routing depth',
+    tagline: 'For multi-user operations with approvals, routing, and higher volume',
     badge: 'Most common expansion',
     icon: <UsersIcon color="#2563eb" />,
     color: '#2563eb',
@@ -51,7 +51,7 @@ const PLAN_COPY = {
     ],
   },
   enterprise: {
-    tagline: 'For high-volume operations with custom controls and support',
+    tagline: 'For high-volume operations with custom controls and rollout support',
     badge: 'Custom rollout',
     icon: <BrainIcon color="#7c3aed" />,
     color: '#7c3aed',
@@ -63,6 +63,9 @@ const PLAN_COPY = {
     ],
   },
 };
+
+const RESEARCH_NOTE =
+  'Benchmarks reviewed from official pricing pages for Make, ClickUp, Zapier, and Asana before setting Taskara list prices.';
 
 function UsageCard({ label, counter }) {
   if (!counter) return null;
@@ -168,13 +171,16 @@ export default function PricingPage() {
       <div style={{ textAlign: 'center', marginBottom: '28px' }}>
         <h1 style={{ fontSize: '30px', fontWeight: '800', marginBottom: '10px' }}>Workflow-based pricing</h1>
         <p style={{ fontSize: '15px', color: 'var(--text-secondary)', margin: '0 auto', maxWidth: '760px', lineHeight: '1.8' }}>
-          Plans scale with the real operational work Taskara executes: workflow runs, actions completed, and integrations connected.
+          Plans scale with the real operational work Taskara executes: workflow runs, actions completed, and integrations connected, not just seat count.
         </p>
         {currentPlanDef ? (
           <p style={{ fontSize: '13px', color: 'var(--primary)', marginTop: '10px' }}>
             Current package: <strong>{currentPlanDef.name}</strong>
           </p>
         ) : null}
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px' }}>
+          {RESEARCH_NOTE}
+        </p>
         {isPlatformAdmin ? (
           <p style={{ fontSize: '13px', color: 'var(--success)', marginTop: '8px' }}>
             Platform admin access bypasses workspace packaging limits.
@@ -192,13 +198,23 @@ export default function PricingPage() {
               {currentPlanDef?.name || 'Workflow Free'}
             </div>
             <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.8' }}>
-              Auto-execution: <strong>{currentPlanDef?.autoExecution ? 'enabled' : 'manual'}</strong> · Manual approvals required: <strong>{currentPlanDef?.manualApprovalsRequired ? 'yes' : 'no'}</strong>
+              Auto-execution: <strong>{currentPlanDef?.autoExecution ? 'enabled' : 'manual'}</strong> | Manual approvals required: <strong>{currentPlanDef?.manualApprovalsRequired ? 'yes' : 'no'}</strong>
             </div>
+            {currentPlanDef?.operatorFit ? (
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.7', marginTop: '10px' }}>
+                Best fit: <strong>{currentPlanDef.operatorFit}</strong>
+              </div>
+            ) : null}
+            {isPlatformAdmin && currentPlanDef?.recommendedEgyptPriceLabel ? (
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.7', marginTop: '8px' }}>
+                Egypt launch recommendation: <strong>{currentPlanDef.recommendedEgyptPriceLabel}</strong>
+              </div>
+            ) : null}
             {(recommendations || []).length ? (
               <div style={{ marginTop: '12px', display: 'grid', gap: '6px' }}>
                 {recommendations.map((message) => (
                   <div key={message} style={{ fontSize: '12px', color: '#b45309', lineHeight: '1.6' }}>
-                    • {message}
+                    - {message}
                   </div>
                 ))}
               </div>
@@ -273,10 +289,10 @@ export default function PricingPage() {
                 {plan.priceLabel || `$${plan.price}`}
               </div>
               <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                / {plan.billingPeriod || 'month'}
+                / {plan.billingPeriod || 'month'} | {plan.priceBasis || 'workspace / month'}
               </div>
               <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.7', marginBottom: '18px', minHeight: '44px' }}>
-                {presentation.tagline}
+                {plan.operatorFit || presentation.tagline}
               </div>
 
               <button
@@ -296,7 +312,7 @@ export default function PricingPage() {
                 }}
               >
                 {upgrading === plan.key
-                  ? 'Updating…'
+                  ? 'Updating...'
                   : isCurrent
                     ? 'Current package'
                     : isPlatformAdmin
@@ -320,10 +336,31 @@ export default function PricingPage() {
                 ))}
               </div>
 
+              {(plan.typicalUsage || []).length ? (
+                <div style={{ padding: '12px 14px', borderRadius: '14px', background: 'var(--surface-alt)', border: '1px solid var(--border)', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '8px' }}>
+                    Typical usage
+                  </div>
+                  <div style={{ display: 'grid', gap: '6px' }}>
+                    {plan.typicalUsage.map((line) => (
+                      <div key={line} style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                        - {line}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {isPlatformAdmin && plan.recommendedEgyptPriceLabel ? (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '14px' }}>
+                  Egypt launch recommendation: <strong>{plan.recommendedEgyptPriceLabel}</strong>
+                </div>
+              ) : null}
+
               <div style={{ display: 'grid', gap: '8px' }}>
                 {presentation.highlights.map((feature) => (
                   <div key={feature} style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-                    • {feature}
+                    - {feature}
                   </div>
                 ))}
               </div>

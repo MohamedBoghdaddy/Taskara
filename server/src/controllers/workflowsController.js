@@ -11,6 +11,7 @@ const {
   getWorkflowTemplates,
   ingestWorkflowInput,
   listExecutionItems,
+  submitWorkflowFeedback,
   updateExecutionItem,
 } = require("../services/workflows/workflowService");
 const { syncOnboardingAfterApproval } = require("../services/operations/opsService");
@@ -176,6 +177,19 @@ const migrationPreview = asyncHandler(async (req, res) => {
   res.json(preview);
 });
 
+const submitFeedback = asyncHandler(async (req, res) => {
+  const workspaceId = await requireWorkspaceAccess(req, ["viewer", "editor", "admin", "owner"]);
+  const feedback = await submitWorkflowFeedback({
+    workspaceId,
+    userId: req.user._id,
+    itemId: req.params.id,
+    verdict: req.body?.verdict,
+    categories: req.body?.categories,
+    note: req.body?.note,
+  });
+  res.status(201).json({ feedback });
+});
+
 module.exports = {
   approveItem,
   assignItem,
@@ -188,4 +202,5 @@ module.exports = {
   ingest,
   migrationPreview,
   patchItem,
+  submitFeedback,
 };

@@ -14,6 +14,8 @@ const actionApprovalSchema = new mongoose.Schema(
     channel: { type: String, default: "internal" },
     approvalMode: { type: String, enum: ["manual", "brand_safe", "high_risk"], default: "manual" },
     riskLevel: { type: String, enum: ["low", "medium", "high"], default: "medium" },
+    confidenceScore: { type: Number, default: 74 },
+    safetyReasons: { type: [String], default: [] },
     reason: { type: String, default: "" },
     payloadPreview: { type: mongoose.Schema.Types.Mixed, default: {} },
     status: {

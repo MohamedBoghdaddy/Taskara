@@ -13,12 +13,13 @@ const workerJobRunSchema = new mongoose.Schema(
     picked: { type: Number, default: 0 },
     executed: { type: Number, default: 0 },
     skipped: { type: Number, default: 0 },
+    retried: { type: Number, default: 0 },
     escalated: { type: Number, default: 0 },
     errors: { type: Number, default: 0 },
     errorMessage: { type: String, default: "" },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
-  { timestamps: true },
+  { timestamps: true, suppressReservedKeysWarning: true },
 );
 
 workerJobRunSchema.index({ queueName: 1, createdAt: -1 });

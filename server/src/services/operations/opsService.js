@@ -12,7 +12,12 @@ const githubService = require("../integrations/githubService");
 const googleCalendarService = require("../integrations/googleCalendarService");
 const { getUsageSummary } = require("../subscriptions/subscriptionUsageService");
 const { getIntegrationReadinessReport, validateProviderMapping } = require("../workflows/syncService");
-const { decideApproval, executeReadyPlan, ingestWorkflowInput } = require("../workflows/workflowService");
+const {
+  decideApproval,
+  executeReadyPlan,
+  getWorkflowFeedbackSummary,
+  ingestWorkflowInput,
+} = require("../workflows/workflowService");
 const { sendEmail } = require("../../utils/email");
 
 const ONBOARDING_COPY = {
@@ -66,6 +71,29 @@ const DEFAULT_ALERT_THRESHOLDS = {
   connectorFailureRatePct: 15,
   workerErrorCount: 3,
 };
+const FIRST_USER_COHORTS = [
+  {
+    key: "users_1_3",
+    label: "Users 1-3",
+    description: "Friends or known users. Sit with them live, explain nothing, and log confusion points from onboarding.",
+  },
+  {
+    key: "users_4_6",
+    label: "Users 4-6",
+    description: "Semi-random users on one use case only. Measure time to first success and where they stop.",
+  },
+  {
+    key: "users_7_10",
+    label: "Users 7-10",
+    description: "Real target users across recruiter, startup ops, agency, and real estate workflows. Track trust hesitation closely.",
+  },
+];
+const LAUNCH_CRITERIA_LABELS = {
+  behavior: "Users run 2+ workflows without help",
+  trust: "They approve actions without hesitation",
+  value: 'They say "this saves me time"',
+  stability: 'No "what just happened?" moments',
+};
 
 const getSystemMode = () => {
   const raw = String(process.env.TASKARA_SYSTEM_MODE || process.env.SYSTEM_MODE || process.env.NODE_ENV || "dev")
@@ -93,13 +121,48 @@ const upsertResult = (current = [], nextResult) => {
   return list;
 };
 
+const buildDefaultFirstUsers = () =>
+  FIRST_USER_COHORTS.map((entry) => ({
+    ...entry,
+    sessionCount: 0,
+    timeToFirstSuccessMinutes: 0,
+    confusionPoints: [],
+    trustAutoSend: "unknown",
+    failedFirstRunMoments: [],
+    notes: "",
+    lastUpdatedAt: null,
+  }));
+
+const buildDefaultLaunchCriteria = () =>
+  Object.fromEntries(
+    Object.keys(LAUNCH_CRITERIA_LABELS).map((key) => [key, { status: "unknown", notes: "", updatedAt: null }]),
+  );
+
 const getOpsState = async (workspaceId) => {
   let state = await WorkspaceOperationalState.findOne({ workspaceId });
   if (!state) {
     state = await WorkspaceOperationalState.create({
       workspaceId,
+      firstUsers: buildDefaultFirstUsers(),
+      launchCriteria: buildDefaultLaunchCriteria(),
       monitoring: { alertThresholds: DEFAULT_ALERT_THRESHOLDS },
     });
+  } else {
+    let changed = false;
+    if (!Array.isArray(state.firstUsers) || !state.firstUsers.length) {
+      state.firstUsers = buildDefaultFirstUsers();
+      changed = true;
+    }
+    const existingCriteria = state.launchCriteria?.toObject?.() || state.launchCriteria || {};
+    const mergedCriteria = {
+      ...buildDefaultLaunchCriteria(),
+      ...existingCriteria,
+    };
+    if (JSON.stringify(existingCriteria) !== JSON.stringify(mergedCriteria)) {
+      state.launchCriteria = mergedCriteria;
+      changed = true;
+    }
+    if (changed) await state.save();
   }
   return state;
 };
@@ -127,6 +190,58 @@ const saveConnectorTestResult = async (workspaceId, result) => {
   state.connectorTests = upsertResult(state.connectorTests, result);
   await state.save();
   return state;
+};
+
+const saveFirstUserFinding = async ({ workspaceId, cohortKey, payload = {} }) => {
+  const state = await getOpsState(workspaceId);
+  const nextCohorts = Array.isArray(state.firstUsers) ? [...state.firstUsers] : buildDefaultFirstUsers();
+  const index = nextCohorts.findIndex((entry) => entry.key === cohortKey);
+  if (index < 0) throw { status: 400, message: `Unknown first-user cohort: ${cohortKey}` };
+  const trustAutoSend = ["unknown", "yes", "hesitant", "no"].includes(payload.trustAutoSend)
+    ? payload.trustAutoSend
+    : nextCohorts[index].trustAutoSend || "unknown";
+
+  nextCohorts[index] = {
+    ...(typeof nextCohorts[index].toObject === "function" ? nextCohorts[index].toObject() : nextCohorts[index]),
+    sessionCount: Number(payload.sessionCount ?? nextCohorts[index].sessionCount ?? 0),
+    timeToFirstSuccessMinutes: Number(
+      payload.timeToFirstSuccessMinutes ?? nextCohorts[index].timeToFirstSuccessMinutes ?? 0,
+    ),
+    trustAutoSend,
+    confusionPoints: Array.isArray(payload.confusionPoints)
+      ? payload.confusionPoints.map((entry) => String(entry).trim()).filter(Boolean).slice(0, 8)
+      : nextCohorts[index].confusionPoints || [],
+    failedFirstRunMoments: Array.isArray(payload.failedFirstRunMoments)
+      ? payload.failedFirstRunMoments.map((entry) => String(entry).trim()).filter(Boolean).slice(0, 8)
+      : nextCohorts[index].failedFirstRunMoments || [],
+    notes: String(payload.notes ?? nextCohorts[index].notes ?? "").trim().slice(0, 1200),
+    lastUpdatedAt: new Date(),
+  };
+
+  state.firstUsers = nextCohorts;
+  await state.save();
+  return state.firstUsers;
+};
+
+const updateLaunchCriterion = async ({ workspaceId, criterionKey, status, notes = "" }) => {
+  if (!LAUNCH_CRITERIA_LABELS[criterionKey]) {
+    throw { status: 400, message: `Unknown launch criterion: ${criterionKey}` };
+  }
+  if (!["unknown", "met", "at_risk", "blocked"].includes(status)) {
+    throw { status: 400, message: "Launch criterion status is invalid" };
+  }
+
+  const state = await getOpsState(workspaceId);
+  state.launchCriteria = {
+    ...(state.launchCriteria?.toObject?.() || state.launchCriteria || {}),
+    [criterionKey]: {
+      status,
+      notes: String(notes || "").trim().slice(0, 800),
+      updatedAt: new Date(),
+    },
+  };
+  await state.save();
+  return state.launchCriteria;
 };
 
 const getRequiredIntegration = (audienceType) => getTemplate(audienceType)?.onboarding?.requiredIntegration || "";
@@ -173,6 +288,7 @@ const getWorkerHealth = async () => {
   const staleAfterMs = intervalMs * 5;
   const lastRun = recentRuns[0] || null;
   const errorCount = recentRuns.reduce((sum, run) => sum + (run.errors || 0), 0);
+  const lastFailure = recentRuns.find((run) => run.status === "failed" || run.errorMessage);
   const healthy = Boolean(
     lastRun &&
       Date.now() - new Date(lastRun.finishedAt).getTime() <= staleAfterMs &&
@@ -184,6 +300,8 @@ const getWorkerHealth = async () => {
     healthy,
     lastRunAt: lastRun?.finishedAt || null,
     errorCount,
+    mode: lastRun?.mode || "manual",
+    lastFailureReason: lastFailure?.errorMessage || "",
     recentRuns: recentRuns.map((run) => ({
       jobId: run.jobId,
       status: run.status,
@@ -191,10 +309,53 @@ const getWorkerHealth = async () => {
       picked: run.picked,
       executed: run.executed,
       skipped: run.skipped,
+      retried: run.retried || 0,
       escalated: run.escalated,
       errors: run.errors,
       mode: run.mode,
     })),
+  };
+};
+
+const getRecoverabilityState = async (workspaceId) => {
+  const now = new Date();
+  const recentRuns = await WorkerJobRun.find({ queueName: "workflows" }).sort({ createdAt: -1 }).limit(25);
+  const [stuckJobs, retryQueue, lastFailedItem] = await Promise.all([
+    ExecutionItem.countDocuments({
+      workspaceId,
+      "workerState.lockId": { $ne: "" },
+      "workerState.lockExpiresAt": { $lt: now },
+    }),
+    ExecutionItem.countDocuments({
+      workspaceId,
+      status: "scheduled",
+      "workerState.lastOutcome": "retry_scheduled",
+    }),
+    ExecutionItem.findOne({
+      workspaceId,
+      "workerState.lastError": { $ne: "" },
+    })
+      .sort({ updatedAt: -1 })
+      .select("title workerState"),
+  ]);
+
+  const lastRun = recentRuns[0] || null;
+  const lastRetry = recentRuns.find((entry) => (entry.retried || 0) > 0) || null;
+  const lastFailure = recentRuns.find((entry) => entry.status === "failed" || entry.errorMessage) || null;
+  const recentWindow = recentRuns.slice(0, 10);
+
+  return {
+    stuckJobs,
+    retryQueue,
+    lastWorkerRunAt: lastRun?.finishedAt || null,
+    lastRetryAt: lastRetry?.finishedAt || null,
+    failedJobsRecentWindow: recentWindow.filter((entry) => entry.status === "failed").length,
+    skippedJobsRecentWindow: recentWindow.reduce((sum, entry) => sum + (entry.skipped || 0), 0),
+    currentMode: lastRun?.mode || "manual",
+    lastFailureReason:
+      lastFailure?.errorMessage ||
+      lastFailedItem?.workerState?.lastError ||
+      "",
   };
 };
 
@@ -252,6 +413,7 @@ const getMonitoringMetrics = async (workspaceId) => {
       status: workerHealth.status,
       errorCount: workerHealth.errorCount,
       lastRunAt: workerHealth.lastRunAt,
+      lastFailureReason: workerHealth.lastFailureReason,
       recentRuns: workerHealth.recentRuns,
     },
     usage: usage
@@ -279,6 +441,10 @@ const evaluateLaunchStatus = ({
   workerHealth,
   workflowTests,
   approvalSystem,
+  recoverability,
+  feedbackSummary,
+  firstUsers,
+  launchCriteria,
 }) => {
   const blockers = [];
   const warnings = [];
@@ -308,6 +474,27 @@ const evaluateLaunchStatus = ({
   if (monitoring.workerJobs.errorCount >= DEFAULT_ALERT_THRESHOLDS.workerErrorCount) {
     blockers.push("Worker error count is above the launch threshold.");
   }
+  if ((recoverability?.stuckJobs || 0) > 0) {
+    blockers.push(`${recoverability.stuckJobs} workflow job(s) look stuck and need operator attention.`);
+  }
+  if ((recoverability?.failedJobsRecentWindow || 0) >= 2) {
+    warnings.push("Recent worker failures suggest retry or execution instability.");
+  }
+
+  const trustHesitations = (firstUsers || []).filter((entry) => ["hesitant", "no"].includes(entry.trustAutoSend));
+  if (trustHesitations.length) {
+    warnings.push("First-user sessions still show hesitation around automatic sends.");
+  }
+
+  Object.entries(launchCriteria || {}).forEach(([key, entry]) => {
+    if (entry?.status === "blocked") blockers.push(`Launch criterion blocked: ${LAUNCH_CRITERIA_LABELS[key]}.`);
+    if (entry?.status === "at_risk") warnings.push(`Launch criterion at risk: ${LAUNCH_CRITERIA_LABELS[key]}.`);
+  });
+
+  const totalFeedback = (feedbackSummary?.correctCount || 0) + (feedbackSummary?.incorrectCount || 0);
+  if (totalFeedback >= 3 && (feedbackSummary?.incorrectCount || 0) >= (feedbackSummary?.correctCount || 0)) {
+    warnings.push("User feedback is still reporting as many incorrect outcomes as correct ones.");
+  }
 
   const status = blockers.length ? "red" : warnings.length ? "yellow" : "green";
   return {
@@ -318,7 +505,15 @@ const evaluateLaunchStatus = ({
   };
 };
 
-const getChecklist = ({ systemFlags, criticalConnectors, workerHealth, approvalSystem, workflowTests }) => {
+const getChecklist = ({
+  systemFlags,
+  criticalConnectors,
+  workerHealth,
+  approvalSystem,
+  workflowTests,
+  recoverability,
+  launchCriteria,
+}) => {
   const isolationConfigured = true;
   const passedTests = workflowTests.filter((entry) => entry.passed).length;
 
@@ -362,6 +557,29 @@ const getChecklist = ({ systemFlags, criticalConnectors, workerHealth, approvalS
       label: "Workflow verification",
       status: passedTests === AUDIENCE_KEYS.length ? "ready" : "blocked",
       detail: `${passedTests}/${AUDIENCE_KEYS.length} audience workflow tests have passed.`,
+    },
+    {
+      key: "worker_recoverability",
+      label: "Worker recoverability",
+      status: (recoverability?.stuckJobs || 0) === 0 ? "ready" : "blocked",
+      detail:
+        (recoverability?.stuckJobs || 0) === 0
+          ? `Retry queue: ${recoverability?.retryQueue || 0}. Last retry: ${
+              recoverability?.lastRetryAt ? new Date(recoverability.lastRetryAt).toLocaleString() : "none"
+            }.`
+          : `${recoverability?.stuckJobs || 0} stuck job(s) need operator review.`,
+    },
+    {
+      key: "launch_criteria",
+      label: "Real launch criteria",
+      status: Object.values(launchCriteria || {}).every((entry) => entry?.status === "met")
+        ? "ready"
+        : Object.values(launchCriteria || {}).some((entry) => entry?.status === "blocked")
+          ? "blocked"
+          : "attention",
+      detail: Object.entries(launchCriteria || {})
+        .map(([key, entry]) => `${key}: ${entry?.status || "unknown"}`)
+        .join(" | "),
     },
   ];
 };
@@ -738,15 +956,17 @@ const completeOnboarding = async ({ workspaceId }) => {
 };
 
 const getOperationsOverview = async (workspaceId, userId) => {
-  const [state, connectorReadiness, workerHealth, approvalSystem, monitoring, onboarding, usageSummary] =
+  const [state, connectorReadiness, workerHealth, recoverability, approvalSystem, monitoring, onboarding, usageSummary, feedbackSummary] =
     await Promise.all([
       getOpsState(workspaceId),
       getIntegrationReadinessReport(workspaceId, ["email", "slack", "github", "google_calendar", "notion", "clickup", "whatsapp", "ats", "crm"]),
       getWorkerHealth(),
+      getRecoverabilityState(workspaceId),
       getApprovalSystemStatus(workspaceId),
       getMonitoringMetrics(workspaceId),
       getOnboardingStatus(workspaceId),
       getUsageSummary(workspaceId, userId),
+      getWorkflowFeedbackSummary(workspaceId),
     ]);
 
   const criticalConnectors = connectorReadiness.filter((entry) => CRITICAL_CONNECTORS.includes(entry.provider));
@@ -756,6 +976,10 @@ const getOperationsOverview = async (workspaceId, userId) => {
     workerHealth,
     workflowTests: state.workflowTests || [],
     approvalSystem,
+    recoverability,
+    feedbackSummary,
+    firstUsers: state.firstUsers || [],
+    launchCriteria: state.launchCriteria?.toObject?.() || state.launchCriteria || {},
   });
 
   state.monitoring = {
@@ -778,13 +1002,30 @@ const getOperationsOverview = async (workspaceId, userId) => {
       workerHealth,
       approvalSystem,
       workflowTests: state.workflowTests || [],
+      recoverability,
+      launchCriteria: state.launchCriteria?.toObject?.() || state.launchCriteria || {},
     }),
     connectorReadiness,
     workerHealth,
+    recoverability,
     approvalSystem,
     workflowTests: (state.workflowTests || []).map(sanitizeTestResult),
     connectorTests: (state.connectorTests || []).map(sanitizeTestResult),
     monitoring,
+    feedbackSummary,
+    firstUsers: (state.firstUsers || []).map((entry) => ({
+      ...(typeof entry.toObject === "function" ? entry.toObject() : entry),
+    })),
+    launchCriteria: Object.entries(state.launchCriteria?.toObject?.() || state.launchCriteria || {}).reduce(
+      (acc, [key, value]) => ({
+        ...acc,
+        [key]: {
+          label: LAUNCH_CRITERIA_LABELS[key] || key,
+          ...(typeof value?.toObject === "function" ? value.toObject() : value),
+        },
+      }),
+      {},
+    ),
     onboarding,
     usage: {
       planKey: usageSummary.planKey,
@@ -804,8 +1045,10 @@ module.exports = {
   runAudienceWorkflowTest,
   runConnectorTest,
   runOnboardingDemo,
+  saveFirstUserFinding,
   saveConnectorTestResult,
   saveWorkflowTestResult,
   selectOnboardingAudience,
   syncOnboardingAfterApproval,
+  updateLaunchCriterion,
 };

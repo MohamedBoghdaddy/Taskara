@@ -6,7 +6,9 @@ const {
   runAudienceWorkflowTest,
   runConnectorTest,
   runOnboardingDemo,
+  saveFirstUserFinding,
   selectOnboardingAudience,
+  updateLaunchCriterion,
 } = require("../services/operations/opsService");
 const { getWorkspaceMembership } = require("../services/workflows/assignmentService");
 
@@ -101,6 +103,27 @@ const runConnectorVerification = asyncHandler(async (req, res) => {
   res.json({ result });
 });
 
+const saveFirstUserCohort = asyncHandler(async (req, res) => {
+  const workspaceId = await requireOpsAccess(req);
+  const firstUsers = await saveFirstUserFinding({
+    workspaceId,
+    cohortKey: req.params.cohortKey,
+    payload: req.body || {},
+  });
+  res.json({ firstUsers });
+});
+
+const saveLaunchCriterion = asyncHandler(async (req, res) => {
+  const workspaceId = await requireOpsAccess(req);
+  const launchCriteria = await updateLaunchCriterion({
+    workspaceId,
+    criterionKey: req.params.criterionKey,
+    status: req.body?.status,
+    notes: req.body?.notes || "",
+  });
+  res.json({ launchCriteria });
+});
+
 module.exports = {
   chooseOnboardingAudience,
   finishOnboarding,
@@ -109,4 +132,6 @@ module.exports = {
   runConnectorVerification,
   runOnboarding,
   runWorkflowTest,
+  saveFirstUserCohort,
+  saveLaunchCriterion,
 };

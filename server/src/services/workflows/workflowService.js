@@ -5,11 +5,14 @@ const DocumentChecklist = require("../../models/DocumentChecklist");
 const ExecutionItem = require("../../models/ExecutionItem");
 const RealEstateLead = require("../../models/RealEstateLead");
 const StartupInitiative = require("../../models/StartupInitiative");
+const WorkerJobRun = require("../../models/WorkerJobRun");
+const WorkflowFeedback = require("../../models/WorkflowFeedback");
 const WorkflowRun = require("../../models/WorkflowRun");
 const WorkspaceMember = require("../../models/WorkspaceMember");
 const { logActivity } = require("../../utils/activityLogger");
 const { AUDIENCE_KEYS, resolveAudienceKey } = require("../../config/workflowTemplates");
 const { applyManualOverride, suggestAssignee } = require("./assignmentService");
+const { applySafetyToItem } = require("./actionSafetyService");
 const { buildIntegrationCoverage } = require("./syncService");
 const { applyControlAction, decideApproval, executeReadyPlan } = require("./executionService");
 const { createLinkedTaskForExecutionItem, syncLinkedTaskFromExecutionItem } = require("./taskLinkService");
@@ -398,11 +401,25 @@ const createExecutionItemDocs = async ({
     });
 
     item.assignee = await suggestAssignee({ workspaceId, item });
+    await applySafetyToItem(item);
     item.auditTrail.push(
       buildAuditEntry(
         "assigned",
         item.assignee.reason || "Assignee selected by Taskara.",
         { assigneeId: item.assignee.userId },
+        "ai",
+        userId,
+      ),
+    );
+    item.auditTrail.push(
+      buildAuditEntry(
+        "note",
+        `Safety review scored ${item.confidenceScore}/100 with ${item.riskLevel} risk.`,
+        {
+          confidenceScore: item.confidenceScore,
+          riskLevel: item.riskLevel,
+          reasons: item.safetyReasons,
+        },
         "ai",
         userId,
       ),
@@ -816,11 +833,158 @@ const buildEntitySummary = async (workspaceId) => ({
   realestate: await RealEstateLead.countDocuments({ workspaceId }),
 });
 
+const buildWorkerSnapshot = async () => {
+  const intervalMs = Number(process.env.WORKFLOW_JOB_INTERVAL_MS || 60 * 1000);
+  const staleAfterMs = intervalMs * 5;
+  const lastRun = await WorkerJobRun.findOne({ queueName: "workflows" }).sort({ createdAt: -1 });
+  const healthy = Boolean(
+    lastRun &&
+      lastRun.finishedAt &&
+      Date.now() - new Date(lastRun.finishedAt).getTime() <= staleAfterMs &&
+      lastRun.status !== "failed"
+  );
+
+  return {
+    status: healthy ? "healthy" : lastRun ? "degraded" : "unknown",
+    healthy,
+    lastRunAt: lastRun?.finishedAt || null,
+    lastFailureReason: lastRun?.status === "failed" ? lastRun?.errorMessage || "" : "",
+    mode: lastRun?.mode || "manual",
+  };
+};
+
+const buildDashboardTrustSummary = async ({ workspaceId, audienceType, integrationCoverage = [] }) => {
+  const [actionAggregate, syncAggregate, worker] = await Promise.all([
+    ExecutionItem.aggregate([
+      { $match: { workspaceId, audienceType } },
+      { $unwind: "$actionLogs" },
+      {
+        $group: {
+          _id: null,
+          executed: { $sum: { $cond: [{ $eq: ["$actionLogs.status", "executed"] }, 1, 0] } },
+          failed: { $sum: { $cond: [{ $eq: ["$actionLogs.status", "failed"] }, 1, 0] } },
+        },
+      },
+    ]),
+    ExecutionItem.aggregate([
+      { $match: { workspaceId, audienceType } },
+      { $unwind: "$syncLogs" },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          failed: {
+            $sum: {
+              $cond: [{ $in: ["$syncLogs.status", ["failed", "awaiting_connector"]] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]),
+    buildWorkerSnapshot(),
+  ]);
+
+  const executed = actionAggregate[0]?.executed || 0;
+  const failed = actionAggregate[0]?.failed || 0;
+  const syncTotal = syncAggregate[0]?.total || 0;
+  const syncFailed = syncAggregate[0]?.failed || 0;
+  const failedExecutionPct = toMetricValue(((failed / Math.max(executed + failed, 1)) * 100), 1);
+  const connectorFailurePct = toMetricValue(((syncFailed / Math.max(syncTotal, 1)) * 100), 1);
+  const notReadyConnectors = integrationCoverage.filter((entry) => !entry.writebackReady);
+
+  let level = "high";
+  const reasons = [];
+  if (notReadyConnectors.length >= 2 || !worker.healthy || failedExecutionPct >= 20 || connectorFailurePct >= 20) {
+    level = "low";
+  } else if (notReadyConnectors.length || failedExecutionPct >= 8 || connectorFailurePct >= 8 || worker.status !== "healthy") {
+    level = "medium";
+  }
+
+  if (notReadyConnectors.length) {
+    reasons.push(`${notReadyConnectors.length} connector target(s) still need attention.`);
+  }
+  if (worker.status !== "healthy") {
+    reasons.push(
+      worker.lastRunAt
+        ? `Worker is ${worker.status} and last ran at ${new Date(worker.lastRunAt).toLocaleString()}.`
+        : "No recent workflow worker heartbeat was recorded."
+    );
+  }
+  if (failedExecutionPct > 0) {
+    reasons.push(`${failedExecutionPct}% of execution attempts have failed for this audience window.`);
+  }
+  if (connectorFailurePct > 0) {
+    reasons.push(`${connectorFailurePct}% of sync attempts need retry or connector fixes.`);
+  }
+
+  return {
+    level,
+    label: level.toUpperCase(),
+    explanation:
+      level === "high"
+        ? "Connectors look ready, the worker is healthy, and failures are staying low."
+        : level === "medium"
+          ? "Taskara can still run, but some warnings suggest keeping a closer eye on approvals or connectors."
+          : "Taskara should stay in review-heavy mode until the current blockers are cleared.",
+    reasons: reasons.slice(0, 4),
+    failedExecutionPct,
+    connectorFailurePct,
+    worker,
+  };
+};
+
+const getWorkflowFeedbackSummary = async (workspaceId, audienceType = null) => {
+  const match = { workspaceId };
+  if (audienceType) match.audienceType = resolveAudienceOrThrow(audienceType, { allowDefault: true });
+
+  const [counts, categories, recent] = await Promise.all([
+    WorkflowFeedback.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: "$verdict",
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+    WorkflowFeedback.aggregate([
+      { $match: match },
+      { $unwind: { path: "$categories", preserveNullAndEmptyArrays: false } },
+      {
+        $group: {
+          _id: "$categories",
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+    ]),
+    WorkflowFeedback.find(match)
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .select("verdict categories note audienceType createdAt"),
+  ]);
+
+  const verdictMap = Object.fromEntries(counts.map((entry) => [entry._id, entry.count]));
+  return {
+    correctCount: verdictMap.correct || 0,
+    incorrectCount: verdictMap.incorrect || 0,
+    topCategories: categories.map((entry) => ({ key: entry._id, count: entry.count })),
+    recent: recent.map((entry) => ({
+      verdict: entry.verdict,
+      categories: entry.categories || [],
+      note: entry.note || "",
+      audienceType: entry.audienceType,
+      createdAt: entry.createdAt,
+    })),
+  };
+};
+
 const getWorkflowDashboard = async (workspaceId, audienceType) => {
   if (!workspaceId) throw { status: 400, message: "workspaceId is required" };
   const normalizedAudience = resolveAudienceOrThrow(audienceType, { allowDefault: true });
   const template = getTemplate(normalizedAudience);
-  const [items, approvals, runs, metrics, integrationCoverage, entitySummary] = await Promise.all([
+  const [items, approvals, runs, metrics, integrationCoverage, entitySummary, feedbackSummary] = await Promise.all([
     ExecutionItem.find({ workspaceId, audienceType: normalizedAudience }).sort({ updatedAt: -1 }).limit(10),
     ActionApproval.find({ workspaceId, audienceType: normalizedAudience, status: "pending" })
       .sort({ createdAt: -1 })
@@ -829,7 +993,14 @@ const getWorkflowDashboard = async (workspaceId, audienceType) => {
     getWorkflowAnalytics(workspaceId, normalizedAudience),
     buildIntegrationCoverage(workspaceId, normalizedAudience),
     buildEntitySummary(workspaceId),
+    getWorkflowFeedbackSummary(workspaceId, normalizedAudience),
   ]);
+
+  const trustSummary = await buildDashboardTrustSummary({
+    workspaceId,
+    audienceType: normalizedAudience,
+    integrationCoverage,
+  });
 
   const activeCount = items.filter((item) => ACTIVE_ITEM_STATUSES.includes(item.status)).length;
   const completedThisWeek = items.filter(
@@ -860,6 +1031,8 @@ const getWorkflowDashboard = async (workspaceId, audienceType) => {
     approvals,
     runs,
     integrationCoverage,
+    trustSummary,
+    feedbackSummary,
     entitySummary,
     migrationPreview: buildMigrationPreview({ audienceType: normalizedAudience }),
     emptyStateExample: {
@@ -895,6 +1068,74 @@ const getWorkflowTemplates = () =>
     };
   });
 
+const submitWorkflowFeedback = async ({
+  workspaceId,
+  userId,
+  itemId,
+  verdict,
+  categories = [],
+  note = "",
+}) => {
+  if (!["correct", "incorrect"].includes(verdict)) {
+    throw { status: 400, message: "verdict must be correct or incorrect" };
+  }
+
+  const item = await ExecutionItem.findOne({ _id: itemId, workspaceId });
+  if (!item) throw { status: 404, message: "Execution item not found" };
+
+  const allowedCategories = new Set([
+    "wrong_action",
+    "wrong_assignment",
+    "wrong_output",
+    "wrong_recipient",
+    "wrong_sync_target",
+    "unclear_explanation",
+    "should_have_required_approval",
+  ]);
+  const safeCategories = Array.isArray(categories)
+    ? categories.filter((entry) => allowedCategories.has(entry))
+    : [];
+
+  const latestExecutedAction = [...(item.actionLogs || [])].reverse().find((entry) => entry.status === "executed");
+
+  const feedback = await WorkflowFeedback.create({
+    workspaceId,
+    executionItemId: item._id,
+    workflowRunId: item.workflowRunId || null,
+    audienceType: item.audienceType,
+    workflowType: item.workflowType,
+    submittedBy: userId,
+    verdict,
+    categories: verdict === "incorrect" ? safeCategories : [],
+    note: String(note || "").trim().slice(0, 500),
+    actionId: latestExecutedAction?.actionId || "",
+    metadata: {
+      itemStatus: item.status,
+      confidenceScore: item.confidenceScore,
+      riskLevel: item.riskLevel,
+    },
+  });
+
+  item.auditTrail.push(
+    buildAuditEntry(
+      "note",
+      verdict === "correct"
+        ? "Operator confirmed this workflow result was correct."
+        : "Operator flagged this workflow result as incorrect.",
+      {
+        feedbackId: feedback._id,
+        verdict,
+        categories: feedback.categories,
+      },
+      "user",
+      userId,
+    ),
+  );
+  await item.save();
+
+  return feedback;
+};
+
 module.exports = {
   applyControlAction,
   applyManualOverride,
@@ -904,8 +1145,10 @@ module.exports = {
   getAllAudienceAnalytics,
   getWorkflowAnalytics,
   getWorkflowDashboard,
+  getWorkflowFeedbackSummary,
   getWorkflowTemplates,
   ingestWorkflowInput,
   listExecutionItems,
+  submitWorkflowFeedback,
   updateExecutionItem,
 };

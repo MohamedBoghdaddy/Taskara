@@ -18,6 +18,7 @@ const StartupInitiative = require("../../src/models/StartupInitiative");
 const Task = require("../../src/models/Task");
 const User = require("../../src/models/User");
 const WorkerJobRun = require("../../src/models/WorkerJobRun");
+const WorkflowFeedback = require("../../src/models/WorkflowFeedback");
 const WorkflowRun = require("../../src/models/WorkflowRun");
 const Workspace = require("../../src/models/Workspace");
 const WorkspaceOperationalState = require("../../src/models/WorkspaceOperationalState");
@@ -177,6 +178,7 @@ const createHarness = async () => {
     Task,
     User,
     WorkerJobRun,
+    WorkflowFeedback,
     WorkflowRun,
     Workspace,
     WorkspaceOperationalState,

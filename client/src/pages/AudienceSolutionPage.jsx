@@ -136,7 +136,7 @@ export default function AudienceSolutionPage({ audienceKey }) {
                   fontWeight: 700,
                 }}
               >
-                Launch this workflow
+                Start this workflow safely
                 <ArrowRight size="xs" />
               </Link>
               <Link
@@ -171,6 +171,9 @@ export default function AudienceSolutionPage({ audienceKey }) {
                 </div>
               ))}
             </div>
+            <div style={{ marginTop: "14px", padding: "14px 16px", borderRadius: "18px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.18)", color: "#334155", lineHeight: 1.7 }}>
+              Risk is visible before execution. Taskara explains why it acts, stops sensitive actions for approval, and preserves every external touch in the audit trail.
+            </div>
           </div>
         </section>
 
@@ -203,7 +206,7 @@ export default function AudienceSolutionPage({ audienceKey }) {
           <div style={{ ...styles.card, padding: "26px" }}>
             <div style={{ ...styles.pill, marginBottom: "16px" }}>
               <ShieldIcon size="sm" />
-              Trust Layer
+              Confidence And Control
             </div>
             <div style={{ display: "grid", gap: "12px" }}>
               {audience.trustControls.map((item) => (

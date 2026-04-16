@@ -17,5 +17,7 @@ export const controlWorkflowItem = (id, action) =>
   client.post(`/workflows/items/${id}/control`, { action }).then((r) => r.data);
 export const assignWorkflowItem = (id, assigneeId) =>
   client.post(`/workflows/items/${id}/assign`, { assigneeId }).then((r) => r.data);
+export const submitWorkflowFeedback = (id, payload) =>
+  client.post(`/workflows/items/${id}/feedback`, payload).then((r) => r.data);
 export const getMigrationPreview = (payload) =>
   client.post("/workflows/migration/preview", payload).then((r) => r.data);

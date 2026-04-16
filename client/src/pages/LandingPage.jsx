@@ -149,15 +149,15 @@ export default function LandingPage() {
         <section style={{ ...styles.card, padding: "34px", marginBottom: "26px" }}>
           <div style={styles.pill}>
             <WorkflowIcon size="sm" />
-            Workflow-specific AI execution
+            Trust-first AI execution
           </div>
           <h1 style={{ fontSize: "clamp(38px, 7vw, 74px)", lineHeight: 0.98, letterSpacing: "-0.06em", maxWidth: "940px", margin: "20px 0 16px" }}>
-            Stop selling AI automation in general.
+            Workflow automation with visible control.
             <br />
-            Start running the workflow your buyer hates most.
+            Safe execution instead of blind automation.
           </h1>
           <p style={{ fontSize: "19px", lineHeight: 1.8, color: "#475569", maxWidth: "860px", marginBottom: "24px" }}>
-            Taskara is not a task manager. It is an AI execution platform that reads operational inputs, decides what happens next, executes actions automatically, tracks outcomes, and syncs them back to systems of record for recruiters, startups, agencies, and real estate teams.
+            Taskara reads operational inputs, decides what should happen next, executes the safe path automatically, stops risky actions for approval, records every decision in an audit trail, and syncs outcomes back to systems of record for recruiters, startups, agencies, and real estate teams.
           </p>
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "22px" }}>
             <Link
@@ -205,8 +205,8 @@ export default function LandingPage() {
               color: "#1e293b",
             }}
           >
-            Source -> action -> result -> sync is the product story now.
-            Taskara reads the signal, extracts execution items with traceability, routes work with explainable assignment, executes the next action with approvals where needed, and syncs the outcome safely.
+            Source -> action -> result -> sync is still the product story, but trust sits in the middle.
+            Taskara shows risk level, explains assignment, forces approval when confidence is low, and keeps every action visible before it writes back anywhere.
           </div>
         </section>
 
@@ -278,10 +278,10 @@ export default function LandingPage() {
                 Implementation-ready
               </div>
               <h2 style={{ fontSize: "38px", letterSpacing: "-0.05em", margin: "18px 0 12px" }}>
-                Workflow visibility, automation, trust, outcome, and sync should all be visible in-product
+                Execution only earns trust when operators can see confidence, control, and outcome
               </h2>
               <p style={{ fontSize: "17px", lineHeight: 1.8, color: "#475569", maxWidth: "720px" }}>
-                The product should feel like an execution system, not a generic AI checklist. Taskara now surfaces workflow chains, approval state, action logs, assignment reasons, system sync, and audience-specific ROI in one place.
+                The product should feel like an execution system, not a generic AI checklist. Taskara surfaces workflow chains, risk level, approval state, action logs, assignment reasons, system sync, and audience-specific ROI in one place.
               </p>
             </div>
             <div style={{ padding: "22px", borderRadius: "24px", background: "linear-gradient(135deg, rgba(15,118,110,0.10), rgba(14,165,233,0.12))", border: "1px solid rgba(15,118,110,0.14)" }}>
@@ -290,10 +290,10 @@ export default function LandingPage() {
               </div>
               <div style={{ display: "grid", gap: "12px" }}>
                 {[
-                  "Input ingestion for email, Slack, manual text, and webhook-ready payloads",
-                  "Structured execution items with approvals, audit trails, and source traceability",
+                  "Approvals, audit logs, and execution risk scoring on workflow actions",
+                  "Structured execution items with source traceability and explainable assignment",
                   "Audience workflow templates for recruiters, startups, agencies, and real estate",
-                  "Workflow analytics and migration safety previews",
+                  "Workflow analytics, launch readiness checks, and migration safety previews",
                 ].map((line) => (
                   <div key={line} style={{ display: "flex", alignItems: "flex-start", gap: "10px", color: "#0f172a", lineHeight: 1.7 }}>
                     <CheckCircleIcon size="xs" color="#0f766e" style={{ marginTop: "4px", flexShrink: 0 }} />

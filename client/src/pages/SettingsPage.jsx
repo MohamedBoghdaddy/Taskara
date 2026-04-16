@@ -1,7 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { updateProfile } from '../api/auth';
-import { getOperationsOverview, runConnectorVerification, runWorkflowVerification } from '../api/operations';
+import {
+  getOperationsOverview,
+  runConnectorVerification,
+  runWorkflowVerification,
+  saveFirstUserCohort,
+  saveLaunchCriterion,
+} from '../api/operations';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import FeatureGuide from '../components/common/FeatureGuide';
@@ -37,6 +43,8 @@ export default function SettingsPage() {
   const [opsOverview, setOpsOverview] = useState(null);
   const [opsLoading, setOpsLoading] = useState(true);
   const [opsAction, setOpsAction] = useState('');
+  const [firstUserDrafts, setFirstUserDrafts] = useState({});
+  const [launchDrafts, setLaunchDrafts] = useState({});
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -69,6 +77,32 @@ export default function SettingsPage() {
     try {
       const data = await getOperationsOverview();
       setOpsOverview(data);
+      setFirstUserDrafts(
+        Object.fromEntries(
+          (data.firstUsers || []).map((entry) => [
+            entry.key,
+            {
+              sessionCount: entry.sessionCount || 0,
+              timeToFirstSuccessMinutes: entry.timeToFirstSuccessMinutes || 0,
+              trustAutoSend: entry.trustAutoSend || 'unknown',
+              confusionPoints: (entry.confusionPoints || []).join('\n'),
+              failedFirstRunMoments: (entry.failedFirstRunMoments || []).join('\n'),
+              notes: entry.notes || '',
+            },
+          ]),
+        ),
+      );
+      setLaunchDrafts(
+        Object.fromEntries(
+          Object.entries(data.launchCriteria || {}).map(([key, entry]) => [
+            key,
+            {
+              status: entry.status || 'unknown',
+              notes: entry.notes || '',
+            },
+          ]),
+        ),
+      );
     } catch (error) {
       if (error.response?.status !== 403) {
         toast.error(error.response?.data?.error || 'Failed to load production readiness status');
@@ -108,6 +142,50 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveFirstUsers = async (cohortKey) => {
+    const draft = firstUserDrafts[cohortKey] || {};
+    setOpsAction(`first-users-${cohortKey}`);
+    try {
+      await saveFirstUserCohort(cohortKey, {
+        sessionCount: Number(draft.sessionCount || 0),
+        timeToFirstSuccessMinutes: Number(draft.timeToFirstSuccessMinutes || 0),
+        trustAutoSend: draft.trustAutoSend || 'unknown',
+        confusionPoints: String(draft.confusionPoints || '')
+          .split('\n')
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+        failedFirstRunMoments: String(draft.failedFirstRunMoments || '')
+          .split('\n')
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+        notes: draft.notes || '',
+      });
+      toast.success('First-user findings saved');
+      await loadOpsOverview();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to save first-user findings');
+    } finally {
+      setOpsAction('');
+    }
+  };
+
+  const handleSaveLaunchCriterion = async (criterionKey) => {
+    const draft = launchDrafts[criterionKey] || {};
+    setOpsAction(`launch-${criterionKey}`);
+    try {
+      await saveLaunchCriterion(criterionKey, {
+        status: draft.status || 'unknown',
+        notes: draft.notes || '',
+      });
+      toast.success('Launch criterion updated');
+      await loadOpsOverview();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to update launch criterion');
+    } finally {
+      setOpsAction('');
+    }
+  };
+
   const sectionStyle = { padding: '24px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: '20px' };
   const sectionHeadStyle = { fontSize: '15px', fontWeight: '600', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' };
   const numInputStyle = { width: '100%', padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' };
@@ -132,7 +210,7 @@ export default function SettingsPage() {
           { icon: <UserPlusIcon size="xs" />, title: 'Profile', body: 'Update your name, email, and timezone. These appear across the app and in exports.' },
           { icon: <SunIcon size="xs" />, title: 'Appearance', body: 'Choose Light, Dark, or System theme. System auto-follows your OS preference.' },
           { icon: <TimerIcon size="xs" />, title: 'Timer defaults', body: 'Set default focus, short-break, and long-break durations for the Pomodoro timer.' },
-          { icon: <FlashIcon size="xs" />, title: 'Save each section', body: 'Profile and Preferences are saved independently — click the section Save button.' },
+          { icon: <FlashIcon size="xs" />, title: 'Save each section', body: 'Profile and Preferences are saved independently. Click the section Save button.' },
         ]}
         tips={[
           'System theme updates automatically when you change OS appearance',
@@ -282,18 +360,18 @@ export default function SettingsPage() {
                   {opsOverview.launchStatus?.go ? 'GO' : 'NO-GO'}
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.7' }}>
-                  System mode: <strong>{opsOverview.system?.mode}</strong> · Worker: <strong>{opsOverview.workerHealth?.status}</strong> · Approval system: <strong>{opsOverview.approvalSystem?.status}</strong>
+                  System mode: <strong>{opsOverview.system?.mode}</strong> | Worker: <strong>{opsOverview.workerHealth?.status}</strong> | Approval system: <strong>{opsOverview.approvalSystem?.status}</strong>
                 </div>
               </div>
               <Button variant="secondary" onClick={loadOpsOverview} disabled={opsLoading}>
-                {opsLoading ? 'Refreshing…' : 'Refresh status'}
+                {opsLoading ? 'Refreshing...' : 'Refresh status'}
               </Button>
             </div>
             {(opsOverview.launchStatus?.blockers || []).length ? (
               <div style={{ marginTop: '14px', display: 'grid', gap: '8px' }}>
                 {opsOverview.launchStatus.blockers.map((reason) => (
                   <div key={reason} style={{ fontSize: '12px', color: launchTone.color, lineHeight: '1.6' }}>
-                    • {reason}
+                    - {reason}
                   </div>
                 ))}
               </div>
@@ -302,7 +380,7 @@ export default function SettingsPage() {
               <div style={{ marginTop: '12px', display: 'grid', gap: '8px' }}>
                 {opsOverview.launchStatus.warnings.map((reason) => (
                   <div key={reason} style={{ fontSize: '12px', color: '#b45309', lineHeight: '1.6' }}>
-                    • {reason}
+                    - {reason}
                   </div>
                 ))}
               </div>
@@ -318,6 +396,22 @@ export default function SettingsPage() {
             ].map((card) => (
               <div key={card.label} style={sectionCard}>
                 <div style={{ marginBottom: '8px', color: 'var(--primary)' }}>{card.icon}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '6px' }}>
+                  {card.label}
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)' }}>{card.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+            {[
+              { label: 'Stuck jobs', value: String(opsOverview.recoverability?.stuckJobs || 0) },
+              { label: 'Retry queue', value: String(opsOverview.recoverability?.retryQueue || 0) },
+              { label: 'Recent failed jobs', value: String(opsOverview.recoverability?.failedJobsRecentWindow || 0) },
+              { label: 'Recent skipped jobs', value: String(opsOverview.recoverability?.skippedJobsRecentWindow || 0) },
+            ].map((card) => (
+              <div key={card.label} style={sectionCard}>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', marginBottom: '6px' }}>
                   {card.label}
                 </div>
@@ -366,15 +460,15 @@ export default function SettingsPage() {
                             disabled={opsAction === `workflow-${audienceType}`}
                             style={{ fontSize: '12px', padding: '8px 10px' }}
                           >
-                            {opsAction === `workflow-${audienceType}` ? 'Running…' : 'Run workflow test'}
+                            {opsAction === `workflow-${audienceType}` ? 'Running...' : 'Run workflow test'}
                           </Button>
                         </div>
                         <div style={{ fontSize: '12px', color: result?.passed ? 'var(--success)' : result?.status === 'warning' ? '#b45309' : 'var(--text-muted)', marginBottom: '6px' }}>
-                          {result ? `${result.status} · ${result.lastRunAt ? new Date(result.lastRunAt).toLocaleString() : 'not run yet'}` : 'Not run yet'}
+                          {result ? `${result.status} | ${result.lastRunAt ? new Date(result.lastRunAt).toLocaleString() : 'not run yet'}` : 'Not run yet'}
                         </div>
                         {(result?.reasons || []).slice(0, 2).map((reason) => (
                           <div key={reason} style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-                            • {reason}
+                            - {reason}
                           </div>
                         ))}
                       </div>
@@ -411,7 +505,7 @@ export default function SettingsPage() {
                           disabled={opsAction === `connector-${entry.provider}`}
                           style={{ fontSize: '12px', padding: '8px 10px' }}
                         >
-                          {opsAction === `connector-${entry.provider}` ? 'Testing…' : entry.provider === 'slack' ? 'Send test message' : entry.provider === 'google_calendar' ? 'Create test event' : 'Run connector test'}
+                          {opsAction === `connector-${entry.provider}` ? 'Testing...' : entry.provider === 'slack' ? 'Send test message' : entry.provider === 'google_calendar' ? 'Create test event' : 'Run connector test'}
                         </Button>
                       ) : null}
                     </div>
@@ -434,17 +528,173 @@ export default function SettingsPage() {
                           {entry.label || entry.key}
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                          {entry.status} · {entry.lastRunAt ? new Date(entry.lastRunAt).toLocaleString() : 'not run yet'}
+                          {entry.status} | {entry.lastRunAt ? new Date(entry.lastRunAt).toLocaleString() : 'not run yet'}
                         </div>
                         {(entry.logs || []).slice(0, 2).map((log) => (
                           <div key={log} style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-                            • {log}
+                            - {log}
                           </div>
                         ))}
                       </div>
                     ))}
-                  {opsLoading ? <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loading recent logs…</div> : null}
+                  {opsLoading ? <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loading recent logs...</div> : null}
                 </div>
+              </div>
+
+              <div style={sectionCard}>
+                <div style={sectionHeadStyle}>
+                  <ShieldIcon size="sm" style={{ color: 'var(--primary)' }} />
+                  Worker Recoverability
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {[
+                    `Last worker run: ${opsOverview.recoverability?.lastWorkerRunAt ? new Date(opsOverview.recoverability.lastWorkerRunAt).toLocaleString() : 'not recorded yet'}`,
+                    `Last retry: ${opsOverview.recoverability?.lastRetryAt ? new Date(opsOverview.recoverability.lastRetryAt).toLocaleString() : 'none'}`,
+                    `Queue mode: ${opsOverview.recoverability?.currentMode || 'manual'}`,
+                    `Last failure reason: ${opsOverview.recoverability?.lastFailureReason || 'none recorded'}`,
+                  ].map((line) => (
+                    <div key={line} style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={sectionCard}>
+                <div style={sectionHeadStyle}>
+                  <AnalyticsIcon size="sm" style={{ color: 'var(--primary)' }} />
+                  Trust Feedback
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <div style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Correct vs incorrect</div>
+                    <div style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: '700' }}>
+                      {opsOverview.feedbackSummary?.correctCount || 0} correct / {opsOverview.feedbackSummary?.incorrectCount || 0} incorrect
+                    </div>
+                  </div>
+                  {((opsOverview.feedbackSummary?.topCategories) || []).slice(0, 3).map((entry) => (
+                    <div key={entry.key} style={{ padding: '12px 14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                      {entry.key.replace(/_/g, ' ')}: {entry.count}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+            <div style={sectionCard}>
+              <div style={sectionHeadStyle}>
+                <UsersIcon size="sm" style={{ color: 'var(--primary)' }} />
+                First Users Simulation
+              </div>
+              <div style={{ display: 'grid', gap: '14px' }}>
+                {(opsOverview.firstUsers || []).map((entry) => {
+                  const draft = firstUserDrafts[entry.key] || {};
+                  return (
+                    <div key={entry.key} style={{ padding: '14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '6px' }}>{entry.label}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '10px' }}>{entry.description}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '10px' }}>
+                        <input
+                          value={draft.sessionCount ?? 0}
+                          onChange={(event) => setFirstUserDrafts((current) => ({ ...current, [entry.key]: { ...current[entry.key], sessionCount: event.target.value } }))}
+                          placeholder="Sessions"
+                          style={numInputStyle}
+                        />
+                        <input
+                          value={draft.timeToFirstSuccessMinutes ?? 0}
+                          onChange={(event) => setFirstUserDrafts((current) => ({ ...current, [entry.key]: { ...current[entry.key], timeToFirstSuccessMinutes: event.target.value } }))}
+                          placeholder="Minutes to first success"
+                          style={numInputStyle}
+                        />
+                      </div>
+                      <select
+                        value={draft.trustAutoSend || 'unknown'}
+                        onChange={(event) => setFirstUserDrafts((current) => ({ ...current, [entry.key]: { ...current[entry.key], trustAutoSend: event.target.value } }))}
+                        style={{ ...numInputStyle, marginBottom: '10px' }}
+                      >
+                        <option value="unknown">Trust answer unknown</option>
+                        <option value="yes">Instant yes</option>
+                        <option value="hesitant">Hesitant</option>
+                        <option value="no">No</option>
+                      </select>
+                      <textarea
+                        rows={2}
+                        value={draft.confusionPoints || ''}
+                        onChange={(event) => setFirstUserDrafts((current) => ({ ...current, [entry.key]: { ...current[entry.key], confusionPoints: event.target.value } }))}
+                        placeholder="Confusion points, one per line"
+                        style={{ ...numInputStyle, resize: 'vertical', marginBottom: '10px' }}
+                      />
+                      <textarea
+                        rows={2}
+                        value={draft.failedFirstRunMoments || ''}
+                        onChange={(event) => setFirstUserDrafts((current) => ({ ...current, [entry.key]: { ...current[entry.key], failedFirstRunMoments: event.target.value } }))}
+                        placeholder="Failed first-run moments, one per line"
+                        style={{ ...numInputStyle, resize: 'vertical', marginBottom: '10px' }}
+                      />
+                      <textarea
+                        rows={2}
+                        value={draft.notes || ''}
+                        onChange={(event) => setFirstUserDrafts((current) => ({ ...current, [entry.key]: { ...current[entry.key], notes: event.target.value } }))}
+                        placeholder="Operator notes"
+                        style={{ ...numInputStyle, resize: 'vertical', marginBottom: '10px' }}
+                      />
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleSaveFirstUsers(entry.key)}
+                        disabled={opsAction === `first-users-${entry.key}`}
+                        style={{ fontSize: '12px', padding: '8px 10px' }}
+                      >
+                        {opsAction === `first-users-${entry.key}` ? 'Saving...' : 'Save cohort notes'}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={sectionCard}>
+              <div style={sectionHeadStyle}>
+                <WorkflowIcon size="sm" style={{ color: 'var(--primary)' }} />
+                Real Launch Criteria
+              </div>
+              <div style={{ display: 'grid', gap: '14px' }}>
+                {Object.entries(opsOverview.launchCriteria || {}).map(([key, entry]) => {
+                  const draft = launchDrafts[key] || {};
+                  return (
+                    <div key={key} style={{ padding: '14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '6px' }}>{entry.label}</div>
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        <select
+                          value={draft.status || 'unknown'}
+                          onChange={(event) => setLaunchDrafts((current) => ({ ...current, [key]: { ...current[key], status: event.target.value } }))}
+                          style={numInputStyle}
+                        >
+                          <option value="unknown">Unknown</option>
+                          <option value="met">Met</option>
+                          <option value="at_risk">At risk</option>
+                          <option value="blocked">Blocked</option>
+                        </select>
+                        <textarea
+                          rows={2}
+                          value={draft.notes || ''}
+                          onChange={(event) => setLaunchDrafts((current) => ({ ...current, [key]: { ...current[key], notes: event.target.value } }))}
+                          placeholder="Notes"
+                          style={{ ...numInputStyle, resize: 'vertical' }}
+                        />
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleSaveLaunchCriterion(key)}
+                          disabled={opsAction === `launch-${key}`}
+                          style={{ fontSize: '12px', padding: '8px 10px' }}
+                        >
+                          {opsAction === `launch-${key}` ? 'Saving...' : 'Save criterion'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

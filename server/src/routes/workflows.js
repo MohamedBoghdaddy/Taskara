@@ -17,6 +17,7 @@ router.post("/items/:id/execute", workflowsController.executeItem);
 router.post("/items/:id/approve", workflowsController.approveItem);
 router.post("/items/:id/control", workflowsController.controlItem);
 router.post("/items/:id/assign", workflowsController.assignItem);
+router.post("/items/:id/feedback", workflowsController.submitFeedback);
 router.post("/migration/preview", workflowsController.migrationPreview);
 
 module.exports = router;

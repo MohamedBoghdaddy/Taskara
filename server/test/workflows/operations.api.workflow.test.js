@@ -79,3 +79,47 @@ test("ops endpoints run guided onboarding, workflow verification, and connector 
     await harness.close();
   }
 });
+
+test("ops endpoints persist first-user simulation findings and launch criteria", async () => {
+  const harness = await createHarness();
+  try {
+    const owner = await harness.createUser({ email: "owner-launch@test.local" });
+    await harness.createWorkspace({ owner });
+
+    const firstUsers = await harness.request("/api/ops/first-users/users_1_3", {
+      method: "POST",
+      headers: harness.authHeadersFor(owner),
+      body: {
+        sessionCount: 2,
+        timeToFirstSuccessMinutes: 14,
+        trustAutoSend: "hesitant",
+        confusionPoints: ["Did not understand why approval was required"],
+        failedFirstRunMoments: ["Stopped at integrations screen"],
+        notes: "Needed coaching on the first workflow.",
+      },
+    });
+    assert.strictEqual(firstUsers.status, 200);
+    assert.strictEqual(firstUsers.body.firstUsers.find((entry) => entry.key === "users_1_3").trustAutoSend, "hesitant");
+
+    const launchCriterion = await harness.request("/api/ops/launch-criteria/trust", {
+      method: "POST",
+      headers: harness.authHeadersFor(owner),
+      body: {
+        status: "at_risk",
+        notes: "Users still hesitate before allowing automatic sends.",
+      },
+    });
+    assert.strictEqual(launchCriterion.status, 200);
+    assert.strictEqual(launchCriterion.body.launchCriteria.trust.status, "at_risk");
+
+    const overview = await harness.request("/api/ops/overview", {
+      headers: harness.authHeadersFor(owner),
+    });
+    assert.strictEqual(overview.status, 200);
+    assert.ok(Array.isArray(overview.body.firstUsers));
+    assert.strictEqual(overview.body.launchCriteria.trust.status, "at_risk");
+    assert.ok(Array.isArray(overview.body.launchStatus.warnings));
+  } finally {
+    await harness.close();
+  }
+});

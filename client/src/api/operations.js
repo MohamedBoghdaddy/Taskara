@@ -11,3 +11,7 @@ export const runWorkflowVerification = (audienceType) =>
   client.post(`/ops/workflow-tests/${audienceType}/run`).then((r) => r.data);
 export const runConnectorVerification = (provider) =>
   client.post(`/ops/connectors/${provider}/test`).then((r) => r.data);
+export const saveFirstUserCohort = (cohortKey, payload) =>
+  client.post(`/ops/first-users/${cohortKey}`, payload).then((r) => r.data);
+export const saveLaunchCriterion = (criterionKey, payload) =>
+  client.post(`/ops/launch-criteria/${criterionKey}`, payload).then((r) => r.data);

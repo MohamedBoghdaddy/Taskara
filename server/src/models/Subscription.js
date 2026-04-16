@@ -1,5 +1,5 @@
 /**
- * Subscription — tracks each workspace's current plan.
+ * Subscription - tracks each workspace's current plan.
  * Plans are workflow-volume based rather than seat-only.
  */
 const mongoose = require('mongoose');
@@ -10,10 +10,14 @@ const PLANS = {
     price:          0,
     priceLabel:     '$0',
     billingPeriod:  'month',
+    priceBasis:     'workspace / month',
+    recommendedEgyptPriceLabel: 'EGP 0',
     workflowLimit:  15,
     actionLimit:    60,
     integrationLimit: 1,
     seatGuidance:   '1 operator',
+    operatorFit:    'A first operator validating one workflow wedge',
+    typicalUsage:   ['1-2 workflows per day', 'One connected system', 'Manual approvals on risky steps'],
     autoExecution:  false,
     manualApprovalsRequired: true,
     projectLimit:   1,
@@ -32,13 +36,17 @@ const PLANS = {
   },
   pro: {
     name:           'Workflow Pro',
-    price:          79,
-    priceLabel:     '$79',
+    price:          24,
+    priceLabel:     '$24',
     billingPeriod:  'month',
+    priceBasis:     'workspace / month',
+    recommendedEgyptPriceLabel: 'EGP 900',
     workflowLimit:  250,
     actionLimit:    1200,
     integrationLimit: 3,
     seatGuidance:   'up to 3 operators',
+    operatorFit:    'One live team running real workflow execution every week',
+    typicalUsage:   ['3-5 workflows per day', '2-3 integrations ready', 'Safe auto-execution with approvals'],
     autoExecution:  true,
     manualApprovalsRequired: false,
     projectLimit:   -1, // unlimited
@@ -53,13 +61,17 @@ const PLANS = {
   },
   team: {
     name:           'Workflow Team',
-    price:          249,
-    priceLabel:     '$249',
+    price:          79,
+    priceLabel:     '$79',
     billingPeriod:  'month',
+    priceBasis:     'workspace / month',
+    recommendedEgyptPriceLabel: 'EGP 2900',
     workflowLimit:  1500,
     actionLimit:    8000,
     integrationLimit: 8,
     seatGuidance:   'multi-user team',
+    operatorFit:    'A multi-user ops team coordinating approvals, routing, and analytics',
+    typicalUsage:   ['8-15 workflows per day', 'Slack plus core systems connected', 'Priority execution and team routing'],
     autoExecution:  true,
     manualApprovalsRequired: false,
     projectLimit:   -1,
@@ -78,10 +90,14 @@ const PLANS = {
     price:          999,
     priceLabel:     'Custom',
     billingPeriod:  'month',
+    priceBasis:     'custom workspace agreement',
+    recommendedEgyptPriceLabel: 'Custom',
     workflowLimit:  -1,
     actionLimit:    -1,
     integrationLimit: -1,
     seatGuidance:   'custom',
+    operatorFit:    'High-volume operations needing advanced controls, governance, and rollout support',
+    typicalUsage:   ['Custom workflow volume', 'Advanced integrations', 'Dedicated launch and support program'],
     autoExecution:  true,
     manualApprovalsRequired: false,
     projectLimit:   -1,
@@ -95,10 +111,14 @@ const PLANS = {
     price:          999,
     priceLabel:     'Custom',
     billingPeriod:  'month',
+    priceBasis:     'custom workspace agreement',
+    recommendedEgyptPriceLabel: 'Custom',
     workflowLimit:  -1,
     actionLimit:    -1,
     integrationLimit: -1,
     seatGuidance:   'custom',
+    operatorFit:    'High-volume operations needing advanced controls, governance, and rollout support',
+    typicalUsage:   ['Custom workflow volume', 'Advanced integrations', 'Dedicated launch and support program'],
     autoExecution:  true,
     manualApprovalsRequired: false,
     projectLimit:   -1,
@@ -133,7 +153,7 @@ subscriptionSchema.methods.getPlanDef = function () {
   return PLANS[this.plan];
 };
 
-// workspaceId is already indexed by unique:true in the field definition above — no duplicate needed
+// workspaceId is already indexed by unique:true in the field definition above - no duplicate needed
 
 const Subscription = mongoose.model('Subscription', subscriptionSchema);
 module.exports = Subscription;

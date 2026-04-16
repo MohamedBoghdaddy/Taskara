@@ -11,6 +11,7 @@ const googleCalendarService = require("../integrations/googleCalendarService");
 const { sendSlackMessage } = require("../integrations/slackService");
 const { assertActionExecutionAllowed } = require("../subscriptions/subscriptionUsageService");
 const { sendEmail } = require("../../utils/email");
+const { applySafetyToItem, evaluateActionSafety } = require("./actionSafetyService");
 const {
   addDays,
   buildAuditEntry,
@@ -337,7 +338,47 @@ const recalculateStatus = (item, options = {}) => {
 
 const ensureApproval = async (item, actionId, userId) => {
   const action = getActionConfig(item, actionId);
-  if (!action?.requiresApproval) return null;
+  const safety = await evaluateActionSafety({ item, actionId });
+  const actionLog = getActionLog(item, actionId);
+  if (actionLog) {
+    actionLog.confidenceScore = safety.confidenceScore;
+    actionLog.riskLevel = safety.riskLevel;
+    actionLog.riskReasons = safety.reasons;
+    actionLog.approvalForced = safety.approvalForced;
+    actionLog.approvalRecommended = safety.approvalRecommended;
+    actionLog.safetyEvaluatedAt = new Date();
+  }
+  item.confidenceScore = Math.round(
+    (item.actionLogs || []).reduce((sum, entry) => sum + (entry.confidenceScore || 0), 0) /
+      Math.max((item.actionLogs || []).length, 1)
+  );
+  item.riskLevel = item.actionLogs.some((entry) => entry.riskLevel === "high")
+    ? "high"
+    : item.actionLogs.some((entry) => entry.riskLevel === "medium")
+      ? "medium"
+      : "low";
+  item.safetyReasons = [...new Set((item.actionLogs || []).flatMap((entry) => entry.riskReasons || []))].slice(0, 4);
+
+  if (!action?.requiresApproval && !safety.approvalForced) {
+    if (safety.approvalRecommended) {
+      item.auditTrail.push(
+        buildAuditEntry(
+          "note",
+          `${action?.label || actionId} can run automatically, but approval is recommended.`,
+          {
+            actionId,
+            confidenceScore: safety.confidenceScore,
+            riskLevel: safety.riskLevel,
+            reasons: safety.reasons,
+          },
+          "ai",
+          userId,
+        ),
+      );
+      await item.save();
+    }
+    return null;
+  }
 
   const existingApproval = await getCurrentApproval(item);
   if (existingApproval?.actionId === actionId) {
@@ -351,7 +392,6 @@ const ensureApproval = async (item, actionId, userId) => {
       item.approvalRequired = true;
       item.approvalStatus = "pending";
       item.status = "awaiting_approval";
-      const actionLog = getActionLog(item, actionId);
       if (actionLog && actionLog.status !== "cancelled") actionLog.status = "awaiting_approval";
       await item.save();
       return existingApproval;
@@ -368,10 +408,17 @@ const ensureApproval = async (item, actionId, userId) => {
     actionId,
     actionLabel: action.label,
     channel: action.channel,
-    approvalMode: action.risky ? "high_risk" : "manual",
-    riskLevel: action.risky ? "high" : "medium",
-    reason: `${action.label} is configured to require approval before external delivery.`,
-    payloadPreview: preview,
+    approvalMode: safety.approvalForced ? "high_risk" : action.risky ? "brand_safe" : "manual",
+    riskLevel: safety.riskLevel,
+    confidenceScore: safety.confidenceScore,
+    safetyReasons: safety.reasons,
+    reason:
+      safety.reasons?.[0] ||
+      `${action.label} is configured to require approval before external delivery.`,
+    payloadPreview: {
+      ...preview,
+      safety,
+    },
   });
 
   item.approvalId = approval._id;
@@ -379,14 +426,19 @@ const ensureApproval = async (item, actionId, userId) => {
   item.approvalStatus = "pending";
   item.status = "awaiting_approval";
 
-  const actionLog = getActionLog(item, actionId);
   if (actionLog) actionLog.status = "awaiting_approval";
 
   item.auditTrail.push(
     buildAuditEntry(
       "approval_requested",
       `${action.label} is waiting for approval.`,
-      { actionId, approvalId: approval._id },
+      {
+        actionId,
+        approvalId: approval._id,
+        confidenceScore: safety.confidenceScore,
+        riskLevel: safety.riskLevel,
+        reasons: safety.reasons,
+      },
       "ai",
       userId,
     ),
@@ -404,6 +456,8 @@ const executeSingleAction = async (item, actionId, userId, options = {}) => {
   const actionLog = getActionLog(item, actionId);
   const planStep = getActionStep(item, actionId);
   if (!actionLog) throw { status: 400, message: "Action log not found on execution item" };
+
+  await applySafetyToItem(item);
 
   if (planStep?.scheduledFor && new Date(planStep.scheduledFor) > new Date() && !force) {
     actionLog.status = "scheduled";

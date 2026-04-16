@@ -15,6 +15,7 @@ import {
   executeWorkflowItem,
   getWorkflowDashboard,
   ingestWorkflowInput,
+  submitWorkflowFeedback,
 } from "../../api/workflows";
 import { getCurrentPlan } from "../../api";
 
@@ -35,6 +36,7 @@ jest.mock("../../api/workflows", () => ({
   executeWorkflowItem: jest.fn(),
   getWorkflowDashboard: jest.fn(),
   ingestWorkflowInput: jest.fn(),
+  submitWorkflowFeedback: jest.fn(),
 }));
 
 jest.mock("../../api/operations", () => ({
@@ -65,6 +67,12 @@ const buildDashboard = ({
   metrics = {},
   summary = {},
   runs = [],
+  trustSummary = {
+    label: "MEDIUM",
+    level: "medium",
+    explanation: "Taskara can run, but some warnings still need review.",
+    reasons: ["1 connector target still needs attention."],
+  },
 } = {}) => ({
   audience: {
     key: audienceType,
@@ -89,6 +97,8 @@ const buildDashboard = ({
   items,
   approvals,
   runs,
+  trustSummary,
+  feedbackSummary: { correctCount: 1, incorrectCount: 0, topCategories: [] },
   integrationCoverage,
   entitySummary: {},
   migrationPreview: {
@@ -139,6 +149,7 @@ beforeEach(() => {
   controlWorkflowItem.mockResolvedValue({});
   executeWorkflowItem.mockResolvedValue({});
   ingestWorkflowInput.mockResolvedValue({});
+  submitWorkflowFeedback.mockResolvedValue({ feedback: { verdict: "correct" } });
   getOnboardingStatus.mockResolvedValue({
     onboarding: {
       audienceType: "startups",
@@ -399,10 +410,51 @@ test("dashboard surfaces guided onboarding and usage counters", async () => {
   render(<DashboardPage />);
 
   expect(await screen.findByText(/Run one guided workflow before you go live/i)).toBeInTheDocument();
+  expect(screen.getByText(/System confidence/i)).toBeInTheDocument();
+  expect(screen.getByText(/Typical usage/i)).toBeInTheDocument();
   expect(screen.getAllByText(/Current package/i).length).toBeGreaterThan(0);
   expect(screen.getAllByText(/Workflow Pro/i).length).toBeGreaterThan(0);
   expect(screen.getByText(/Workflows \/ month/i)).toBeInTheDocument();
 
   userEvent.click(screen.getByRole("button", { name: /Run guided demo/i }));
   await waitFor(() => expect(runOnboardingDemo).toHaveBeenCalledWith("startups"));
+});
+
+test("dashboard captures structured trust feedback on workflow results", async () => {
+  getWorkflowDashboard.mockResolvedValue(
+    buildDashboard({
+      audienceType: "startups",
+      items: [
+        {
+          ...baseItem,
+          _id: "feedback-item",
+          actionLogs: [
+            {
+              actionId: "assign_owner",
+              label: "Assign owner",
+              status: "executed",
+              confidenceScore: 71,
+              riskLevel: "medium",
+              riskReasons: ["Assignment reasoning is sparse for this item."],
+              approvalRecommended: true,
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  render(<DashboardPage />);
+
+  expect(await screen.findByText(/Was this correct\?/i)).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: /^No$/i }));
+  userEvent.click(screen.getByRole("button", { name: /Wrong assignment/i }));
+  userEvent.click(screen.getByRole("button", { name: /Send feedback/i }));
+
+  await waitFor(() =>
+    expect(submitWorkflowFeedback).toHaveBeenCalledWith("feedback-item", expect.objectContaining({
+      verdict: "incorrect",
+      categories: ["wrong_assignment"],
+    })),
+  );
 });

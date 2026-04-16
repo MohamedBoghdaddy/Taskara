@@ -105,6 +105,7 @@ const processDueWorkflowJobs = async ({ now = new Date(), limit = 25, jobId = ""
   let picked = 0;
   let executed = 0;
   let skipped = 0;
+  let retried = 0;
   let escalated = 0;
   let errors = 0;
 
@@ -201,6 +202,7 @@ const processDueWorkflowJobs = async ({ now = new Date(), limit = 25, jobId = ""
             : "executed";
 
       if (outcome === "failed") errors += 1;
+      else if (outcome === "retry_scheduled") retried += 1;
       else executed += 1;
 
       await finalizeWorkerState({
@@ -245,6 +247,7 @@ const processDueWorkflowJobs = async ({ now = new Date(), limit = 25, jobId = ""
     picked,
     executed,
     skipped,
+    retried,
     escalated,
     errors,
   };
@@ -267,6 +270,7 @@ const runWorkflowJobCycle = async ({ now = new Date(), limit = 25, jobId = "", m
       picked: result.picked,
       executed: result.executed,
       skipped: result.skipped,
+      retried: result.retried,
       escalated: result.escalated,
       errors: result.errors,
     }).catch(() => {});
