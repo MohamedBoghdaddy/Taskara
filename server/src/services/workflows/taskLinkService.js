@@ -14,7 +14,21 @@ const buildTaskPayload = (item) => ({
   priority: item.priority || "medium",
   dueDate: item.dueAt || null,
   status: mapExecutionStatusToTaskStatus(item.status),
+  taskType:
+    item.audienceType === "agencies"
+      ? "content"
+      : item.audienceType === "realestate"
+        ? "deal"
+        : item.audienceType === "startups"
+          ? "workflow"
+          : "general",
   assigneeIds: item.assignee?.userId ? [item.assignee.userId] : [],
+  contextType: item.entityLinks?.[0]?.kind || "",
+  contextId: item.entityLinks?.[0]?.id || null,
+  reviewState: item.approvalRequired ? "pending_review" : "not_needed",
+  workflowItemId: item._id,
+  sourceSnippet: item.sourceContext?.excerpt || "",
+  aiConfidence: item.confidenceScore || null,
   meta: {
     source: "workflow_execution",
     executionItemId: item._id,
@@ -22,6 +36,7 @@ const buildTaskPayload = (item) => ({
     workflowType: item.workflowType,
     sourceType: item.sourceType,
     sourceRef: item.sourceRef,
+    entityLinks: item.entityLinks || [],
   },
 });
 

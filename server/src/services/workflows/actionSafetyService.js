@@ -1,7 +1,9 @@
 const Candidate = require("../../models/Candidate");
 const RealEstateLead = require("../../models/RealEstateLead");
 const { clamp, getTemplate } = require("./helpers");
+const { getEntityId } = require("./entityLinkService");
 const { validateProviderMapping } = require("./syncService");
+const { applyWorkflowPolicyToSafety } = require("./workflowPolicyService");
 
 const RISK_WEIGHT = { low: 1, medium: 2, high: 3 };
 
@@ -31,15 +33,17 @@ const resolveRecipientContext = async (item) => {
     };
   }
 
-  if (item.entityRefs?.candidateId) {
-    const candidate = await Candidate.findById(item.entityRefs.candidateId).select("email name");
+  const candidateId = getEntityId(item, "candidate");
+  if (candidateId) {
+    const candidate = await Candidate.findById(candidateId).select("email name");
     if (candidate?.email) {
       return { email: candidate.email, name: candidate.name || "", source: "candidate" };
     }
   }
 
-  if (item.entityRefs?.leadId) {
-    const lead = await RealEstateLead.findById(item.entityRefs.leadId).select("email name");
+  const leadId = getEntityId(item, "lead");
+  if (leadId) {
+    const lead = await RealEstateLead.findById(leadId).select("email name");
     if (lead?.email) {
       return { email: lead.email, name: lead.name || "", source: "lead" };
     }
@@ -149,14 +153,19 @@ const evaluateActionSafety = async ({ item, actionId }) => {
   const approvalForced = riskLevel === "high" && action.channel !== "internal" && !executionBlocked;
   const approvalRecommended = !approvalForced && riskLevel === "medium" && action.channel !== "internal";
 
-  return {
-    confidenceScore,
-    riskLevel,
-    reasons: summarizeReasons(reasons),
-    executionBlocked,
-    approvalForced,
-    approvalRecommended,
-  };
+  return applyWorkflowPolicyToSafety({
+    item,
+    actionId,
+    action,
+    safety: {
+      confidenceScore,
+      riskLevel,
+      reasons: summarizeReasons(reasons),
+      executionBlocked,
+      approvalForced,
+      approvalRecommended,
+    },
+  });
 };
 
 const applySafetyToItem = async (item) => {
@@ -173,6 +182,9 @@ const applySafetyToItem = async (item) => {
     log.executionBlocked = safety.executionBlocked;
     log.approvalForced = safety.approvalForced;
     log.approvalRecommended = safety.approvalRecommended;
+    log.reviewLabel = safety.reviewLabel || "";
+    log.reviewMessage = safety.reviewMessage || "";
+    log.copyTone = safety.copyTone || "operator";
     log.safetyEvaluatedAt = new Date();
     step.metadata = {
       ...(step.metadata || {}),

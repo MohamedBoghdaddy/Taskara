@@ -14,6 +14,7 @@ const { AUDIENCE_KEYS, resolveAudienceKey } = require("../../config/workflowTemp
 const { applyManualOverride, suggestAssignee } = require("./assignmentService");
 const { applySafetyToItem } = require("./actionSafetyService");
 const { buildIntegrationCoverage } = require("./syncService");
+const { buildEntityLinksFromRefs, buildGroupAnchor } = require("./entityLinkService");
 const { applyControlAction, decideApproval, executeReadyPlan } = require("./executionService");
 const { createLinkedTaskForExecutionItem, syncLinkedTaskFromExecutionItem } = require("./taskLinkService");
 const {
@@ -344,6 +345,15 @@ const createExecutionItemDocs = async ({
       continue;
     }
 
+    const entityLinks = buildEntityLinksFromRefs(entityRefs, {
+      candidateId: payload.candidateName || payload.name || title,
+      initiativeId: payload.initiativeTitle || payload.projectName || title,
+      accountId: payload.accountName || payload.clientName || title,
+      leadId: payload.leadName || payload.name || title,
+      documentChecklistId: "Document checklist",
+      projectId: payload.projectName || title,
+    });
+
     const executionPlan = buildExecutionPlan(template, workflowType);
     const item = new ExecutionItem({
       workspaceId,
@@ -362,13 +372,7 @@ const createExecutionItemDocs = async ({
         rawText: text,
         payload,
       },
-      groupKey: String(
-        entityRefs.candidateId ||
-          entityRefs.initiativeId ||
-          entityRefs.accountId ||
-          entityRefs.leadId ||
-          workflowRunId,
-      ),
+      groupKey: buildGroupAnchor({ entityLinks, entityRefs, _id: workflowRunId }),
       groupLabel: payload.groupLabel || title || template.label,
       dueAt: inferDueAt(text),
       priority: inferPriority(text),
@@ -380,6 +384,7 @@ const createExecutionItemDocs = async ({
       createdByAI: true,
       riskLevel: calculateRiskLevel(template, workflowType),
       entityRefs,
+      entityLinks,
       auditTrail: [
         buildAuditEntry("ingested", `Input ingested from ${sourceType}.`, { sourceRef }, "user", userId),
         buildAuditEntry(
@@ -413,15 +418,16 @@ const createExecutionItemDocs = async ({
     );
     item.auditTrail.push(
       buildAuditEntry(
-        "note",
-        `Safety review scored ${item.confidenceScore}/100 with ${item.riskLevel} risk.`,
-        {
-          confidenceScore: item.confidenceScore,
-          riskLevel: item.riskLevel,
-          reasons: item.safetyReasons,
-        },
-        "ai",
-        userId,
+      "note",
+      `Safety review scored ${item.confidenceScore}/100 with ${item.riskLevel} risk.`,
+      {
+        confidenceScore: item.confidenceScore,
+        riskLevel: item.riskLevel,
+        reasons: item.safetyReasons,
+        entityLinks: item.entityLinks,
+      },
+      "ai",
+      userId,
       ),
     );
 

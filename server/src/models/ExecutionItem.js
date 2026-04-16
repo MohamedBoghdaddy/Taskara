@@ -68,6 +68,9 @@ const actionLogSchema = new mongoose.Schema(
     executionBlocked: { type: Boolean, default: false },
     approvalRecommended: { type: Boolean, default: false },
     approvalForced: { type: Boolean, default: false },
+    reviewLabel: { type: String, default: "" },
+    reviewMessage: { type: String, default: "" },
+    copyTone: { type: String, default: "operator" },
     safetyEvaluatedAt: { type: Date, default: null },
   },
   { _id: false },
@@ -100,6 +103,16 @@ const executionPlanStepSchema = new mongoose.Schema(
       default: "pending",
     },
     scheduledFor: { type: Date, default: null },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { _id: false },
+);
+
+const entityLinkSchema = new mongoose.Schema(
+  {
+    kind: { type: String, required: true, trim: true },
+    id: { type: mongoose.Schema.Types.Mixed, required: true },
+    label: { type: String, default: "" },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { _id: false },
@@ -175,6 +188,7 @@ const executionItemSchema = new mongoose.Schema(
     duplicateOf: { type: mongoose.Schema.Types.ObjectId, ref: "ExecutionItem", default: null },
     riskLevel: { type: String, enum: ["low", "medium", "high"], default: "medium" },
     safetyReasons: { type: [String], default: [] },
+    entityLinks: { type: [entityLinkSchema], default: [] },
     traceability: {
       outcomeSummary: { type: String, default: "" },
       outcomeStatus: { type: String, default: "" },

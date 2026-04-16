@@ -12,6 +12,7 @@ const { sendSlackMessage } = require("../integrations/slackService");
 const { assertActionExecutionAllowed } = require("../subscriptions/subscriptionUsageService");
 const { sendEmail } = require("../../utils/email");
 const { applySafetyToItem, evaluateActionSafety } = require("./actionSafetyService");
+const { getEntityId } = require("./entityLinkService");
 const {
   addDays,
   buildAuditEntry,
@@ -52,13 +53,15 @@ const resolveRecipient = async (item) => {
     };
   }
 
-  if (item.entityRefs?.candidateId) {
-    const candidate = await Candidate.findById(item.entityRefs.candidateId).select("name email");
+  const candidateId = getEntityId(item, "candidate");
+  if (candidateId) {
+    const candidate = await Candidate.findById(candidateId).select("name email");
     if (candidate?.email) return { email: candidate.email, name: candidate.name };
   }
 
-  if (item.entityRefs?.leadId) {
-    const lead = await RealEstateLead.findById(item.entityRefs.leadId).select("name email");
+  const leadId = getEntityId(item, "lead");
+  if (leadId) {
+    const lead = await RealEstateLead.findById(leadId).select("name email");
     if (lead?.email) return { email: lead.email, name: lead.name };
   }
 
@@ -151,7 +154,8 @@ const buildActionPreview = async (item, actionId) => {
 };
 
 const updateEntityState = async (item, actionId) => {
-  if (item.entityRefs?.candidateId) {
+  const candidateId = getEntityId(item, "candidate");
+  if (candidateId) {
     const stageMap = {
       send_outreach: "contacted",
       send_followup: "contacted",
@@ -194,7 +198,7 @@ const updateEntityState = async (item, actionId) => {
       set["outreachSequence.stopReason"] = "nurture";
     }
     await Candidate.updateOne(
-      { _id: item.entityRefs.candidateId },
+      { _id: candidateId },
       {
         $set: set,
         $push: { activityLog: activity },
@@ -202,7 +206,8 @@ const updateEntityState = async (item, actionId) => {
     );
   }
 
-  if (item.entityRefs?.initiativeId) {
+  const initiativeId = getEntityId(item, "initiative");
+  if (initiativeId) {
     const set = {};
     if (["assign_owner", "group_initiative"].includes(actionId)) set.status = "active";
     if (actionId === "post_status_slack") set.statusSummary = `Latest status posted at ${new Date().toISOString()}`;
@@ -216,10 +221,11 @@ const updateEntityState = async (item, actionId) => {
     if (actionId === "create_github_issue") {
       set["metrics.completedItems"] = Math.max(item.status === "completed" ? 1 : 0, 0);
     }
-    await StartupInitiative.updateOne({ _id: item.entityRefs.initiativeId }, { $set: set });
+    await StartupInitiative.updateOne({ _id: initiativeId }, { $set: set });
   }
 
-  if (item.entityRefs?.accountId) {
+  const accountId = getEntityId(item, "agency_account");
+  if (accountId) {
     const set = {};
     if (actionId === "send_status") {
       set.lastClientUpdateAt = new Date();
@@ -261,7 +267,7 @@ const updateEntityState = async (item, actionId) => {
       };
     }
     await AgencyAccount.updateOne(
-      { _id: item.entityRefs.accountId },
+      { _id: accountId },
       {
         ...(Object.keys(set).length ? { $set: set } : {}),
         ...(Object.keys(push).length ? { $push: push } : {}),
@@ -269,7 +275,8 @@ const updateEntityState = async (item, actionId) => {
     );
   }
 
-  if (item.entityRefs?.leadId) {
+  const leadId = getEntityId(item, "lead");
+  if (leadId) {
     const stageMap = {
       send_initial_followup: "contacted",
       send_sequence_followup: "contacted",
@@ -287,7 +294,7 @@ const updateEntityState = async (item, actionId) => {
       set.nextRequiredAction = "Advance milestone after the next completed action";
     }
     await RealEstateLead.updateOne(
-      { _id: item.entityRefs.leadId },
+      { _id: leadId },
       {
         $set: set,
         $push: {
@@ -301,8 +308,9 @@ const updateEntityState = async (item, actionId) => {
         },
       },
     );
-    if (actionId === "request_docs" && item.entityRefs?.documentChecklistId) {
-      const checklist = await DocumentChecklist.findById(item.entityRefs.documentChecklistId);
+    const documentChecklistId = getEntityId(item, "document_checklist");
+    if (actionId === "request_docs" && documentChecklistId) {
+      const checklist = await DocumentChecklist.findById(documentChecklistId);
       if (checklist) {
         checklist.items = checklist.items.map((entry) =>
           entry.status === "missing"
@@ -346,6 +354,9 @@ const ensureApproval = async (item, actionId, userId) => {
     actionLog.riskReasons = safety.reasons;
     actionLog.approvalForced = safety.approvalForced;
     actionLog.approvalRecommended = safety.approvalRecommended;
+    actionLog.reviewLabel = safety.reviewLabel || "";
+    actionLog.reviewMessage = safety.reviewMessage || "";
+    actionLog.copyTone = safety.copyTone || "operator";
     actionLog.safetyEvaluatedAt = new Date();
   }
   item.confidenceScore = Math.round(

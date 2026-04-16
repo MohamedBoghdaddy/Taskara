@@ -11,6 +11,7 @@ const { sendSlackMessage } = require("../integrations/slackService");
 const githubService = require("../integrations/githubService");
 const googleCalendarService = require("../integrations/googleCalendarService");
 const { getUsageSummary } = require("../subscriptions/subscriptionUsageService");
+const { applyAudienceWorkspaceProfile } = require("../workspaces/workspaceProfileService");
 const { getIntegrationReadinessReport, validateProviderMapping } = require("../workflows/syncService");
 const {
   decideApproval,
@@ -850,6 +851,7 @@ const runConnectorTest = async ({ workspaceId, userId, provider }) => {
 const selectOnboardingAudience = async ({ workspaceId, audienceType }) => {
   const template = getTemplate(audienceType);
   if (!template) throw { status: 400, message: `Unknown audience type: ${audienceType}` };
+  await applyAudienceWorkspaceProfile(workspaceId, audienceType);
 
   const state = await getOpsState(workspaceId);
   state.onboarding = {

@@ -31,6 +31,14 @@ const callGemini = async (prompt, systemPrompt) => {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 };
 
+const callGeminiOrFallback = async ({ prompt, systemPrompt, fallback }) => {
+  try {
+    return await callGemini(prompt, systemPrompt);
+  } catch (_) {
+    return typeof fallback === 'function' ? fallback() : fallback;
+  }
+};
+
 const summarizeNote = async (workspaceId, userId, noteId) => {
   const note = await Note.findOne({ _id: noteId, workspaceId });
   if (!note) throw { status: 404, message: 'Note not found' };
@@ -201,4 +209,133 @@ Keep it personal and energetic, not generic.`;
   return { brief, aiGenerated: true };
 };
 
-module.exports = { summarizeNote, extractTasks, rewriteNote, planToday, answerFromWorkspace, meetingNotesToTasks, prioritizeTasks, voiceToTask, dailyBrief };
+const generateAgencyContentIdeas = async (workspaceId, userId, { clientName = 'Client', campaignGoal = '', channels = [] }) => {
+  const fallbackIdeas = [
+    `${clientName}: announce one clear customer win tied to ${campaignGoal || 'the current campaign goal'}`,
+    `${clientName}: behind-the-scenes post tailored for ${channels[0] || 'social'}`
+      .trim(),
+    `${clientName}: short performance update with one action-driving CTA`,
+  ];
+  const prompt = `Generate 3 concise content ideas for ${clientName}.
+Campaign goal: ${campaignGoal || 'General awareness'}
+Channels: ${(channels || []).join(', ') || 'social'}
+Return as short bullet points.`;
+
+  const ideasText = await callGeminiOrFallback({
+    prompt,
+    systemPrompt: 'You create practical content ideas for marketing agencies. Keep outputs execution-ready.',
+    fallback: () => fallbackIdeas.map((idea) => `- ${idea}`).join('\n'),
+  });
+
+  const ideas = String(ideasText)
+    .split('\n')
+    .map((line) => line.replace(/^[\-\*\d\.\)\s]+/, '').trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  await AiLog.create({ workspaceId, userId, feature: 'agency_content_ideas', response: { clientName, ideas } });
+  return { ideas, aiGenerated: true };
+};
+
+const generateAgencyContentCalendar = async (workspaceId, userId, { clientName = 'Client', channels = [], theme = '' }) => {
+  const defaults = ['Thought-leadership post', 'Proof point carousel', 'CTA update', 'Weekly recap']
+    .map((title, index) => ({
+      title: `${clientName} ${title}`,
+      channel: channels[index % Math.max(channels.length, 1)] || 'linkedin',
+      status: index === 0 ? 'draft' : 'review',
+      theme: theme || 'Performance momentum',
+    }));
+
+  await AiLog.create({ workspaceId, userId, feature: 'agency_content_calendar', response: defaults });
+  return { calendar: defaults, aiGenerated: true };
+};
+
+const generateAgencyReportSummary = async (workspaceId, userId, { reportTitle = 'Client report', metrics = {}, extracted = {} }) => {
+  const fallback = `Summary for ${reportTitle}: performance tracked ${Object.keys(metrics || {}).length} key metric(s). Keep the next client update focused on momentum, blockers, and one clear next action.`;
+  const prompt = `Write a concise client-ready monthly performance summary.
+Report: ${reportTitle}
+Metrics: ${JSON.stringify(metrics || {})}
+Extracted signals: ${JSON.stringify(extracted || {})}
+Keep it to 3-4 sentences.`;
+
+  const summary = await callGeminiOrFallback({
+    prompt,
+    systemPrompt: 'You summarize campaign performance clearly for agency clients.',
+    fallback,
+  });
+
+  await AiLog.create({ workspaceId, userId, feature: 'agency_report_summary', response: { reportTitle, summary } });
+  return { summary, aiGenerated: true };
+};
+
+const generateRealEstateListingDescription = async (workspaceId, userId, { property = {} }) => {
+  const fallback = `${property.title || 'Property'} in ${property.city || 'the area'} with ${property.bedrooms || 0} bedrooms and ${property.bathrooms || 0} bathrooms. Highlight the fit, keep the copy clear, and avoid exaggeration.`;
+  const prompt = `Write a sharp real-estate listing description.
+Property: ${JSON.stringify(property || {})}
+Keep it buyer-friendly and specific.`;
+
+  const description = await callGeminiOrFallback({
+    prompt,
+    systemPrompt: 'You write concise, trustworthy real-estate listing descriptions.',
+    fallback,
+  });
+
+  await AiLog.create({ workspaceId, userId, feature: 'realestate_listing_description', response: { property, description } });
+  return { description, aiGenerated: true };
+};
+
+const recommendRealEstateLeadMatches = async (workspaceId, userId, { lead = {}, properties = [] }) => {
+  const matches = (properties || [])
+    .slice(0, 3)
+    .map((property, index) => ({
+      propertyId: property._id,
+      title: property.title,
+      reason: index === 0
+        ? 'Closest match to the lead budget and stated interest.'
+        : 'Reasonable alternative with a similar location or layout.',
+    }));
+
+  await AiLog.create({ workspaceId, userId, feature: 'realestate_lead_match', response: { lead, matches } });
+  return { matches, aiGenerated: true };
+};
+
+const summarizeRealEstateConversation = async (workspaceId, userId, { text = '' }) => {
+  const fallback = text
+    ? `Conversation summary: ${String(text).replace(/\s+/g, ' ').trim().slice(0, 180)}`
+    : 'Conversation summary unavailable.';
+  const prompt = `Summarize this real-estate buyer conversation in 2-3 sentences and end with one next best action.\n\n${text}`;
+
+  const summary = await callGeminiOrFallback({
+    prompt,
+    systemPrompt: 'You summarize client conversations for real-estate teams.',
+    fallback,
+  });
+
+  await AiLog.create({ workspaceId, userId, feature: 'realestate_conversation_summary', response: { summary } });
+  return { summary, aiGenerated: true };
+};
+
+const generateOwnerSettlementSummary = async (workspaceId, userId, { ownerName = 'Owner', amount = 0, currency = 'USD', dueAt = null }) => {
+  const summary = `Settlement update for ${ownerName}: ${currency} ${amount} is ${dueAt ? `targeted for ${dueAt}` : 'being prepared for release'}. Review payout recipient details before sending.`;
+  await AiLog.create({ workspaceId, userId, feature: 'realestate_owner_update', response: { ownerName, amount, currency, dueAt, summary } });
+  return { summary, aiGenerated: true };
+};
+
+module.exports = {
+  answerFromWorkspace,
+  dailyBrief,
+  extractTasks,
+  generateAgencyContentCalendar,
+  generateAgencyContentIdeas,
+  generateAgencyReportSummary,
+  generateOwnerSettlementSummary,
+  generateRealEstateListingDescription,
+  meetingNotesToTasks,
+  planToday,
+  prioritizeTasks,
+  recommendRealEstateLeadMatches,
+  rewriteNote,
+  summarizeNote,
+  summarizeRealEstateConversation,
+  voiceToTask,
+};

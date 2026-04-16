@@ -20,6 +20,21 @@ const taskSchema = new mongoose.Schema({
   subtaskIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
   tagIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }],
   linkedNoteIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Note' }],
+  taskType: {
+    type: String,
+    enum: ['general', 'workflow', 'content', 'deal', 'study', 'bug', 'report'],
+    default: 'general',
+  },
+  contextType: { type: String, default: '' },
+  contextId: { type: mongoose.Schema.Types.Mixed, default: null },
+  reviewState: {
+    type: String,
+    enum: ['not_needed', 'pending_review', 'reviewed', 'confirmed'],
+    default: 'not_needed',
+  },
+  workflowItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'ExecutionItem', default: null },
+  sourceSnippet: { type: String, default: '' },
+  aiConfidence: { type: Number, default: null },
   recurrence: {
     enabled:         { type: Boolean, default: false },
     rule:            { type: String, default: '' },       // 'daily'|'weekly'|'monthly'|'weekdays'
