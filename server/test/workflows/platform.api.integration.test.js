@@ -166,6 +166,49 @@ test("auth routes validate input, normalize email, protect profile updates, and 
   assert.match(invalidTokenResponse.body.error, /invalid token/i);
 });
 
+test("ai workspace endpoints return structured summaries and safe command previews", async () => {
+  const owner = await harness.createUser({ email: "ai-platform@test.local" });
+  await harness.createWorkspace({ owner, name: "AI Platform" });
+
+  await post("/api/projects", owner, {
+    name: "Launch Ops",
+    status: "active",
+  });
+  await post("/api/tasks", owner, {
+    title: "Prepare client report",
+    status: "todo",
+    priority: "high",
+  });
+  await post("/api/notes", owner, {
+    title: "Weekly campaign note",
+    content: "Northwind campaign review and next steps",
+  });
+
+  const summaryResponse = await post("/api/ai/workspace-summary", owner, {
+    vertical: "agencies",
+    surfaceMode: "operator",
+  });
+  assert.equal(summaryResponse.status, 200);
+  assert.equal(summaryResponse.body.vertical, "agencies");
+  assert.ok(Array.isArray(summaryResponse.body.whatMattersNow));
+  assert.ok(Array.isArray(summaryResponse.body.recommendations));
+  assert.ok(summaryResponse.body.prediction);
+
+  const missingCommand = await post("/api/ai/command-center", owner, {});
+  assert.equal(missingCommand.status, 400);
+
+  const commandResponse = await post("/api/ai/command-center", owner, {
+    command: "Create campaign for Ramadan ads and prep the report",
+    vertical: "agencies",
+    surfaceMode: "operator",
+  });
+  assert.equal(commandResponse.status, 200);
+  assert.equal(commandResponse.body.intent, "create_campaign");
+  assert.ok(Array.isArray(commandResponse.body.proposedActions));
+  assert.ok(Array.isArray(commandResponse.body.recommendations));
+  assert.equal(commandResponse.body.executionPreview.safeToAutoRun, false);
+});
+
 test("upload routes enforce auth, respect workspace isolation, avoid route shadowing, and fail safely", async () => {
   const ownerA = await harness.createUser({ email: "upload-a@test.local" });
   const ownerB = await harness.createUser({ email: "upload-b@test.local" });

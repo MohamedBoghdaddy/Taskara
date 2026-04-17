@@ -57,6 +57,8 @@ export const aiAnswer       = d => client.post('/ai/answer-from-workspace', d).t
 export const aiPrioritize   = d => client.post('/ai/prioritize-tasks', d).then(r => r.data);
 export const aiMeetingNotes = d => client.post('/ai/meeting-to-tasks', d).then(r => r.data);
 export const aiVoiceToTask  = d => client.post('/ai/voice-to-task', d).then(r => r.data);
+export const aiWorkspaceSummary = d => client.post('/ai/workspace-summary', d).then(r => r.data);
+export const aiCommandCenter = d => client.post('/ai/command-center', d).then(r => r.data);
 
 // ── Habits ───────────────────────────────────────────────────────────────────
 export const getHabitHistory = (days) => client.get('/habits', { params: { days } }).then(r => r.data);

@@ -30,6 +30,18 @@ const dailyBrief = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+const workspaceSummary = asyncHandler(async (req, res) => {
+  const result = await aiService.summarizeWorkspaceState(getWorkspaceId(req), req.user._id, req.body);
+  res.json(result);
+});
+
+const commandCenter = asyncHandler(async (req, res) => {
+  const { command } = req.body;
+  if (!command) return res.status(400).json({ error: 'command is required' });
+  const result = await aiService.interpretWorkspaceCommand(getWorkspaceId(req), req.user._id, req.body);
+  res.json(result);
+});
+
 const summarizeNote = asyncHandler(async (req, res) => {
   const result = await aiService.summarizeNote(getWorkspaceId(req), req.user._id, req.body.noteId);
   res.json(result);
@@ -55,4 +67,16 @@ const answerFromWorkspace = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
-module.exports = { summarizeNote, extractTasks, rewrite, planToday, answerFromWorkspace, meetingToTasks, prioritizeTasks, voiceToTask, dailyBrief };
+module.exports = {
+  summarizeNote,
+  extractTasks,
+  rewrite,
+  planToday,
+  answerFromWorkspace,
+  meetingToTasks,
+  prioritizeTasks,
+  voiceToTask,
+  dailyBrief,
+  workspaceSummary,
+  commandCenter,
+};

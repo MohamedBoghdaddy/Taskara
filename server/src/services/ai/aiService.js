@@ -1,5 +1,8 @@
 const AiLog = require('../../models/AiLog');
 const Note = require('../../models/Note');
+const Project = require('../../models/Project');
+const Task = require('../../models/Task');
+const { CANONICAL_VERTICALS, normalizeVerticalKey } = require('../../config/verticals');
 
 const priorityRank = {
   urgent: 0,
@@ -90,6 +93,327 @@ const buildFallbackTodayPlan = (tasks = []) => {
       .join('\n'),
     confidence: priorities.length ? 76 : 42,
   };
+};
+
+const verticalCommandCatalog = {
+  [CANONICAL_VERTICALS.AGENCIES]: {
+    label: 'Agency operations',
+    suggestions: ['Create campaign brief', 'Draft report summary', 'Prepare approval-ready content'],
+  },
+  [CANONICAL_VERTICALS.REAL_ESTATE]: {
+    label: 'Real-estate operations',
+    suggestions: ['Follow up with leads', 'Prepare viewing notes', 'Review settlement readiness'],
+  },
+  [CANONICAL_VERTICALS.STARTUPS]: {
+    label: 'Startup execution',
+    suggestions: ['Break idea into backlog items', 'Prepare sprint summary', 'Draft PR support notes'],
+  },
+  [CANONICAL_VERTICALS.STUDENT]: {
+    label: 'Study system',
+    suggestions: ['Build study plan', 'Extract deadlines', 'Summarize lecture notes'],
+  },
+  [CANONICAL_VERTICALS.INSURANCE]: {
+    label: 'Claims operations',
+    suggestions: ['Summarize claim evidence', 'Prepare review notes', 'Highlight missing checkpoints'],
+  },
+  [CANONICAL_VERTICALS.CORE]: {
+    label: 'Workspace operations',
+    suggestions: ['Capture work', 'Plan the next block', 'Prepare a review-first draft'],
+  },
+};
+
+const getIntentDefinition = ({ command, vertical }) => {
+  const text = String(command || '').toLowerCase();
+
+  if (/(campaign|ad|content|calendar|caption|creative)/.test(text)) {
+    return {
+      key: 'create_campaign',
+      label: 'Create campaign workflow',
+      entityType: 'campaign',
+      requiresApproval: /(publish|send|schedule|launch)/.test(text),
+      route: vertical === CANONICAL_VERTICALS.AGENCIES ? '/agency/campaigns' : '/projects',
+    };
+  }
+
+  if (/(report|summary|performance|monthly update)/.test(text)) {
+    return {
+      key: 'generate_report',
+      label: 'Generate report draft',
+      entityType: 'report',
+      requiresApproval: true,
+      route: vertical === CANONICAL_VERTICALS.AGENCIES ? '/agency/reports' : '/analytics',
+    };
+  }
+
+  if (/(lead|follow up|property|viewing|settlement)/.test(text)) {
+    return {
+      key: 'realestate_follow_up',
+      label: 'Prepare real-estate follow-up flow',
+      entityType: 'deal_flow',
+      requiresApproval: /(settlement|payment|release)/.test(text),
+      route: '/real-estate/dashboard',
+    };
+  }
+
+  if (/(study|exam|revise|class|course|syllabus)/.test(text)) {
+    return {
+      key: 'study_plan',
+      label: 'Build study plan',
+      entityType: 'study_plan',
+      requiresApproval: false,
+      route: '/today',
+    };
+  }
+
+  if (/(sprint|backlog|story|ship|feature|bug|pr)/.test(text)) {
+    return {
+      key: 'startup_execution',
+      label: 'Prepare product execution plan',
+      entityType: 'backlog_item',
+      requiresApproval: /(deploy|production|merge)/.test(text),
+      route: '/dashboard',
+    };
+  }
+
+  if (/(assign|task|todo|plan|week|today|meeting)/.test(text)) {
+    return {
+      key: 'task_plan',
+      label: 'Create action plan',
+      entityType: 'task',
+      requiresApproval: false,
+      route: '/tasks',
+    };
+  }
+
+  return {
+    key: 'workspace_request',
+    label: 'Capture workspace request',
+    entityType: 'workflow',
+    requiresApproval: false,
+    route: '/dashboard',
+  };
+};
+
+const summarizeWorkspaceState = async (workspaceId, userId, { vertical, surfaceMode } = {}) => {
+  const normalizedVertical = normalizeVerticalKey(vertical, CANONICAL_VERTICALS.CORE);
+  const [tasks, notes, projects] = await Promise.all([
+    Task.find({ workspaceId }).sort({ updatedAt: -1 }).limit(12).select('title status priority dueDate').lean(),
+    Note.find({ workspaceId, isArchived: false }).sort({ updatedAt: -1 }).limit(6).select('title updatedAt').lean(),
+    Project.find({ workspaceId }).sort({ updatedAt: -1 }).limit(6).select('name status updatedAt').lean(),
+  ]);
+
+  const openTasks = tasks.filter((task) => task.status !== 'done');
+  const overdueTasks = openTasks.filter((task) => task.dueDate && new Date(task.dueDate).getTime() < Date.now());
+  const highPriorityTasks = openTasks.filter((task) => ['urgent', 'high'].includes(task.priority));
+  const staleProjects = projects.filter((project) => {
+    const updatedAt = new Date(project.updatedAt || 0).getTime();
+    return updatedAt > 0 && updatedAt < Date.now() - 7 * 24 * 60 * 60 * 1000;
+  });
+
+  const headline =
+    overdueTasks.length > 0
+      ? 'Some work is overdue and needs fast triage.'
+      : highPriorityTasks.length > 0
+        ? 'High-priority work is active right now.'
+        : openTasks.length > 0
+          ? 'The workspace has active work in flight.'
+          : 'The workspace is calm right now.';
+
+  const summary = [
+    openTasks.length
+      ? `${openTasks.length} open task${openTasks.length === 1 ? '' : 's'} are still active.`
+      : 'No open tasks are active right now.',
+    notes.length
+      ? `${notes.length} recent note${notes.length === 1 ? '' : 's'} can be used as context for answers and summaries.`
+      : 'No recent notes were found for grounding.',
+    projects.length
+      ? `${projects.length} recent project${projects.length === 1 ? '' : 's'} provide execution context.`
+      : 'No active project context is available yet.',
+  ].join(' ');
+
+  const whatMattersNow = [
+    overdueTasks.length
+      ? {
+          id: 'workspace-overdue',
+          label: `${overdueTasks.length} overdue task${overdueTasks.length === 1 ? '' : 's'} need re-planning`,
+          description: 'Clear or reschedule these before lower-value work crowds the day.',
+          state: 'Overdue',
+          tone: 'danger',
+        }
+      : null,
+    highPriorityTasks.length
+      ? {
+          id: 'workspace-priority',
+          label: `${highPriorityTasks.length} high-priority task${highPriorityTasks.length === 1 ? '' : 's'} are open`,
+          description: 'Protect time for the most valuable work before context switching expands.',
+          state: 'Priority',
+          tone: 'warning',
+        }
+      : null,
+    staleProjects.length
+      ? {
+          id: 'workspace-stale-projects',
+          label: `${staleProjects.length} project${staleProjects.length === 1 ? '' : 's'} look stale`,
+          description: 'Recent project movement is quiet, which may hide blockers or missing updates.',
+          state: 'Watch',
+          tone: 'info',
+        }
+      : null,
+  ].filter(Boolean);
+
+  const recommendations = [
+    openTasks[0]
+      ? {
+          id: 'workspace-rec-top-task',
+          label: `Start with ${openTasks[0].title}`,
+          description: 'Use the top visible task as the anchor for the next focused work block.',
+          state: 'Next action',
+          tone: 'info',
+        }
+      : null,
+    notes[0]
+      ? {
+          id: 'workspace-rec-context',
+          label: `Use ${notes[0].title} as context`,
+          description: 'Recent note context makes AI answers and summaries more grounded.',
+          state: 'Knowledge',
+          tone: 'info',
+        }
+      : null,
+    {
+      id: 'workspace-rec-automation',
+      label: `Open ${verticalCommandCatalog[normalizedVertical]?.label || 'workspace'} command preview`,
+      description: 'Natural-language requests can be turned into structured action previews before execution.',
+      state: 'AI workflow',
+      tone: 'trust',
+    },
+  ].filter(Boolean);
+
+  const prediction = {
+    headline: overdueTasks.length > 0 ? 'Delivery risk is elevated.' : 'No immediate delivery risk detected.',
+    confidence: overdueTasks.length > 0 ? 71 : 62,
+    factors: [
+      overdueTasks.length ? `${overdueTasks.length} overdue item(s)` : 'No overdue items',
+      highPriorityTasks.length ? `${highPriorityTasks.length} high-priority item(s)` : 'Priority load is manageable',
+      staleProjects.length ? `${staleProjects.length} stale project(s)` : 'Recent project movement exists',
+    ],
+    reasoning:
+      overdueTasks.length > 0
+        ? 'The strongest predictor of missed follow-through right now is overdue work sitting in the active queue.'
+        : 'The current queue is active but does not show strong signs of immediate slippage.',
+  };
+
+  const response = {
+    vertical: normalizedVertical,
+    surfaceMode: surfaceMode === 'student' ? 'student' : 'operator',
+    headline,
+    summary,
+    confidence: Math.max(48, 84 - overdueTasks.length * 7 - staleProjects.length * 4),
+    sources: [
+      { label: 'Tasks', count: tasks.length },
+      { label: 'Notes', count: notes.length },
+      { label: 'Projects', count: projects.length },
+    ],
+    whatMattersNow,
+    recommendations,
+    prediction,
+    aiGenerated: true,
+  };
+
+  await AiLog.create({ workspaceId, userId, feature: 'workspace_summary', response });
+  return response;
+};
+
+const interpretWorkspaceCommand = async (workspaceId, userId, { command, vertical, surfaceMode } = {}) => {
+  const normalizedVertical = normalizeVerticalKey(vertical, CANONICAL_VERTICALS.CORE);
+  const intent = getIntentDefinition({ command, vertical: normalizedVertical });
+  const commandText = String(command || '').trim();
+  const previewStatus = intent.requiresApproval ? 'review_before_run' : 'draft_preview';
+  const verticalLabel = verticalCommandCatalog[normalizedVertical]?.label || 'Workspace operations';
+
+  const proposedActions = [
+    {
+      id: `${intent.key}-capture`,
+      label: intent.label,
+      description: `Turn "${commandText}" into a structured ${intent.entityType.replace(/_/g, ' ')} draft.`,
+      state: 'Structured draft',
+      tone: 'info',
+    },
+    {
+      id: `${intent.key}-review`,
+      label: intent.requiresApproval ? 'Route through review' : 'Keep as draft preview',
+      description: intent.requiresApproval
+        ? 'This request touches an external send, publish, or money-sensitive action, so Taskara should stop for review.'
+        : 'This can be prepared safely as a draft before any real execution step is triggered.',
+      state: intent.requiresApproval ? 'Approval path' : 'Draft only',
+      tone: intent.requiresApproval ? 'trust' : 'info',
+      requiresApproval: intent.requiresApproval,
+    },
+    {
+      id: `${intent.key}-handoff`,
+      label: 'Prepare next actions',
+      description: `Create the next operator-visible steps so ${verticalLabel.toLowerCase()} stays actionable instead of vague.`,
+      state: 'Action plan',
+      tone: 'info',
+    },
+  ];
+
+  const recommendations = [
+    {
+      id: `${intent.key}-rec-context`,
+      label: 'Add source context before execution',
+      description: 'Attach notes, project context, or customer details so the action draft is easier to trust.',
+      state: 'Context',
+      tone: 'info',
+    },
+    {
+      id: `${intent.key}-rec-owner`,
+      label: 'Choose an owner for the next checkpoint',
+      description: 'AI can structure the work, but visible ownership keeps the flow accountable.',
+      state: 'Ownership',
+      tone: 'warning',
+    },
+    {
+      id: `${intent.key}-rec-automation`,
+      label: 'Keep execution preview-first',
+      description: 'Review what would happen before any connector writeback or external send is allowed.',
+      state: 'Trust control',
+      tone: 'trust',
+      requiresApproval: intent.requiresApproval,
+    },
+  ];
+
+  const response = {
+    command: commandText,
+    vertical: normalizedVertical,
+    surfaceMode: surfaceMode === 'student' ? 'student' : 'operator',
+    intent: intent.key,
+    intentLabel: intent.label,
+    confidence: intent.key === 'workspace_request' ? 58 : 79,
+    directAnswer: `Taskara interprets this as "${intent.label}" for ${verticalLabel.toLowerCase()}.`,
+    reasoning: [
+      `Intent matched because the command includes keywords linked to ${intent.entityType.replace(/_/g, ' ')} work.`,
+      intent.requiresApproval
+        ? 'The request touches a trust-sensitive action, so the safest path is a review-before-run preview.'
+        : 'The request can be drafted safely without auto-executing anything.',
+    ],
+    proposedActions,
+    recommendations,
+    executionPreview: {
+      status: previewStatus,
+      safeToAutoRun: false,
+      requiresApproval: intent.requiresApproval,
+      approvalReason: intent.requiresApproval
+        ? 'This command appears to affect external delivery, publishing, or money-sensitive work.'
+        : '',
+      suggestedRoute: intent.route,
+      acceptedAliases: verticalCommandCatalog[normalizedVertical]?.suggestions || [],
+    },
+    aiGenerated: true,
+  };
+
+  await AiLog.create({ workspaceId, userId, feature: 'command_center', response });
+  return response;
 };
 
 const callGemini = async (prompt, systemPrompt) => {
@@ -465,6 +789,7 @@ const generateOwnerSettlementSummary = async (workspaceId, userId, { ownerName =
 module.exports = {
   answerFromWorkspace,
   dailyBrief,
+  interpretWorkspaceCommand,
   extractTasks,
   generateAgencyContentCalendar,
   generateAgencyContentIdeas,
@@ -477,6 +802,7 @@ module.exports = {
   recommendRealEstateLeadMatches,
   rewriteNote,
   summarizeNote,
+  summarizeWorkspaceState,
   summarizeRealEstateConversation,
   voiceToTask,
 };

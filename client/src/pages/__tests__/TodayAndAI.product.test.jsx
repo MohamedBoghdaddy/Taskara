@@ -4,7 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TodayPage from "../TodayPage";
 import AIPage from "../AIPage";
-import { aiAnswer, aiPlanToday, getDashboardStats } from "../../api";
+import { aiAnswer, aiCommandCenter, aiPlanToday, aiWorkspaceSummary, getDashboardStats, search } from "../../api";
 import { generateDailyNote } from "../../api/notes";
 import { createTask, getTodayTasks, updateTask } from "../../api/tasks";
 
@@ -24,8 +24,11 @@ jest.mock(
 
 jest.mock("../../api", () => ({
   aiAnswer: jest.fn(),
+  aiCommandCenter: jest.fn(),
   aiPlanToday: jest.fn(),
+  aiWorkspaceSummary: jest.fn(),
   getDashboardStats: jest.fn(),
+  search: jest.fn(),
 }));
 
 jest.mock("../../api/notes", () => ({
@@ -92,6 +95,29 @@ test("ai page renders structured workspace answers and review-aware day plans", 
     sources: [{ noteId: "note-1", title: "Weekly campaign note", relevance: 3 }],
   });
   getTodayTasks.mockResolvedValue([{ _id: "task-1", title: "Prepare client report", status: "todo", priority: "high" }]);
+  aiWorkspaceSummary.mockResolvedValue({
+    headline: "High-priority work is active right now.",
+    summary: "1 open task and recent notes are shaping the current workspace state.",
+    confidence: 73,
+    sources: [{ label: "Tasks", count: 1 }],
+    whatMattersNow: [{ id: "attention-1", label: "Prepare client report", description: "Highest urgency.", state: "Priority", tone: "warning" }],
+    recommendations: [{ id: "rec-1", label: "Start with the report", description: "Use the top task as the anchor.", state: "Next action", tone: "info" }],
+    prediction: { headline: "Delivery risk is elevated.", confidence: 71, reasoning: "The queue is small but time-sensitive.", factors: ["1 overdue item"] },
+  });
+  search.mockResolvedValue({
+    total: 1,
+    results: [{ type: "note", item: { _id: "note-1", title: "Weekly campaign note", contentText: "Northwind next steps" }, score: 7 }],
+  });
+  aiCommandCenter.mockResolvedValue({
+    intent: "create_campaign",
+    intentLabel: "Create campaign workflow",
+    confidence: 82,
+    directAnswer: 'Taskara interprets this as "Create campaign workflow" for agency operations.',
+    reasoning: ["Intent matched because campaign language was detected."],
+    proposedActions: [{ id: "action-1", label: "Create campaign workflow", description: "Turn the request into a structured draft.", state: "Structured draft", tone: "info" }],
+    recommendations: [{ id: "rec-1", label: "Add source context before execution", description: "Attach client context first.", state: "Context", tone: "info" }],
+    executionPreview: { status: "review_before_run", requiresApproval: true, approvalReason: "This request affects external delivery.", suggestedRoute: "/agency/campaigns" },
+  });
   aiPlanToday.mockResolvedValue({
     summary: "Start with the client report while the queue is small.",
     plan: "Now: Prepare client report\nNext: Clear approvals",
@@ -103,19 +129,39 @@ test("ai page renders structured workspace answers and review-aware day plans", 
 
   renderWithRouter(<AIPage />);
 
-  expect(screen.getByText(/AI assistant for real work/i)).toBeInTheDocument();
+  expect(screen.getByText(/The operating brain for the workspace/i)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: /Ask AI/i }));
 
   await waitFor(() => expect(aiAnswer).toHaveBeenCalled());
-  expect(await screen.findByText(/workspace changed most/i)).toBeInTheDocument();
+  expect((await screen.findAllByText(/workspace changed most/i)).length).toBeGreaterThan(0);
   expect(screen.getByText(/Weekly campaign note/i)).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole("button", { name: /Plan today/i }));
+  await userEvent.click(screen.getByRole("button", { name: /Plan/i }));
   await userEvent.click(screen.getByRole("button", { name: /Build plan/i }));
 
   await waitFor(() => expect(aiPlanToday).toHaveBeenCalled());
-  expect(await screen.findByText(/Start with the client report/i)).toBeInTheDocument();
+  expect((await screen.findAllByText(/Start with the client report/i)).length).toBeGreaterThan(0);
   expect(screen.getByText(/Execution plan/i)).toBeInTheDocument();
   expect(screen.getByText(/Deep work block/i)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /Summarize/i }));
+  await userEvent.click(screen.getByRole("button", { name: /^Summarize$/i }));
+
+  await waitFor(() => expect(aiWorkspaceSummary).toHaveBeenCalled());
+  expect((await screen.findAllByText(/High-priority work is active right now/i)).length).toBeGreaterThan(0);
+  expect(screen.getByText(/Predictive signal/i)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /Search/i }));
+  await userEvent.click(screen.getByRole("button", { name: /^Search$/i }));
+
+  await waitFor(() => expect(search).toHaveBeenCalled());
+  expect(await screen.findByText(/Search results/i)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /Automate/i }));
+  await userEvent.click(screen.getByRole("button", { name: /Preview actions/i }));
+
+  await waitFor(() => expect(aiCommandCenter).toHaveBeenCalled());
+  expect(await screen.findByText(/Automation preview/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/Create campaign workflow/i).length).toBeGreaterThan(0);
 });

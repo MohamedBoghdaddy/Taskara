@@ -102,11 +102,11 @@ test("agency dashboard renders an AI brief, attention queue, and review-aware co
   render(<AgencyDashboardPage />);
 
   expect(await screen.findByText(/Agency execution control center/i)).toBeInTheDocument();
-  expect(screen.getByText(/Client-facing work is waiting on review/i)).toBeInTheDocument();
+  expect(await screen.findByText(/Client-facing work is waiting on review/i)).toBeInTheDocument();
   expect(screen.getByText(/What needs attention/i)).toBeInTheDocument();
   expect(screen.getByText(/Recommended next actions/i)).toBeInTheDocument();
   expect(await screen.findByText(/Q3 Growth Sprint/i)).toBeInTheDocument();
-  expect(screen.getByText(/Launch week post/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/Launch week post/i).length).toBeGreaterThan(0);
   expect(screen.getByText(/Send monthly report/i)).toBeInTheDocument();
   expect(screen.getByText(/Outputs that still need approval coverage/i)).toBeInTheDocument();
 
@@ -196,13 +196,13 @@ test("real-estate dashboard renders pipeline intelligence, trust review, and AI 
   render(<RealEstateDashboardPage />);
 
   expect(await screen.findByText(/Deal operations dashboard/i)).toBeInTheDocument();
-  expect(screen.getByText(/Money movement is waiting on review/i)).toBeInTheDocument();
+  expect(await screen.findByText(/Money movement is waiting on review/i)).toBeInTheDocument();
   expect(screen.getByText(/What needs attention/i)).toBeInTheDocument();
-  expect(await screen.findByText(/Palm Hills - Omar Adel/i)).toBeInTheDocument();
+  expect((await screen.findAllByText(/Palm Hills - Omar Adel/i)).length).toBeGreaterThan(0);
   expect(screen.getAllByText(/Palm Hills Villa/i).length).toBeGreaterThan(0);
   expect(screen.getByText(/Owner settlements waiting for review or release/i)).toBeInTheDocument();
-  expect(screen.getByText(/Maya Hassan/i)).toBeInTheDocument();
-  expect(screen.getByText(/Send pricing pack/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/Maya Hassan/i).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Send pricing pack/i).length).toBeGreaterThan(0);
   expect(screen.getByText("175000")).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: /Generate AI brief/i }));

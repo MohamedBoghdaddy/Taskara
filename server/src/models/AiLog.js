@@ -16,6 +16,8 @@ const aiLogSchema = new mongoose.Schema({
       'prioritization',
       'voice_to_task',
       'daily_brief',
+      'workspace_summary',
+      'command_center',
       'agency_content_ideas',
       'agency_content_calendar',
       'agency_report_summary',
