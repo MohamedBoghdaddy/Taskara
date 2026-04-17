@@ -50,12 +50,12 @@ beforeEach(() => {
   });
 });
 
-test('login redirects operator workspaces to dashboard and stores auth state', async () => {
+test('login redirects agency workspaces to the agency dashboard and stores auth state', async () => {
   login.mockResolvedValue({
     user: {
       _id: 'user-1',
       email: 'operator@test.local',
-      workspaceContext: { surfaceMode: 'operator' },
+      workspaceContext: { surfaceMode: 'operator', vertical: 'agencies' },
       preferences: { theme: 'dark' },
     },
     accessToken: 'access-token',
@@ -72,7 +72,7 @@ test('login redirects operator workspaces to dashboard and stores auth state', a
     email: 'operator@test.local',
     password: 'password123',
   }));
-  expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+  expect(mockNavigate).toHaveBeenCalledWith('/agency/dashboard');
   expect(useAuthStore.getState().user.email).toBe('operator@test.local');
 });
 

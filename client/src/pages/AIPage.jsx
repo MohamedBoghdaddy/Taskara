@@ -1,190 +1,423 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { aiAnswer, aiPlanToday } from '../api/index';
-import { getTodayTasks } from '../api/tasks';
-import Button from '../components/common/Button';
-import FeatureGuide from '../components/common/FeatureGuide';
-import Tooltip from '../components/common/Tooltip';
+import React, { useMemo, useState } from "react";
+import toast from "react-hot-toast";
+import { aiAnswer, aiPlanToday } from "../api";
+import { getTodayTasks } from "../api/tasks";
+import Button from "../components/common/Button";
 import {
-  AIIcon,
-  BrainIcon,
-  TodayIcon,
-  SendIcon,
-  SparkIcon,
-  LightbulbIcon,
-  WandIcon,
-  SearchIcon,
-} from '../components/common/Icons';
+  ActivityTimeline,
+  AiBriefCard,
+  EmptyStateCard,
+  StatusPill,
+  StructuredList,
+  VerticalCard,
+  VerticalPageLayout,
+} from "../components/verticals/VerticalPageLayout";
+import { SearchIcon, TodayIcon } from "../components/common/Icons";
+
+const quickPrompts = {
+  qa: [
+    "What changed in my workspace recently?",
+    "Which notes matter most for the current work?",
+    "What is likely blocked right now?",
+  ],
+  plan: [
+    "Plan my day around the most urgent work.",
+    "What should I do first if I only have one good focus block?",
+    "Where is the hidden risk in today's plan?",
+  ],
+};
+
+const modeOptions = [
+  {
+    key: "qa",
+    label: "Workspace Q&A",
+    description: "Ask grounded questions about notes, tasks, and the latest workspace context.",
+    Icon: SearchIcon,
+  },
+  {
+    key: "plan",
+    label: "Plan today",
+    description: "Turn today's task list into a focused sequence with visible risks and priorities.",
+    Icon: TodayIcon,
+  },
+];
 
 export default function AIPage() {
-  const [messages, setMessages] = useState([
-    { role: 'assistant', text: 'Hi! I can answer questions about your workspace, help you plan your day, or discuss your notes and tasks. What do you need?' },
-  ]);
-  const [input, setInput] = useState('');
+  const [mode, setMode] = useState("qa");
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('qa');
-  const bottomRef = useRef();
+  const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([
+    {
+      id: "welcome",
+      label: "Taskara AI is ready",
+      meta: "Ask about workspace context or build a review-aware day plan.",
+      state: "Ready",
+      tone: "info",
+    },
+  ]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const trustItems = useMemo(
+    () => [
+      {
+        id: "trust-1",
+        label: "AI suggestions stay separate from execution",
+        description: "Taskara keeps a visible line between suggestion, draft, ready for approval, and executed work.",
+        state: "Trust-first",
+        tone: "trust",
+      },
+      {
+        id: "trust-2",
+        label: "Workspace answers show what they used",
+        description: "When context is available, source notes and confidence stay visible instead of hiding in a blob.",
+        state: "Explained",
+        tone: "info",
+      },
+      {
+        id: "trust-3",
+        label: "Plans call out risk, not just optimism",
+        description: "The planner highlights blockers, stale work, and sequencing risk so the day stays realistic.",
+        state: "Review-aware",
+        tone: "warning",
+      },
+    ],
+    [],
+  );
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
-    const question = input.trim();
-    setMessages(m => [...m, { role: 'user', text: question }]);
-    setInput('');
+  const submit = async (event) => {
+    event?.preventDefault();
+    if (loading) return;
+
+    const question = input.trim() || quickPrompts[mode][0];
     setLoading(true);
+    setInput("");
+
     try {
-      if (mode === 'qa') {
-        const r = await aiAnswer({ question });
-        setMessages(m => [...m, { role: 'assistant', text: r.answer, aiGenerated: true }]);
+      if (mode === "qa") {
+        const response = await aiAnswer({ question });
+        setResult({
+          type: "qa",
+          question,
+          answer: response.answer,
+          confidence: response.confidence,
+          sources: response.sources || [],
+        });
+        setHistory((current) => [
+          {
+            id: `qa-${current.length}`,
+            label: question,
+            meta: response.answer,
+            state: "Answered",
+            tone: "info",
+          },
+          ...current.slice(0, 5),
+        ]);
       } else {
         const tasks = await getTodayTasks();
-        const r = await aiPlanToday({ tasks });
-        setMessages(m => [...m, { role: 'assistant', text: r.plan, aiGenerated: true }]);
+        const response = await aiPlanToday({ tasks });
+        setResult({
+          type: "plan",
+          question,
+          summary: response.summary,
+          plan: response.plan,
+          confidence: response.confidence,
+          priorities: response.priorities || [],
+          schedule: response.schedule || [],
+          risks: response.risks || [],
+        });
+        setHistory((current) => [
+          {
+            id: `plan-${current.length}`,
+            label: "AI day plan generated",
+            meta: response.summary,
+            state: "Planned",
+            tone: "trust",
+          },
+          ...current.slice(0, 5),
+        ]);
       }
-    } catch (e) {
-      const msg = e.response?.data?.error || 'AI is unavailable. Check your GEMINI_API_KEY.';
-      setMessages(m => [...m, { role: 'assistant', text: msg, error: true }]);
+    } catch (error) {
+      const message = error.response?.data?.error || "AI is unavailable right now. Check the server AI configuration.";
+      toast.error(message);
+      setResult({
+        type: "error",
+        headline: "AI is unavailable",
+        body: message,
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const handlePlanDay = async () => {
-    setLoading(true);
-    setMessages(m => [...m, { role: 'user', text: 'Plan my day based on my tasks.' }]);
-    try {
-      const tasks = await getTodayTasks();
-      const r = await aiPlanToday({ tasks });
-      setMessages(m => [...m, { role: 'assistant', text: r.plan, aiGenerated: true }]);
-    } catch {
-      setMessages(m => [...m, { role: 'assistant', text: 'Could not plan — AI unavailable.', error: true }]);
-    }
-    setLoading(false);
-  };
+  const activeQuickPrompts = quickPrompts[mode];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', maxWidth: '780px', margin: '0 auto', padding: '0 24px' }}>
-      <FeatureGuide
-        storageKey="ai-guide"
-        title="AI Assistant"
-        icon={<AIIcon />}
-        description="Your AI assistant is powered by Gemini and can answer questions about your entire workspace — notes, tasks, and projects — or help you plan your day."
-        steps={[
-          {
-            icon: <SearchIcon />,
-            title: 'Workspace Q&A',
-            body: 'Switch to the "Workspace Q&A" mode and ask anything: "What are my open tasks?" or "Summarise my project notes."',
-          },
-          {
-            icon: <TodayIcon />,
-            title: 'Plan My Day',
-            body: 'Switch to "Plan Day" mode or click the quick action button. The AI reads today\'s tasks and generates a prioritised schedule.',
-          },
-          {
-            icon: <SparkIcon />,
-            title: 'Quick prompts',
-            body: 'Use the suggestion chips below the header to send common questions with a single click.',
-          },
-          {
-            icon: <BrainIcon />,
-            title: 'AI suggestions',
-            body: 'Responses tagged "AI GENERATED" are synthesised from your actual workspace data — not generic advice.',
-          },
-        ]}
-        tips={[
-          'Ask "What should I focus on today?" for a prioritised task list',
-          'Ask "Summarise my projects" to get a high-level overview',
-          'The AI uses your notes content — keep notes well-titled for better answers',
-          'If the AI is unavailable, check that GEMINI_API_KEY is set on the server',
-        ]}
-        accentColor="var(--primary)"
-      />
+    <VerticalPageLayout
+      eyebrow="AI Workspace"
+      title="AI assistant for real work"
+      subtitle="Use structured AI to understand workspace state, plan the next block of work, and keep reasoning visible before anyone acts on it."
+      actions={
+        <>
+          <Button variant="secondary" onClick={() => setInput(activeQuickPrompts[0])} disabled={loading}>
+            Use prompt
+          </Button>
+          <Button onClick={submit} disabled={loading}>
+            {loading ? "Working..." : "Run AI"}
+          </Button>
+        </>
+      }
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1.15fr) minmax(320px, 0.85fr)",
+          gap: "18px",
+        }}
+      >
+        <div style={{ display: "grid", gap: "18px" }}>
+          <VerticalCard title="Mode" subtitle="Switch between workspace understanding and day-planning without losing trust context.">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+              {modeOptions.map(({ key, label, description, Icon }) => {
+                const active = mode === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setMode(key)}
+                    style={{
+                      textAlign: "left",
+                      padding: "16px",
+                      borderRadius: "18px",
+                      border: `1px solid ${active ? "rgba(15,118,110,0.24)" : "rgba(148,163,184,0.18)"}`,
+                      background: active ? "rgba(15,118,110,0.08)" : "var(--surface)",
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                      <Icon />
+                      <div style={{ fontWeight: 800 }}>{label}</div>
+                    </div>
+                    <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6 }}>{description}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </VerticalCard>
 
-      <div style={{ padding: '24px 0 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <AIIcon /> AI Assistant
-        </h1>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {[['qa', 'Workspace Q&A', <SearchIcon />], ['plan', 'Plan Day', <TodayIcon />]].map(([m, l, icon]) => (
-            <Tooltip key={m} content={l} placement="bottom">
-              <button
-                onClick={() => setMode(m)}
-                style={{ padding: '6px 14px', border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '13px', background: mode === m ? 'var(--primary)' : 'var(--surface-alt)', color: mode === m ? '#fff' : 'var(--text-secondary)', fontWeight: mode === m ? '600' : '400', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-              >
-                {icon} {l}
-              </button>
-            </Tooltip>
-          ))}
+          <VerticalCard
+            title={mode === "qa" ? "Ask about your workspace" : "Generate a day plan"}
+            subtitle={
+              mode === "qa"
+                ? "Ask for answers grounded in notes and workspace context."
+                : "Turn today's tasks into a structured sequence with priorities, flow, and risk."
+            }
+            actions={<StatusPill tone={mode === "qa" ? "info" : "trust"}>{mode === "qa" ? "Grounded answer" : "Review-aware plan"}</StatusPill>}
+          >
+            <form onSubmit={submit} style={{ display: "grid", gap: "12px" }}>
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                rows={4}
+                placeholder={
+                  mode === "qa"
+                    ? "Ask anything about your workspace, notes, or current state..."
+                    : "Ask for a plan, risk review, or execution sequence for today..."
+                }
+                style={{
+                  padding: "14px 16px",
+                  borderRadius: "18px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text-primary)",
+                  resize: "vertical",
+                  lineHeight: 1.6,
+                  fontFamily: "inherit",
+                }}
+              />
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {activeQuickPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => setInput(prompt)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "999px",
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      color: "var(--text-secondary)",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                  {mode === "qa"
+                    ? "Answers stay tied to workspace context and show source visibility when available."
+                    : "Plans stay in draft mode so you can review sequencing and risk before acting."}
+                </div>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Thinking..." : mode === "qa" ? "Ask AI" : "Build plan"}
+                </Button>
+              </div>
+            </form>
+          </VerticalCard>
+
+          <AiResultPanel result={result} />
+        </div>
+
+        <div style={{ display: "grid", gap: "18px" }}>
+          <AiBriefCard
+            title="AI operating brief"
+            brief={
+              result?.type === "plan"
+                ? {
+                    headline: result.summary,
+                    summary: result.plan,
+                    confidence: result.confidence,
+                    mode: "review-before-run",
+                    sources: [
+                      { label: "Priorities", count: result.priorities?.length || 0 },
+                      { label: "Risks", count: result.risks?.length || 0 },
+                    ],
+                  }
+                : result?.type === "qa"
+                  ? {
+                      headline: "Workspace answer ready",
+                      summary: result.answer,
+                      confidence: result.confidence,
+                      mode: "grounded-answer",
+                      sources: [{ label: "Sources", count: result.sources?.length || 0 }],
+                    }
+                  : null
+            }
+            emptyText="Run an AI action to see a structured brief, confidence, and context footprint here."
+          />
+
+          <VerticalCard title="Why you can trust this" subtitle="Taskara exposes how AI fits into an execution workspace instead of hiding it behind a generic chat bubble.">
+            <StructuredList items={trustItems} />
+          </VerticalCard>
+
+          <VerticalCard title="Recent AI activity" subtitle="A short trail of the last AI actions so you can re-open context quickly.">
+            <ActivityTimeline items={history} emptyText="AI activity will appear here once you start asking questions or building plans." />
+          </VerticalCard>
         </div>
       </div>
+    </VerticalPageLayout>
+  );
+}
 
-      {/* Quick actions */}
-      <div style={{ display: 'flex', gap: '8px', padding: '12px 0', flexWrap: 'wrap' }}>
-        {['What are my key notes?', 'Summarize my projects', 'What should I focus on?'].map(q => (
-          <Tooltip key={q} content="Click to pre-fill this question" placement="top">
-            <button
-              onClick={() => setInput(q)}
-              style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: '20px', background: 'var(--surface)', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-            >
-              <LightbulbIcon size="xs" /> {q}
-            </button>
-          </Tooltip>
-        ))}
-        <Tooltip content="Let AI plan your day from today's tasks" placement="top">
-          <button
-            onClick={handlePlanDay}
-            disabled={loading}
-            style={{ padding: '6px 12px', border: '1px solid var(--primary)', borderRadius: '20px', background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: '13px', cursor: 'pointer', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-          >
-            <WandIcon size="xs" /> Plan my day
-          </button>
-        </Tooltip>
-      </div>
+function AiResultPanel({ result }) {
+  if (!result) {
+    return (
+      <VerticalCard title="Latest AI result" subtitle="Structured outputs appear here once you ask a question or generate a plan.">
+        <EmptyStateCard
+          title="No AI output yet"
+          body="Start with a workspace question or ask Taskara to plan the day around your current tasks."
+        />
+      </VerticalCard>
+    );
+  }
 
-      {/* Messages */}
-      <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '16px' }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-            <div style={{ maxWidth: '80%', padding: '12px 16px', borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: m.role === 'user' ? 'var(--primary)' : 'var(--surface)', color: m.role === 'user' ? '#fff' : m.error ? 'var(--error)' : 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6, border: m.role === 'user' ? 'none' : '1px solid var(--border)', whiteSpace: 'pre-wrap' }}>
-              {m.aiGenerated && (
-                <div style={{ fontSize: '10px', color: m.role === 'user' ? 'rgba(255,255,255,0.7)' : 'var(--primary)', fontWeight: '600', marginBottom: '4px', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <SparkIcon size="xs" /> AI GENERATED
-                </div>
-              )}
-              {m.text}
-            </div>
+  if (result.type === "error") {
+    return (
+      <VerticalCard title="Latest AI result" subtitle="The system failed safely and surfaced a user-facing explanation.">
+        <EmptyStateCard title={result.headline} body={result.body} />
+      </VerticalCard>
+    );
+  }
+
+  if (result.type === "qa") {
+    return (
+      <VerticalCard
+        title="Workspace answer"
+        subtitle={result.question}
+        actions={
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <StatusPill tone="info">Confidence {result.confidence}%</StatusPill>
+            <StatusPill tone="neutral">Answer only</StatusPill>
           </div>
-        ))}
-        {loading && (
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div style={{ padding: '12px 16px', borderRadius: '16px 16px 16px 4px', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AIIcon size="xs" /> AI is thinking<span style={{ animation: 'blink 1s infinite' }}>...</span>
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+        }
+      >
+        <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: "14px" }}>
+          {result.answer}
+        </div>
+        <StructuredList
+          items={(result.sources || []).map((source) => ({
+            id: source.noteId || source.title,
+            label: source.title,
+            description: "Used as supporting workspace context for this answer.",
+            state: `Relevance ${source.relevance}`,
+            tone: "info",
+          }))}
+          emptyText="No explicit source notes were available for this answer."
+        />
+      </VerticalCard>
+    );
+  }
 
-      {/* Input */}
-      <div style={{ borderTop: '1px solid var(--border)', padding: '16px 0 24px' }}>
-        <form onSubmit={handleSend} style={{ display: 'flex', gap: '8px' }}>
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder={mode === 'qa' ? 'Ask anything about your workspace...' : 'Ask about your day...'}
-            style={{ flex: 1, padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '24px', background: 'var(--surface)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }}
-            onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-            onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+  return (
+    <VerticalCard
+      title="Execution plan"
+      subtitle={result.question}
+      actions={
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <StatusPill tone="info">Confidence {result.confidence}%</StatusPill>
+          <StatusPill tone="trust">Draft plan</StatusPill>
+        </div>
+      }
+    >
+      <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: "18px" }}>
+        {result.plan}
+      </div>
+      <div style={{ display: "grid", gap: "16px" }}>
+        <div>
+          <div style={{ fontSize: "13px", fontWeight: 800, color: "var(--text-primary)", marginBottom: "8px" }}>Priorities</div>
+          <StructuredList
+            items={(result.priorities || []).map((entry, index) => ({
+              id: `priority-${index}`,
+              label: entry.title,
+              description: entry.reason,
+              state: entry.priority || "medium",
+              tone: ["urgent", "high"].includes(entry.priority) ? "warning" : "info",
+            }))}
+            emptyText="No explicit priorities returned."
           />
-          <Tooltip content="Send message" placement="top">
-            <Button type="submit" disabled={loading || !input.trim()} style={{ borderRadius: '24px', padding: '12px 20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <SendIcon /> Send
-            </Button>
-          </Tooltip>
-        </form>
+        </div>
+        <div>
+          <div style={{ fontSize: "13px", fontWeight: 800, color: "var(--text-primary)", marginBottom: "8px" }}>Suggested flow</div>
+          <StructuredList
+            items={(result.schedule || []).map((entry, index) => ({
+              id: `schedule-${index}`,
+              label: `${entry.slot}: ${entry.title}`,
+              description: entry.focus,
+              state: entry.slot,
+              tone: "info",
+            }))}
+            emptyText="No schedule was suggested."
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: "13px", fontWeight: 800, color: "var(--text-primary)", marginBottom: "8px" }}>Risks</div>
+          <StructuredList
+            items={(result.risks || []).map((entry, index) => ({
+              id: `risk-${index}`,
+              label: entry.title,
+              description: entry.risk,
+              state: "Watch",
+              tone: "danger",
+            }))}
+            emptyText="No major blockers were called out."
+          />
+        </div>
       </div>
-    </div>
+    </VerticalCard>
   );
 }

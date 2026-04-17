@@ -1,6 +1,97 @@
 const AiLog = require('../../models/AiLog');
 const Note = require('../../models/Note');
 
+const priorityRank = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+const tokenize = (value = '') =>
+  String(value || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
+
+const scoreNoteRelevance = (note, tokens = []) => {
+  const haystack = `${note.title || ''} ${(note.contentText || '').slice(0, 2000)}`.toLowerCase();
+  return tokens.reduce((score, token) => {
+    if (!haystack.includes(token)) return score;
+    const titleBoost = String(note.title || '').toLowerCase().includes(token) ? 2 : 1;
+    return score + titleBoost;
+  }, 0);
+};
+
+const buildFallbackWorkspaceAnswer = (sources, question) => {
+  if (!sources.length) {
+    return `I could not find enough matching workspace context for "${question}". Try asking about a note title, project, or task name that already exists.`;
+  }
+
+  const [primary] = sources;
+  return `The strongest match for "${question}" is ${primary.title}. I used ${sources.length} note source${sources.length === 1 ? '' : 's'} to answer this, so review the cited notes before acting on it.`;
+};
+
+const sortTasksForToday = (tasks = []) =>
+  [...tasks].sort((left, right) => {
+    const leftPriority = priorityRank[left.priority] ?? 99;
+    const rightPriority = priorityRank[right.priority] ?? 99;
+    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+
+    const leftDue = left.dueDate ? new Date(left.dueDate).getTime() : Number.POSITIVE_INFINITY;
+    const rightDue = right.dueDate ? new Date(right.dueDate).getTime() : Number.POSITIVE_INFINITY;
+    if (leftDue !== rightDue) return leftDue - rightDue;
+
+    return String(left.title || '').localeCompare(String(right.title || ''));
+  });
+
+const buildFallbackTodayPlan = (tasks = []) => {
+  const sorted = sortTasksForToday(tasks);
+  const now = Date.now();
+  const priorities = sorted.slice(0, 3).map((task, index) => ({
+    title: task.title,
+    priority: task.priority || 'medium',
+    reason:
+      index === 0
+        ? 'Highest combined urgency based on priority and due date.'
+        : index === 1
+          ? 'Best next item once the top priority is moving.'
+          : 'Useful follow-up after the most urgent work is stable.',
+    dueDate: task.dueDate || null,
+  }));
+  const schedule = priorities.map((task, index) => ({
+    slot: index === 0 ? 'Now' : index === 1 ? 'Next' : 'Later',
+    title: task.title,
+    focus: index === 0 ? 'Deep work block' : index === 1 ? 'Execution block' : 'Cleanup block',
+  }));
+  const risks = sorted
+    .filter((task) => task.status === 'blocked' || (task.dueDate && new Date(task.dueDate).getTime() < now))
+    .slice(0, 3)
+    .map((task) => ({
+      title: task.title,
+      risk:
+        task.status === 'blocked'
+          ? 'Blocked item needs clarification before it becomes a hidden drag on the day.'
+          : 'Overdue item should be reviewed before lower-priority work.',
+    }));
+
+  const summary = priorities.length
+    ? `Start with ${priorities[0].title}, keep one follow-up ready, and protect the rest of the day from lower-value context switching.`
+    : 'No tasks are due today yet, so use the time to capture priorities, clear inbox items, or plan your next focus block.';
+
+  return {
+    priorities,
+    schedule,
+    risks,
+    summary,
+    plan: [summary]
+      .concat(schedule.map((entry) => `${entry.slot}: ${entry.title} (${entry.focus})`))
+      .join('\n'),
+    confidence: priorities.length ? 76 : 42,
+  };
+};
+
 const callGemini = async (prompt, systemPrompt) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -95,24 +186,74 @@ const rewriteNote = async (workspaceId, userId, { noteId, content, format }) => 
 
 const planToday = async (workspaceId, userId, tasks) => {
   const taskList = tasks.map(t => `- ${t.title} (priority: ${t.priority}, due: ${t.dueDate || 'none'})`).join('\n');
-  const prompt = `Given these tasks for today, suggest a prioritized order and schedule. Explain briefly why.\n\nTasks:\n${taskList}`;
+  const fallback = buildFallbackTodayPlan(tasks);
+  const prompt = `Given these tasks for today, produce a crisp execution plan.
+Lead with one short summary sentence, then list the first three priorities with a short reason, then mention any major risks or blockers.
 
-  const plan = await callGemini(prompt, 'You are a productivity coach helping users plan their day effectively.');
+Tasks:
+${taskList || '- No tasks yet'}`;
+
+  const plan = await callGeminiOrFallback({
+    prompt,
+    systemPrompt: 'You are a pragmatic execution coach. Help the user focus, sequence work, and call out blockers without fluff.',
+    fallback: fallback.plan,
+  });
   await AiLog.create({ workspaceId, userId, feature: 'planning', response: plan });
 
-  return { plan, aiGenerated: true };
+  return {
+    plan,
+    summary: fallback.summary,
+    priorities: fallback.priorities,
+    schedule: fallback.schedule,
+    risks: fallback.risks,
+    confidence: fallback.confidence,
+    aiGenerated: true,
+  };
 };
 
 const answerFromWorkspace = async (workspaceId, userId, question) => {
-  const notes = await Note.find({ workspaceId, isArchived: false }).limit(20).select('title contentText');
-  const context = notes.map(n => `[Note: ${n.title}]\n${(n.contentText || '').substring(0, 500)}`).join('\n\n');
+  const notes = await Note.find({ workspaceId, isArchived: false }).limit(30).select('title contentText');
+  const queryTokens = tokenize(question);
+  const rankedNotes = notes
+    .map((note) => ({
+      note,
+      relevance: scoreNoteRelevance(note, queryTokens),
+    }))
+    .filter((entry) => entry.relevance > 0)
+    .sort((left, right) => right.relevance - left.relevance)
+    .slice(0, 4);
 
-  const prompt = `Using only the following workspace content, answer this question: "${question}"\n\nWorkspace content:\n${context.substring(0, 6000)}\n\nIf the answer is not in the content, say so.`;
+  const sources = rankedNotes.map(({ note, relevance }) => ({
+    noteId: note._id,
+    title: note.title,
+    relevance,
+  }));
 
-  const answer = await callGemini(prompt, 'You are an assistant that answers questions based only on the provided workspace content. Always cite which notes you referenced.');
-  await AiLog.create({ workspaceId, userId, feature: 'workspace_qa', response: { question, answer } });
+  const context = rankedNotes
+    .map(({ note }) => `[Note: ${note.title}]\n${(note.contentText || '').substring(0, 700)}`)
+    .join('\n\n');
 
-  return { answer, question, aiGenerated: true };
+  const prompt = `Using only the following workspace content, answer this question: "${question}".
+If the answer is not in the content, say so plainly.
+Close with "Sources:" and the note titles you used.
+
+Workspace content:
+${context.substring(0, 7000)}`;
+
+  const answer = await callGeminiOrFallback({
+    prompt,
+    systemPrompt: 'You answer questions only from the provided workspace context. Be concise, operational, and explicit about uncertainty.',
+    fallback: () => buildFallbackWorkspaceAnswer(sources, question),
+  });
+  await AiLog.create({ workspaceId, userId, feature: 'workspace_qa', response: { question, answer, sources } });
+
+  return {
+    answer,
+    question,
+    sources,
+    confidence: sources.length ? Math.min(88, 52 + sources.length * 10) : 36,
+    aiGenerated: true,
+  };
 };
 
 /**

@@ -15,6 +15,239 @@ const {
 const { extractSettlementIntelligence } = require("../documents/documentIntelligenceService");
 const { logActivity } = require("../../utils/activityLogger");
 
+const STALE_LEAD_DAYS = 3;
+
+const isStale = (value, days) => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.getTime() < Date.now() - days * 24 * 60 * 60 * 1000;
+};
+
+const buildRealEstateAssistantBrief = ({
+  newLeads,
+  settlementsDue,
+  moneyAtRisk,
+  maintenanceBacklog,
+  staleLeads,
+  upcomingViewings,
+}) => {
+  const headline =
+    settlementsDue > 0
+      ? "Money movement is waiting on review."
+      : staleLeads.length > 0
+        ? "Lead momentum needs attention."
+        : upcomingViewings.length > 0
+          ? "The pipeline is moving toward scheduled activity."
+          : "The pipeline is quiet right now.";
+
+  const summary = [
+    newLeads
+      ? `${newLeads} fresh lead${newLeads === 1 ? "" : "s"} entered the workspace recently.`
+      : "No new leads landed recently.",
+    settlementsDue
+      ? `${settlementsDue} settlement${settlementsDue === 1 ? "" : "s"} still need review before release.`
+      : "No settlement releases are blocked by pending review.",
+    moneyAtRisk
+      ? `${moneyAtRisk} remains exposed while draft or review-stage settlements stay unresolved.`
+      : "No draft settlement value is currently sitting at risk.",
+  ]
+    .concat(
+      maintenanceBacklog ? [`${maintenanceBacklog} maintenance request${maintenanceBacklog === 1 ? "" : "s"} still need tracking.`] : [],
+    )
+    .join(" ");
+
+  return {
+    headline,
+    summary,
+    confidence: Math.max(46, 84 - settlementsDue * 7 - staleLeads.length * 5),
+    mode: settlementsDue > 0 ? "review-aware" : "pipeline-watch",
+    generatedAt: new Date().toISOString(),
+    sources: [
+      { label: "Leads", count: newLeads },
+      { label: "Viewings", count: upcomingViewings.length },
+      { label: "Settlements", count: settlementsDue },
+    ],
+  };
+};
+
+const buildRealEstateAttentionItems = ({
+  settlementsDue,
+  moneyAtRisk,
+  staleLeads,
+  upcomingViewings,
+  maintenanceBacklog,
+}) =>
+  [
+    settlementsDue
+      ? {
+          id: "re-settlement-review",
+          label: "Owner settlements are waiting on review",
+          description: moneyAtRisk
+            ? `${moneyAtRisk} is still tied up in draft or review-stage settlements.`
+            : "Review payout recipients and release readiness before money moves.",
+          state: `${settlementsDue} pending`,
+          tone: "trust",
+          requiresApproval: true,
+          route: "/real-estate/settlements",
+        }
+      : null,
+    staleLeads.length
+      ? {
+          id: "re-stale-leads",
+          label: "Some leads have gone stale",
+          description: "Re-open the lead queue and move the oldest untouched opportunities forward.",
+          state: `${staleLeads.length} stale`,
+          tone: "danger",
+          route: "/real-estate/leads",
+        }
+      : null,
+    upcomingViewings.length
+      ? {
+          id: "re-viewings",
+          label: "Upcoming viewings need confirmation",
+          description: "Make sure the property, lead, and notes are ready before the next showing.",
+          state: `${upcomingViewings.length} scheduled`,
+          tone: "info",
+          route: "/real-estate/viewings",
+        }
+      : null,
+    maintenanceBacklog
+      ? {
+          id: "re-maintenance",
+          label: "Maintenance backlog can affect listing readiness",
+          description: "Close open property tasks so upcoming deals and viewings do not stall.",
+          state: `${maintenanceBacklog} open`,
+          tone: "warning",
+          route: "/real-estate/properties",
+        }
+      : null,
+  ].filter(Boolean);
+
+const buildRealEstateRecommendedActions = ({ settlements, staleLeads, deals, upcomingViewings }) => {
+  const nextSettlement = settlements.find((settlement) => ["draft", "review", "ready"].includes(settlement.status));
+  const nextLead = staleLeads[0];
+  const nextDeal = deals.find((deal) => ["qualified", "under_contract", "closing"].includes(deal.stage));
+  const nextViewing = upcomingViewings[0];
+
+  return [
+    nextSettlement
+      ? {
+          id: "re-rec-settlement",
+          label: `Review settlement for ${nextSettlement.ownerId?.name || "the owner"}`,
+          description: "Confirm payout recipient details and release readiness before finance action.",
+          state: "Money review",
+          tone: "trust",
+          requiresApproval: true,
+        }
+      : null,
+    nextLead
+      ? {
+          id: "re-rec-lead",
+          label: `Follow up with ${nextLead.name}`,
+          description: nextLead.nextRequiredAction || "Re-open the lead and move it into the next stage.",
+          state: "Lead flow",
+          tone: "danger",
+        }
+      : null,
+    nextViewing
+      ? {
+          id: "re-rec-viewing",
+          label: `Prep the ${nextViewing.propertyId?.title || "next"} viewing`,
+          description: "Check property notes, attendee expectations, and post-viewing follow-up owner.",
+          state: "Viewing prep",
+          tone: "info",
+        }
+      : null,
+    nextDeal
+      ? {
+          id: "re-rec-deal",
+          label: `Move ${nextDeal.title} to its next checkpoint`,
+          description: "Deal momentum improves when the next document or payment action is explicit.",
+          state: "Deal flow",
+          tone: "info",
+        }
+      : null,
+  ].filter(Boolean);
+};
+
+const buildRealEstateSetupChecklist = ({ owners, properties, deals, settlements }) => [
+  {
+    id: "re-owner",
+    label: "Add an owner record",
+    complete: owners.length > 0,
+    hint: "Owners unlock payout review, settlement summaries, and recipient checks.",
+    route: "/real-estate/properties",
+  },
+  {
+    id: "re-property",
+    label: "Add an active property",
+    complete: properties.length > 0,
+    hint: "Properties create the inventory context for viewings and deals.",
+    route: "/real-estate/properties",
+  },
+  {
+    id: "re-deal",
+    label: "Start one deal",
+    complete: deals.length > 0,
+    hint: "Deals connect leads, property context, and payment state.",
+    route: "/real-estate/deals",
+  },
+  {
+    id: "re-settlement",
+    label: "Create a settlement draft",
+    complete: settlements.length > 0,
+    hint: "Settlements make owner-facing money movement transparent before release.",
+    route: "/real-estate/settlements",
+  },
+];
+
+const buildRealEstateActivityTimeline = ({ deals, viewings, settlements, maintenanceRequests, properties }) =>
+  [
+    ...deals.map((deal) => ({
+      id: `deal-${deal._id}`,
+      label: deal.title,
+      meta: `${deal.stage} stage with ${deal.paymentStatus} payment status.`,
+      at: deal.updatedAt || deal.createdAt,
+      state: "Deal",
+      tone: "info",
+    })),
+    ...viewings.map((viewing) => ({
+      id: `viewing-${viewing._id}`,
+      label: viewing.propertyId?.title || "Viewing",
+      meta: `${viewing.leadId?.name || "Lead"} is ${viewing.status} for ${viewing.scheduledFor ? new Date(viewing.scheduledFor).toLocaleString() : "the upcoming slot"}.`,
+      at: viewing.updatedAt || viewing.createdAt || viewing.scheduledFor,
+      state: "Viewing",
+      tone: "info",
+    })),
+    ...settlements.map((settlement) => ({
+      id: `settlement-${settlement._id}`,
+      label: `Settlement for ${settlement.ownerId?.name || "owner"}`,
+      meta: `${settlement.currency} ${settlement.amount || 0} is ${settlement.status}.`,
+      at: settlement.updatedAt || settlement.createdAt,
+      state: "Settlement",
+      tone: settlement.approvalRequired ? "trust" : "warning",
+    })),
+    ...maintenanceRequests.map((request) => ({
+      id: `maintenance-${request._id}`,
+      label: request.summary,
+      meta: `${request.vendorName || "Vendor"} task is ${request.status}.`,
+      at: request.updatedAt || request.createdAt,
+      state: "Maintenance",
+      tone: request.status === "done" ? "success" : "warning",
+    })),
+    ...properties.map((property) => ({
+      id: `property-${property._id}`,
+      label: property.title,
+      meta: `${property.status} listing in ${property.city || "the area"}.`,
+      at: property.updatedAt || property.createdAt,
+      state: "Property",
+      tone: "info",
+    })),
+  ]
+    .sort((left, right) => new Date(right.at || 0) - new Date(left.at || 0))
+    .slice(0, 8);
+
 const getRealEstateDashboard = async (workspaceId) => {
   const [leads, properties, deals, viewings, settlements, maintenanceRequests] = await Promise.all([
     RealEstateLead.find({ workspaceId }).sort({ updatedAt: -1 }).limit(10),
@@ -36,6 +269,33 @@ const getRealEstateDashboard = async (workspaceId) => {
     .filter((settlement) => ["draft", "review", "ready"].includes(settlement.status))
     .reduce((sum, settlement) => sum + (settlement.amount || 0), 0);
   const maintenanceBacklog = maintenanceRequests.filter((request) => request.status !== "done").length;
+  const staleLeads = leads.filter((lead) => ["new_lead", "contacted", "qualified"].includes(lead.currentStage) && isStale(lead.updatedAt || lead.createdAt, STALE_LEAD_DAYS));
+  const attentionItems = buildRealEstateAttentionItems({
+    settlementsDue,
+    moneyAtRisk,
+    staleLeads,
+    upcomingViewings: viewingSchedule,
+    maintenanceBacklog,
+  });
+  const recommendedActions = buildRealEstateRecommendedActions({
+    settlements,
+    staleLeads,
+    deals,
+    upcomingViewings: viewingSchedule,
+  });
+  const setupChecklist = buildRealEstateSetupChecklist({
+    owners: properties.map((property) => property.ownerId).filter(Boolean),
+    properties,
+    deals,
+    settlements,
+  });
+  const activityTimeline = buildRealEstateActivityTimeline({
+    deals,
+    viewings,
+    settlements,
+    maintenanceRequests,
+    properties,
+  });
 
   return {
     vertical: "realestate",
@@ -65,6 +325,18 @@ const getRealEstateDashboard = async (workspaceId) => {
           ? "Owner settlements still need review before release."
           : "Money movement is not waiting on unresolved settlement review.",
     },
+    assistantBrief: buildRealEstateAssistantBrief({
+      newLeads,
+      settlementsDue,
+      moneyAtRisk,
+      maintenanceBacklog,
+      staleLeads,
+      upcomingViewings: viewingSchedule,
+    }),
+    attentionItems,
+    recommendedActions,
+    activityTimeline,
+    setupChecklist,
     leads,
     properties,
     deals,

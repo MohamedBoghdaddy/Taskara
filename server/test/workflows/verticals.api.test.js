@@ -130,6 +130,11 @@ test("agency vertical routes support client, campaign, content, reporting, appro
   assert.equal(dashboard.body.summary.pendingApprovals, 1);
   assert.equal(dashboard.body.widgets.length, 6);
   assert.ok(dashboard.body.trustSummary.wrongSendRisk >= 2);
+  assert.equal(dashboard.body.assistantBrief.mode, "review-aware");
+  assert.ok(Array.isArray(dashboard.body.attentionItems));
+  assert.ok(Array.isArray(dashboard.body.recommendedActions));
+  assert.ok(Array.isArray(dashboard.body.activityTimeline));
+  assert.ok(Array.isArray(dashboard.body.setupChecklist));
 
   assert.equal(clients.body.clients.length, 1);
   assert.equal(clients.body.clients[0].serviceTier, "Growth Retainer");
@@ -142,6 +147,8 @@ test("agency vertical routes support client, campaign, content, reporting, appro
   assert.equal(aiSuggestions.status, 200);
   assert.ok(aiSuggestions.body.ideas.length >= 1);
   assert.ok(aiSuggestions.body.calendar.length >= 1);
+  assert.ok(Array.isArray(aiSuggestions.body.nextActions));
+  assert.ok(aiSuggestions.body.confidence >= 62);
 });
 
 test("real-estate vertical routes support owner, property, deal, viewing, settlement, maintenance, and manifests", async () => {
@@ -268,6 +275,11 @@ test("real-estate vertical routes support owner, property, deal, viewing, settle
   assert.equal(dashboard.body.summary.maintenanceBacklog, 1);
   assert.equal(dashboard.body.widgets.length, 6);
   assert.match(dashboard.body.trustSummary.explanation, /settlements/i);
+  assert.equal(dashboard.body.assistantBrief.mode, "review-aware");
+  assert.ok(Array.isArray(dashboard.body.attentionItems));
+  assert.ok(Array.isArray(dashboard.body.recommendedActions));
+  assert.ok(Array.isArray(dashboard.body.activityTimeline));
+  assert.ok(Array.isArray(dashboard.body.setupChecklist));
 
   assert.equal(leads.body.leads.length, 2);
   assert.equal(owners.body.owners.length, 1);

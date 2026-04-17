@@ -12,7 +12,7 @@ test("student surface stays calm and does not inherit operator-heavy navigation"
   expect(labels).not.toEqual(expect.arrayContaining(["Execution Hub", "Agency Ops", "Deal Ops"]));
 });
 
-test("operator surface exposes agency and real-estate execution modules", () => {
+test("agency operator surface exposes agency execution modules without unrelated real-estate modules", () => {
   const labels = flattenLabels(getNavigationGroups({ surfaceMode: "operator", vertical: "agencies" }));
 
   expect(labels).toEqual(
@@ -24,13 +24,15 @@ test("operator surface exposes agency and real-estate execution modules", () => 
       "Content Calendar",
       "Reports",
       "Approval Center",
-      "Deal Ops",
-      "Leads",
-      "Properties",
-      "Deals",
-      "Settlements",
     ]),
   );
+  expect(labels).not.toEqual(expect.arrayContaining(["Deal Ops", "Leads", "Properties", "Deals", "Settlements"]));
+});
+
+test("core operator surface still exposes both vertical launch points", () => {
+  const labels = flattenLabels(getNavigationGroups({ surfaceMode: "operator", vertical: "core" }));
+
+  expect(labels).toEqual(expect.arrayContaining(["Agency Ops", "Deal Ops", "Clients", "Properties"]));
 });
 
 test("frontend vertical normalization matches canonical student and real-estate keys", () => {

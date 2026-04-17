@@ -54,7 +54,7 @@ const buildStudentGroups = () => [
   },
 ];
 
-const buildOperatorGroups = () => [
+const buildMainGroups = () => [
   {
     label: "Main",
     items: [
@@ -64,28 +64,33 @@ const buildOperatorGroups = () => [
       { to: "/search", Icon: SearchIcon, label: "Search", tip: "Full-text search  (Ctrl+K)" },
     ],
   },
-  {
-    label: "Agency",
-    items: [
-      { to: "/agency/dashboard", Icon: WorkflowIcon, label: "Agency Ops", tip: "From client request to approved delivery to report" },
-      { to: "/agency/clients", Icon: UsersIcon, label: "Clients", tip: "Profiles, retainers, and account health" },
-      { to: "/agency/campaigns", Icon: ProjectFilledIcon, label: "Campaigns", tip: "Campaign execution and status" },
-      { to: "/agency/content", Icon: PaletteIcon, label: "Content Calendar", tip: "Draft, review, approve, and schedule" },
-      { to: "/agency/reports", Icon: AnalyticsIcon, label: "Reports", tip: "Performance summaries and exports" },
-      { to: "/agency/approvals", Icon: ShieldIcon, label: "Approval Center", tip: "Prevent wrong sends before they happen" },
-    ],
-  },
-  {
-    label: "Real Estate",
-    items: [
-      { to: "/real-estate/dashboard", Icon: WorkflowIcon, label: "Deal Ops", tip: "From lead to viewing to settlement without losing the thread" },
-      { to: "/real-estate/leads", Icon: UsersIcon, label: "Leads", tip: "Lead intake, routing, and follow-up" },
-      { to: "/real-estate/properties", Icon: HomeIcon, label: "Properties", tip: "Inventory and owner-linked properties" },
-      { to: "/real-estate/deals", Icon: HandshakeIcon, label: "Deals", tip: "Track money, follow-ups, and operations in one flow" },
-      { to: "/real-estate/viewings", Icon: CalendarIcon, label: "Viewings", tip: "Scheduling and showing pipeline" },
-      { to: "/real-estate/settlements", Icon: TrophyIcon, label: "Settlements", tip: "Owner payouts and financial review" },
-    ],
-  },
+];
+
+const buildAgencyGroup = () => ({
+  label: "Agency",
+  items: [
+    { to: "/agency/dashboard", Icon: WorkflowIcon, label: "Agency Ops", tip: "From client request to approved delivery to report" },
+    { to: "/agency/clients", Icon: UsersIcon, label: "Clients", tip: "Profiles, retainers, and account health" },
+    { to: "/agency/campaigns", Icon: ProjectFilledIcon, label: "Campaigns", tip: "Campaign execution and status" },
+    { to: "/agency/content", Icon: PaletteIcon, label: "Content Calendar", tip: "Draft, review, approve, and schedule" },
+    { to: "/agency/reports", Icon: AnalyticsIcon, label: "Reports", tip: "Performance summaries and exports" },
+    { to: "/agency/approvals", Icon: ShieldIcon, label: "Approval Center", tip: "Prevent wrong sends before they happen" },
+  ],
+});
+
+const buildRealEstateGroup = () => ({
+  label: "Real Estate",
+  items: [
+    { to: "/real-estate/dashboard", Icon: WorkflowIcon, label: "Deal Ops", tip: "From lead to viewing to settlement without losing the thread" },
+    { to: "/real-estate/leads", Icon: UsersIcon, label: "Leads", tip: "Lead intake, routing, and follow-up" },
+    { to: "/real-estate/properties", Icon: HomeIcon, label: "Properties", tip: "Inventory and owner-linked properties" },
+    { to: "/real-estate/deals", Icon: HandshakeIcon, label: "Deals", tip: "Track money, follow-ups, and operations in one flow" },
+    { to: "/real-estate/viewings", Icon: CalendarIcon, label: "Viewings", tip: "Scheduling and showing pipeline" },
+    { to: "/real-estate/settlements", Icon: TrophyIcon, label: "Settlements", tip: "Owner payouts and financial review" },
+  ],
+});
+
+const buildSharedWorkGroups = () => [
   {
     label: "Work",
     items: [
@@ -126,6 +131,21 @@ const buildOperatorGroups = () => [
 ];
 
 export const getNavigationGroups = (verticalOrContext = {}, surfaceModeArg = "operator") => {
-  const { surfaceMode } = normalizeSurfaceContext(verticalOrContext, surfaceModeArg);
-  return surfaceMode === CANONICAL_VERTICALS.STUDENT ? buildStudentGroups() : buildOperatorGroups();
+  const { surfaceMode, vertical } = normalizeSurfaceContext(verticalOrContext, surfaceModeArg);
+
+  if (surfaceMode === CANONICAL_VERTICALS.STUDENT) {
+    return buildStudentGroups();
+  }
+
+  const groups = [...buildMainGroups()];
+
+  if (vertical === CANONICAL_VERTICALS.AGENCIES) {
+    groups.push(buildAgencyGroup());
+  } else if (vertical === CANONICAL_VERTICALS.REAL_ESTATE) {
+    groups.push(buildRealEstateGroup());
+  } else if (vertical === CANONICAL_VERTICALS.CORE) {
+    groups.push(buildAgencyGroup(), buildRealEstateGroup());
+  }
+
+  return groups.concat(buildSharedWorkGroups());
 };

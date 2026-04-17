@@ -1,25 +1,37 @@
-import { getDefaultAuthenticatedPath } from '../routing';
+import { getDefaultAuthenticatedPath } from "../routing";
 
-test('operator workspaces default to dashboard', () => {
+test("agency workspaces default to the agency dashboard", () => {
   expect(
     getDefaultAuthenticatedPath({
       workspaceContext: {
-        surfaceMode: 'operator',
+        surfaceMode: "operator",
+        vertical: "agencies",
       },
     }),
-  ).toBe('/dashboard');
+  ).toBe("/agency/dashboard");
 });
 
-test('student workspaces default to today', () => {
+test("real-estate workspaces default to the deal dashboard", () => {
   expect(
     getDefaultAuthenticatedPath({
       workspaceContext: {
-        surfaceMode: 'student',
+        surfaceMode: "operator",
+        vertical: "real_estate",
       },
     }),
-  ).toBe('/today');
+  ).toBe("/real-estate/dashboard");
 });
 
-test('missing workspace context falls back to dashboard', () => {
-  expect(getDefaultAuthenticatedPath(null)).toBe('/dashboard');
+test("student workspaces default to today", () => {
+  expect(
+    getDefaultAuthenticatedPath({
+      workspaceContext: {
+        surfaceMode: "student",
+      },
+    }),
+  ).toBe("/today");
+});
+
+test("missing workspace context falls back to dashboard", () => {
+  expect(getDefaultAuthenticatedPath(null)).toBe("/dashboard");
 });
