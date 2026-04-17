@@ -141,4 +141,8 @@ vite.config.ts.timestamp-*
 
 
 agent.log
-.claude/worktrees/agent
+.claude/worktrees
+.claude/worktrees/agent-a08a9eaf
+.claude/worktrees/agent-a43a0b83
+.claude/worktrees/agent-a96deabd
+.claude/worktrees/agent-afa445ae
