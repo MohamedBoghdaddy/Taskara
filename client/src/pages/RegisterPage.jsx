@@ -4,6 +4,7 @@ import { register } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
+import { getDefaultAuthenticatedPath } from '../utils/routing';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
@@ -18,7 +19,7 @@ export default function RegisterPage() {
     try {
       const data = await register(form);
       setAuth({ user: data.user, accessToken: data.accessToken, refreshToken: data.refreshToken });
-      navigate('/today');
+      navigate(getDefaultAuthenticatedPath(data.user));
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed');
     } finally { setLoading(false); }

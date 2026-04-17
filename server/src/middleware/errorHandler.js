@@ -1,6 +1,12 @@
 const errorHandler = (err, req, res, next) => {
   console.error(err?.stack || err?.message || err);
 
+  if (err.name === 'MulterError') {
+    return res.status(400).json({
+      error: err.code === 'LIMIT_FILE_SIZE' ? 'File exceeds upload size limit' : err.message || 'Upload failed',
+    });
+  }
+
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(e => e.message);
     return res.status(400).json({ error: 'Validation error', details: errors });

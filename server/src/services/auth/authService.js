@@ -6,16 +6,64 @@ const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = requir
 const { serializeUserWithWorkspace } = require('../../utils/serializeUser');
 const { DEFAULT_WORKSPACE_CONTEXT } = require('../workspaces/workspaceProfileService');
 
+const normalizeEmail = (email = '') => String(email || '').trim().toLowerCase();
+
+const validateRegisterInput = ({ name, email, password } = {}) => {
+  const trimmedName = String(name || '').trim();
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPassword = String(password || '');
+
+  if (!trimmedName) {
+    throw { status: 400, message: 'name is required' };
+  }
+  if (!normalizedEmail) {
+    throw { status: 400, message: 'email is required' };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    throw { status: 400, message: 'email must be valid' };
+  }
+  if (!normalizedPassword) {
+    throw { status: 400, message: 'password is required' };
+  }
+  if (normalizedPassword.length < 8) {
+    throw { status: 400, message: 'password must be at least 8 characters' };
+  }
+
+  return {
+    name: trimmedName,
+    email: normalizedEmail,
+    password: normalizedPassword,
+  };
+};
+
+const validateLoginInput = ({ email, password } = {}) => {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPassword = String(password || '');
+
+  if (!normalizedEmail) {
+    throw { status: 400, message: 'email is required' };
+  }
+  if (!normalizedPassword) {
+    throw { status: 400, message: 'password is required' };
+  }
+
+  return {
+    email: normalizedEmail,
+    password: normalizedPassword,
+  };
+};
+
 const register = async ({ name, email, password }) => {
-  const existing = await User.findOne({ email });
+  const input = validateRegisterInput({ name, email, password });
+  const existing = await User.findOne({ email: input.email });
   if (existing) throw { status: 409, message: 'Email already registered' };
 
-  const passwordHash = await bcrypt.hash(password, 12);
-  const user = await User.create({ name, email, passwordHash });
+  const passwordHash = await bcrypt.hash(input.password, 12);
+  const user = await User.create({ name: input.name, email: input.email, passwordHash });
 
   // Create default workspace
   const workspace = await Workspace.create({
-    name: `${name}'s Workspace`,
+    name: `${input.name}'s Workspace`,
     ownerId: user._id,
     memberIds: [user._id],
     ...DEFAULT_WORKSPACE_CONTEXT,
@@ -45,10 +93,11 @@ const register = async ({ name, email, password }) => {
 };
 
 const login = async ({ email, password }) => {
-  const user = await User.findOne({ email });
+  const input = validateLoginInput({ email, password });
+  const user = await User.findOne({ email: input.email });
   if (!user) throw { status: 401, message: 'Invalid credentials' };
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  const valid = await bcrypt.compare(input.password, user.passwordHash);
   if (!valid) throw { status: 401, message: 'Invalid credentials' };
 
   const accessToken = generateAccessToken(user._id);

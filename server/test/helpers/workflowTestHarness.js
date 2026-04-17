@@ -1,5 +1,6 @@
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = process.env.JWT_SECRET || "workflow-test-secret";
+process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "workflow-refresh-test-secret";
 process.env.PLATFORM_ADMIN_EMAILS = process.env.PLATFORM_ADMIN_EMAILS || "platform-admin@test.local";
 
 const http = require("http");
@@ -34,6 +35,18 @@ const parseResponse = async (response) => {
   }
 };
 
+const isMultipartBody = (body) =>
+  typeof FormData !== "undefined" && body instanceof FormData;
+
+const isUrlEncodedBody = (body) =>
+  typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams;
+
+const isRawBinaryBody = (body) => {
+  if (typeof Blob !== "undefined" && body instanceof Blob) return true;
+  if (body instanceof ArrayBuffer) return true;
+  return ArrayBuffer.isView(body);
+};
+
 const resetDatabase = async () => {
   const collections = Object.values(mongoose.connection.collections);
   for (const collection of collections) {
@@ -56,7 +69,15 @@ const createHarness = async () => {
     const headers = { ...(options.headers || {}) };
     let body = options.body;
 
-    if (body !== undefined && body !== null && typeof body !== "string" && !(body instanceof Buffer)) {
+    if (
+      body !== undefined &&
+      body !== null &&
+      typeof body !== "string" &&
+      !(body instanceof Buffer) &&
+      !isMultipartBody(body) &&
+      !isUrlEncodedBody(body) &&
+      !isRawBinaryBody(body)
+    ) {
       headers["Content-Type"] = headers["Content-Type"] || "application/json";
       body = JSON.stringify(body);
     }

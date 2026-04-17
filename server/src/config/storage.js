@@ -42,7 +42,11 @@ const createUploader = (subdir, typeKey = 'attachment', maxMB = 25) => {
     limits: { fileSize: maxMB * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
       if (ALLOWED_TYPES[typeKey].test(file.mimetype)) cb(null, true);
-      else cb(new Error(`File type not allowed: ${file.mimetype}`));
+      else {
+        const error = new Error(`File type not allowed: ${file.mimetype}`);
+        error.status = 400;
+        cb(error);
+      }
     },
   });
 };

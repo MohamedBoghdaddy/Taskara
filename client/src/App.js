@@ -50,9 +50,7 @@ import RealEstatePropertiesPage from "./pages/RealEstatePropertiesPage";
 import RealEstateDealsPage from "./pages/RealEstateDealsPage";
 import RealEstateSettlementsPage from "./pages/RealEstateSettlementsPage";
 import RealEstateViewingsPage from "./pages/RealEstateViewingsPage";
-
-const getDefaultAuthenticatedPath = (user) =>
-  user?.workspaceContext?.surfaceMode === "student" ? "/today" : "/dashboard";
+import { getDefaultAuthenticatedPath } from "./utils/routing";
 
 const PrivateRoute = ({ children }) => {
   const { token } = useAuthStore();
