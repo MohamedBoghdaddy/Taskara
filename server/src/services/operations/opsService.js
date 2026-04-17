@@ -142,12 +142,20 @@ const buildDefaultLaunchCriteria = () =>
 const getOpsState = async (workspaceId) => {
   let state = await WorkspaceOperationalState.findOne({ workspaceId });
   if (!state) {
-    state = await WorkspaceOperationalState.create({
-      workspaceId,
-      firstUsers: buildDefaultFirstUsers(),
-      launchCriteria: buildDefaultLaunchCriteria(),
-      monitoring: { alertThresholds: DEFAULT_ALERT_THRESHOLDS },
-    });
+    try {
+      state = await WorkspaceOperationalState.create({
+        workspaceId,
+        firstUsers: buildDefaultFirstUsers(),
+        launchCriteria: buildDefaultLaunchCriteria(),
+        monitoring: { alertThresholds: DEFAULT_ALERT_THRESHOLDS },
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        state = await WorkspaceOperationalState.findOne({ workspaceId });
+      } else {
+        throw error;
+      }
+    }
   } else {
     let changed = false;
     if (!Array.isArray(state.firstUsers) || !state.firstUsers.length) {

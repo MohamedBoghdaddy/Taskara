@@ -190,9 +190,15 @@ test("ai workspace endpoints return structured summaries and safe command previe
   });
   assert.equal(summaryResponse.status, 200);
   assert.equal(summaryResponse.body.vertical, "agencies");
+  assert.equal(summaryResponse.body.surfaceMode, "operator");
   assert.ok(Array.isArray(summaryResponse.body.whatMattersNow));
   assert.ok(Array.isArray(summaryResponse.body.recommendations));
+  assert.ok(Array.isArray(summaryResponse.body.sources));
   assert.ok(summaryResponse.body.prediction);
+  assert.ok(Array.isArray(summaryResponse.body.prediction.factors));
+
+  const missingQuestion = await post("/api/ai/answer-from-workspace", owner, {});
+  assert.equal(missingQuestion.status, 400);
 
   const missingCommand = await post("/api/ai/command-center", owner, {});
   assert.equal(missingCommand.status, 400);
@@ -206,7 +212,40 @@ test("ai workspace endpoints return structured summaries and safe command previe
   assert.equal(commandResponse.body.intent, "create_campaign");
   assert.ok(Array.isArray(commandResponse.body.proposedActions));
   assert.ok(Array.isArray(commandResponse.body.recommendations));
+  assert.ok(Array.isArray(commandResponse.body.executionPreview.acceptedAliases));
   assert.equal(commandResponse.body.executionPreview.safeToAutoRun, false);
+});
+
+test("ai endpoints keep canonical keys and fallback structures even on sparse workspace data", async () => {
+  const owner = await harness.createUser({ email: "ai-sparse@test.local" });
+  await harness.createWorkspace({ owner, name: "Sparse AI" });
+
+  const summaryResponse = await post("/api/ai/workspace-summary", owner, {
+    vertical: "study",
+    surfaceMode: "student",
+  });
+  assert.equal(summaryResponse.status, 200);
+  assert.equal(summaryResponse.body.vertical, "student");
+  assert.equal(summaryResponse.body.surfaceMode, "student");
+  assert.ok(Array.isArray(summaryResponse.body.sources));
+  assert.ok(Array.isArray(summaryResponse.body.whatMattersNow));
+  assert.ok(Array.isArray(summaryResponse.body.recommendations));
+  assert.equal(typeof summaryResponse.body.headline, "string");
+  assert.equal(typeof summaryResponse.body.summary, "string");
+
+  const commandResponse = await post("/api/ai/command-center", owner, {
+    command: "  follow up with the buyer and prep the settlement review  ",
+    vertical: "real-estate",
+    surfaceMode: "operator",
+  });
+  assert.equal(commandResponse.status, 200);
+  assert.equal(commandResponse.body.vertical, "realestate");
+  assert.equal(commandResponse.body.surfaceMode, "operator");
+  assert.equal(typeof commandResponse.body.directAnswer, "string");
+  assert.ok(Array.isArray(commandResponse.body.reasoning));
+  assert.ok(Array.isArray(commandResponse.body.proposedActions));
+  assert.ok(Array.isArray(commandResponse.body.recommendations));
+  assert.ok(Array.isArray(commandResponse.body.executionPreview.acceptedAliases));
 });
 
 test("upload routes enforce auth, respect workspace isolation, avoid route shadowing, and fail safely", async () => {

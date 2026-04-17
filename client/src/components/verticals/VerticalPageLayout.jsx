@@ -1,5 +1,13 @@
 import React from "react";
 
+const ensureArray = (value) => (Array.isArray(value) ? value.filter((entry) => entry !== null && entry !== undefined) : []);
+const ensureObject = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : {});
+const ensureText = (value, fallback = "") => {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return fallback;
+};
+
 const tonePalette = {
   default: {
     background: "var(--surface)",
@@ -153,6 +161,17 @@ export function VerticalCard({ title, subtitle, children, tone = "default", foot
 }
 
 export function MetricStrip({ items = [] }) {
+  const safeItems = ensureArray(items)
+    .map((item, index) => {
+      const entry = ensureObject(item);
+      return {
+        label: ensureText(entry.label, `Metric ${index + 1}`),
+        value: entry.value ?? 0,
+        note: ensureText(entry.note),
+      };
+    })
+    .filter((item) => item.label);
+
   return (
     <div
       style={{
@@ -162,7 +181,7 @@ export function MetricStrip({ items = [] }) {
         marginBottom: "24px",
       }}
     >
-      {items.map((item) => (
+      {safeItems.map((item) => (
         <div
           key={item.label}
           style={{
@@ -241,8 +260,8 @@ export function EmptyStateCard({ title, body, action }) {
         background: "rgba(248,250,252,0.7)",
       }}
     >
-      <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "6px" }}>{title}</div>
-      <div style={{ fontSize: "13px", lineHeight: 1.6, color: "var(--text-secondary)" }}>{body}</div>
+      <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "6px", overflowWrap: "anywhere" }}>{ensureText(title, "Nothing here yet")}</div>
+      <div style={{ fontSize: "13px", lineHeight: 1.6, color: "var(--text-secondary)", overflowWrap: "anywhere" }}>{ensureText(body, "Taskara will surface more context once work starts moving.")}</div>
       {action ? <div style={{ marginTop: "14px" }}>{action}</div> : null}
     </div>
   );
@@ -269,15 +288,38 @@ export function LoadingPanel({ title = "Loading workspace context", subtitle = "
 }
 
 export function StructuredList({ items = [], emptyText = "Nothing to show yet." }) {
-  if (!items.length) {
+  const safeItems = ensureArray(items).map((item, index) => {
+    if (typeof item === "string") {
+      return {
+        id: `item-${index}`,
+        label: item,
+        description: "",
+        state: "",
+        tone: "info",
+        requiresApproval: false,
+      };
+    }
+
+    const entry = ensureObject(item);
+    return {
+      id: ensureText(entry.id, `item-${index}`),
+      label: ensureText(entry.label || entry.title || entry.headline, `Untitled item ${index + 1}`),
+      description: ensureText(entry.description || entry.reason || entry.meta),
+      state: ensureText(entry.state),
+      tone: ensureText(entry.tone, "neutral"),
+      requiresApproval: Boolean(entry.requiresApproval),
+    };
+  });
+
+  if (!safeItems.length) {
     return <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6 }}>{emptyText}</div>;
   }
 
   return (
     <div style={{ display: "grid", gap: "12px" }}>
-      {items.map((item) => (
+      {safeItems.map((item) => (
         <div
-          key={item.id || item.label || item.title}
+          key={item.id}
           style={{
             paddingTop: "12px",
             borderTop: "1px solid rgba(148,163,184,0.18)",
@@ -286,11 +328,13 @@ export function StructuredList({ items = [], emptyText = "Nothing to show yet." 
           <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start" }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)" }}>
-                {item.label || item.title}
+                {item.label}
               </div>
-              <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.65, marginTop: "4px" }}>
-                {item.description || item.reason || item.meta}
-              </div>
+              {item.description ? (
+                <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.65, marginTop: "4px", overflowWrap: "anywhere" }}>
+                  {item.description}
+                </div>
+              ) : null}
             </div>
             <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", justifyContent: "flex-end" }}>
               {item.state ? <StatusPill tone={item.tone || "neutral"}>{item.state}</StatusPill> : null}
@@ -304,15 +348,38 @@ export function StructuredList({ items = [], emptyText = "Nothing to show yet." 
 }
 
 export function ActivityTimeline({ items = [], emptyText = "No recent activity yet." }) {
-  if (!items.length) {
+  const safeItems = ensureArray(items).map((item, index) => {
+    if (typeof item === "string") {
+      return {
+        id: `timeline-${index}`,
+        label: item,
+        meta: "",
+        state: "",
+        tone: "neutral",
+        at: "",
+      };
+    }
+
+    const entry = ensureObject(item);
+    return {
+      id: ensureText(entry.id, `timeline-${index}`),
+      label: ensureText(entry.label || entry.title, `Activity ${index + 1}`),
+      meta: ensureText(entry.meta || entry.description),
+      state: ensureText(entry.state),
+      tone: ensureText(entry.tone, "neutral"),
+      at: entry.at,
+    };
+  });
+
+  if (!safeItems.length) {
     return <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6 }}>{emptyText}</div>;
   }
 
   return (
     <div style={{ display: "grid", gap: "12px" }}>
-      {items.map((item) => (
+      {safeItems.map((item) => (
         <div
-          key={item.id || item.label}
+          key={item.id}
           style={{
             paddingTop: "12px",
             borderTop: "1px solid rgba(148,163,184,0.18)",
@@ -322,7 +389,7 @@ export function ActivityTimeline({ items = [], emptyText = "No recent activity y
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)" }}>{item.label}</div>
               {item.meta ? (
-                <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6, marginTop: "4px" }}>
+                <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6, marginTop: "4px", overflowWrap: "anywhere" }}>
                   {item.meta}
                 </div>
               ) : null}
@@ -341,7 +408,9 @@ export function ActivityTimeline({ items = [], emptyText = "No recent activity y
 }
 
 export function AiBriefCard({ brief, title = "Workspace intelligence", emptyText = "Taskara will surface a structured brief once there is enough activity to summarize." }) {
-  if (!brief) {
+  const safeBrief = brief ? ensureObject(brief) : null;
+
+  if (!safeBrief || !Object.keys(safeBrief).length) {
     return (
       <VerticalCard title={title}>
         <EmptyStateCard title="No operating brief yet" body={emptyText} />
@@ -353,23 +422,29 @@ export function AiBriefCard({ brief, title = "Workspace intelligence", emptyText
     <VerticalCard
       tone="info"
       title={title}
-      subtitle={brief.summary}
+      subtitle={ensureText(safeBrief.summary)}
       actions={
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-          {brief.confidence !== undefined ? <StatusPill tone="info">Confidence {brief.confidence}%</StatusPill> : null}
-          {brief.mode ? <StatusPill tone="neutral">{brief.mode}</StatusPill> : null}
+          {safeBrief.confidence !== undefined ? <StatusPill tone="info">Confidence {safeBrief.confidence}%</StatusPill> : null}
+          {safeBrief.mode ? <StatusPill tone="neutral">{ensureText(safeBrief.mode)}</StatusPill> : null}
         </div>
       }
     >
-      <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--text-primary)", marginBottom: "10px" }}>{brief.headline}</div>
-      {brief.sources?.length ? (
+      <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--text-primary)", marginBottom: "10px", overflowWrap: "anywhere" }}>
+        {ensureText(safeBrief.headline, "Workspace brief")}
+      </div>
+      {ensureArray(safeBrief.sources).length ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-          {brief.sources.map((source) => (
-            <StatusPill key={source.label || source} tone="neutral">
-              {source.label || source}
-              {source.count !== undefined ? ` (${source.count})` : ""}
-            </StatusPill>
-          ))}
+          {ensureArray(safeBrief.sources).map((source, index) => {
+            const entry = typeof source === "string" ? { label: source } : ensureObject(source);
+            const label = ensureText(entry.label, `Source ${index + 1}`);
+            return (
+              <StatusPill key={`${label}-${index}`} tone="neutral">
+                {label}
+                {entry.count !== undefined && entry.count !== null ? ` (${entry.count})` : ""}
+              </StatusPill>
+            );
+          })}
         </div>
       ) : null}
     </VerticalCard>

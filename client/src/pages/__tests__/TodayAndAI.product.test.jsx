@@ -165,3 +165,30 @@ test("ai page renders structured workspace answers and review-aware day plans", 
   expect(await screen.findByText(/Automation preview/i)).toBeInTheDocument();
   expect(screen.getAllByText(/Create campaign workflow/i).length).toBeGreaterThan(0);
 });
+
+test("ai page clears stale results between modes and survives degraded payloads", async () => {
+  aiAnswer.mockResolvedValue({
+    answer: null,
+    confidence: "not-a-number",
+    sources: [null, { relevance: "bad-data" }],
+  });
+  aiWorkspaceSummary.mockResolvedValue({});
+
+  renderWithRouter(<AIPage />);
+
+  await userEvent.click(screen.getByRole("button", { name: /Ask AI/i }));
+  await waitFor(() => expect(aiAnswer).toHaveBeenCalled());
+
+  expect((await screen.findAllByText(/No answer was returned/i)).length).toBeGreaterThan(0);
+  expect(screen.getByText(/Relevance 0/i)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /Summarize/i }));
+  expect(screen.getByText(/No AI output yet/i)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /^Summarize$/i }));
+  await waitFor(() => expect(aiWorkspaceSummary).toHaveBeenCalled());
+
+  expect((await screen.findAllByText(/Workspace summary ready/i)).length).toBeGreaterThan(0);
+  expect(screen.getByText(/No urgent attention items were returned/i)).toBeInTheDocument();
+  expect(screen.getByText(/No recommendations were returned/i)).toBeInTheDocument();
+});

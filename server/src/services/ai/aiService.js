@@ -3,6 +3,12 @@ const Note = require('../../models/Note');
 const Project = require('../../models/Project');
 const Task = require('../../models/Task');
 const { CANONICAL_VERTICALS, normalizeVerticalKey } = require('../../config/verticals');
+const {
+  normalizeCommandCenterResponse,
+  normalizePlanTodayResponse,
+  normalizeWorkspaceAnswerResponse,
+  normalizeWorkspaceSummaryResponse,
+} = require('./aiResponseShapes');
 
 const priorityRank = {
   urgent: 0,
@@ -303,7 +309,7 @@ const summarizeWorkspaceState = async (workspaceId, userId, { vertical, surfaceM
         : 'The current queue is active but does not show strong signs of immediate slippage.',
   };
 
-  const response = {
+  const response = normalizeWorkspaceSummaryResponse({
     vertical: normalizedVertical,
     surfaceMode: surfaceMode === 'student' ? 'student' : 'operator',
     headline,
@@ -318,7 +324,10 @@ const summarizeWorkspaceState = async (workspaceId, userId, { vertical, surfaceM
     recommendations,
     prediction,
     aiGenerated: true,
-  };
+  }, {
+    vertical: normalizedVertical,
+    surfaceMode,
+  });
 
   await AiLog.create({ workspaceId, userId, feature: 'workspace_summary', response });
   return response;
@@ -383,7 +392,7 @@ const interpretWorkspaceCommand = async (workspaceId, userId, { command, vertica
     },
   ];
 
-  const response = {
+  const response = normalizeCommandCenterResponse({
     command: commandText,
     vertical: normalizedVertical,
     surfaceMode: surfaceMode === 'student' ? 'student' : 'operator',
@@ -410,7 +419,11 @@ const interpretWorkspaceCommand = async (workspaceId, userId, { command, vertica
       acceptedAliases: verticalCommandCatalog[normalizedVertical]?.suggestions || [],
     },
     aiGenerated: true,
-  };
+  }, {
+    command: commandText,
+    vertical: normalizedVertical,
+    surfaceMode,
+  });
 
   await AiLog.create({ workspaceId, userId, feature: 'command_center', response });
   return response;
@@ -524,7 +537,7 @@ ${taskList || '- No tasks yet'}`;
   });
   await AiLog.create({ workspaceId, userId, feature: 'planning', response: plan });
 
-  return {
+  return normalizePlanTodayResponse({
     plan,
     summary: fallback.summary,
     priorities: fallback.priorities,
@@ -532,7 +545,7 @@ ${taskList || '- No tasks yet'}`;
     risks: fallback.risks,
     confidence: fallback.confidence,
     aiGenerated: true,
-  };
+  });
 };
 
 const answerFromWorkspace = async (workspaceId, userId, question) => {
@@ -571,13 +584,13 @@ ${context.substring(0, 7000)}`;
   });
   await AiLog.create({ workspaceId, userId, feature: 'workspace_qa', response: { question, answer, sources } });
 
-  return {
+  return normalizeWorkspaceAnswerResponse({
     answer,
     question,
     sources,
     confidence: sources.length ? Math.min(88, 52 + sources.length * 10) : 36,
     aiGenerated: true,
-  };
+  }, { question });
 };
 
 /**

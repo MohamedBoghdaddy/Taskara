@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -26,6 +26,19 @@ import {
   WorkflowIcon,
   AnalyticsIcon,
 } from "../components/common/Icons";
+import {
+  buildBrief,
+  buildHistoryEntry,
+  ensureArray,
+  ensureNumber,
+  ensureText,
+  getSearchResultRoute,
+  normalizeAskResult,
+  normalizeCommandResult,
+  normalizePlanResult,
+  normalizeSearchResult,
+  normalizeSummaryResult,
+} from "../utils/aiWorkspace";
 
 const MODE_OPTIONS = [
   {
@@ -88,74 +101,6 @@ const QUICK_PROMPTS = {
   ],
 };
 
-const ensureArray = (value) => (Array.isArray(value) ? value : []);
-const ensureText = (value, fallback = "") => (typeof value === "string" && value.trim() ? value.trim() : fallback);
-const ensureNumber = (value, fallback = 0) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const groupSearchResults = (results = []) =>
-  ensureArray(results).reduce((groups, entry) => {
-    const type = ensureText(entry?.type, "other");
-    if (!groups[type]) groups[type] = [];
-    groups[type].push(entry);
-    return groups;
-  }, {});
-
-const getSearchResultRoute = (entry) => {
-  if (entry?.type === "page") return entry?.item?.path || null;
-  if (entry?.type === "note" && entry?.item?._id) return `/notes/${entry.item._id}`;
-  if (entry?.type === "project" && entry?.item?._id) return `/projects/${entry.item._id}`;
-  if (entry?.type === "task") return "/tasks";
-  return null;
-};
-
-const buildHistoryEntry = (mode, payload) => {
-  if (mode === "ask") {
-    return {
-      label: ensureText(payload.question, "Workspace question"),
-      meta: ensureText(payload.answer, "Answer ready."),
-      state: "Answered",
-      tone: "info",
-    };
-  }
-
-  if (mode === "plan") {
-    return {
-      label: "AI day plan generated",
-      meta: ensureText(payload.summary, "Plan ready."),
-      state: "Planned",
-      tone: "trust",
-    };
-  }
-
-  if (mode === "summarize") {
-    return {
-      label: ensureText(payload.headline, "Workspace summary generated"),
-      meta: ensureText(payload.summary, "Summary ready."),
-      state: "Summary",
-      tone: "info",
-    };
-  }
-
-  if (mode === "search") {
-    return {
-      label: `Search: ${ensureText(payload.query, "query")}`,
-      meta: `${ensureNumber(payload.total, 0)} result(s) grouped by type.`,
-      state: "Search",
-      tone: "info",
-    };
-  }
-
-  return {
-    label: ensureText(payload.intentLabel, "Automation preview"),
-    meta: ensureText(payload.directAnswer, "Command preview ready."),
-    state: "Preview",
-    tone: "trust",
-  };
-};
-
 export default function AIPage() {
   const { user } = useAuthStore();
   const [mode, setMode] = useState("ask");
@@ -171,9 +116,11 @@ export default function AIPage() {
       tone: "info",
     },
   ]);
+  const requestIdRef = useRef(0);
+  const mountedRef = useRef(true);
 
   const workspaceContext = user?.workspaceContext || {};
-  const activePrompts = QUICK_PROMPTS[mode];
+  const activePrompts = useMemo(() => QUICK_PROMPTS[mode] || QUICK_PROMPTS.ask, [mode]);
 
   const trustItems = useMemo(
     () => [
@@ -202,11 +149,25 @@ export default function AIPage() {
     [],
   );
 
-  const submit = async (event) => {
+  useEffect(() => () => {
+    mountedRef.current = false;
+    requestIdRef.current += 1;
+  }, []);
+
+  useEffect(() => {
+    requestIdRef.current += 1;
+    setLoading(false);
+    setResult(null);
+    setInput("");
+  }, [mode]);
+
+  const submit = useCallback(async (event) => {
     event?.preventDefault();
     if (loading) return;
 
     const prompt = ensureText(input, activePrompts[0]);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setInput("");
     setLoading(true);
 
@@ -215,70 +176,31 @@ export default function AIPage() {
 
       if (mode === "ask") {
         const response = await aiAnswer({ question: prompt });
-        nextResult = {
-          type: "ask",
-          question: prompt,
-          answer: ensureText(response?.answer, "No answer was returned."),
-          confidence: ensureNumber(response?.confidence, 0),
-          sources: ensureArray(response?.sources),
-        };
+        nextResult = normalizeAskResult(prompt, response);
       } else if (mode === "plan") {
         const tasks = await getTodayTasks();
         const response = await aiPlanToday({ tasks: ensureArray(tasks) });
-        nextResult = {
-          type: "plan",
-          question: prompt,
-          summary: ensureText(response?.summary, "No summary was returned."),
-          plan: ensureText(response?.plan, "No execution plan was returned."),
-          confidence: ensureNumber(response?.confidence, 0),
-          priorities: ensureArray(response?.priorities),
-          schedule: ensureArray(response?.schedule),
-          risks: ensureArray(response?.risks),
-        };
+        nextResult = normalizePlanResult(prompt, response);
       } else if (mode === "summarize") {
         const response = await aiWorkspaceSummary({
           vertical: workspaceContext.vertical,
           surfaceMode: workspaceContext.surfaceMode,
           prompt,
         });
-        nextResult = {
-          type: "summarize",
-          headline: ensureText(response?.headline, "Workspace summary ready"),
-          summary: ensureText(response?.summary, "No workspace summary was returned."),
-          confidence: ensureNumber(response?.confidence, 0),
-          sources: ensureArray(response?.sources),
-          whatMattersNow: ensureArray(response?.whatMattersNow),
-          recommendations: ensureArray(response?.recommendations),
-          prediction: response?.prediction || null,
-        };
+        nextResult = normalizeSummaryResult(response);
       } else if (mode === "search") {
         const response = await searchWorkspace(prompt);
-        nextResult = {
-          type: "search",
-          query: prompt,
-          total: ensureNumber(response?.total, 0),
-          groupedResults: groupSearchResults(response?.results),
-        };
+        nextResult = normalizeSearchResult(prompt, response);
       } else {
         const response = await aiCommandCenter({
           command: prompt,
           vertical: workspaceContext.vertical,
           surfaceMode: workspaceContext.surfaceMode,
         });
-        nextResult = {
-          type: "automate",
-          command: prompt,
-          intent: ensureText(response?.intent, "workspace_request"),
-          intentLabel: ensureText(response?.intentLabel, "Automation preview"),
-          confidence: ensureNumber(response?.confidence, 0),
-          directAnswer: ensureText(response?.directAnswer, "No automation preview was returned."),
-          reasoning: ensureArray(response?.reasoning),
-          proposedActions: ensureArray(response?.proposedActions),
-          recommendations: ensureArray(response?.recommendations),
-          executionPreview: response?.executionPreview || {},
-        };
+        nextResult = normalizeCommandResult(prompt, response);
       }
 
+      if (!mountedRef.current || requestId !== requestIdRef.current) return;
       setResult(nextResult);
       setHistory((current) => [
         {
@@ -288,6 +210,7 @@ export default function AIPage() {
         ...current.slice(0, 5),
       ]);
     } catch (error) {
+      if (!mountedRef.current || requestId !== requestIdRef.current) return;
       const message = error?.response?.data?.error || "AI is unavailable right now. Check the server configuration and try again.";
       toast.error(message);
       setResult({
@@ -296,9 +219,10 @@ export default function AIPage() {
         body: message,
       });
     } finally {
+      if (!mountedRef.current || requestId !== requestIdRef.current) return;
       setLoading(false);
     }
-  };
+  }, [activePrompts, input, loading, mode, workspaceContext.surfaceMode, workspaceContext.vertical]);
 
   return (
     <VerticalPageLayout
@@ -319,7 +243,7 @@ export default function AIPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1.15fr) minmax(320px, 0.85fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
           gap: "18px",
         }}
       >
@@ -333,6 +257,7 @@ export default function AIPage() {
                     key={key}
                     type="button"
                     onClick={() => setMode(key)}
+                    disabled={loading && mode === key}
                     style={{
                       textAlign: "left",
                       padding: "16px",
@@ -341,6 +266,7 @@ export default function AIPage() {
                       background: active ? "rgba(15,118,110,0.08)" : "var(--surface)",
                       color: "var(--text-primary)",
                       cursor: "pointer",
+                      opacity: loading && active ? 0.8 : 1,
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
@@ -365,6 +291,7 @@ export default function AIPage() {
                 onChange={(event) => setInput(event.target.value)}
                 rows={4}
                 placeholder={getComposerPlaceholder(mode)}
+                disabled={loading}
                 style={{
                   padding: "14px 16px",
                   borderRadius: "18px",
@@ -383,6 +310,7 @@ export default function AIPage() {
                     key={prompt}
                     type="button"
                     onClick={() => setInput(prompt)}
+                    disabled={loading}
                     style={{
                       padding: "8px 12px",
                       borderRadius: "999px",
@@ -466,15 +394,15 @@ function AiResultPanel({ result }) {
           </div>
         }
       >
-        <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: "14px" }}>
+        <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: "14px", overflowWrap: "anywhere" }}>
           {result.answer}
         </div>
         <StructuredList
           items={result.sources.map((source) => ({
-            id: source.noteId || source.title,
-            label: source.title,
+            id: source.noteId || source.title || source.label,
+            label: source.title || source.label,
             description: "Used as supporting workspace context for this answer.",
-            state: `Relevance ${source.relevance}`,
+            state: `Relevance ${ensureNumber(source.relevance, 0)}`,
             tone: "info",
           }))}
           emptyText="No explicit source notes were available for this answer."
@@ -495,7 +423,7 @@ function AiResultPanel({ result }) {
           </div>
         }
       >
-        <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: "18px" }}>
+        <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: "18px", overflowWrap: "anywhere" }}>
           {result.plan}
         </div>
         <div style={{ display: "grid", gap: "16px" }}>
@@ -549,7 +477,7 @@ function AiResultPanel({ result }) {
               <StatusPill tone="warning">Confidence {ensureNumber(result.prediction.confidence, 0)}%</StatusPill>
             </div>
             <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "6px" }}>{ensureText(result.prediction.headline)}</div>
-            <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: "8px" }}>{ensureText(result.prediction.reasoning)}</div>
+            <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: "8px", overflowWrap: "anywhere" }}>{ensureText(result.prediction.reasoning)}</div>
             <StructuredList
               items={ensureArray(result.prediction.factors).map((factor, index) => ({
                 id: `factor-${index}`,
@@ -632,7 +560,7 @@ function AiResultPanel({ result }) {
         </div>
       }
     >
-      <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.75, marginBottom: "16px" }}>{result.directAnswer}</div>
+      <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.75, marginBottom: "16px", overflowWrap: "anywhere" }}>{result.directAnswer}</div>
 
       <SectionList
         title="Reasoning"
@@ -682,64 +610,6 @@ function SectionList({ title, items, emptyText }) {
       <StructuredList items={ensureArray(items)} emptyText={emptyText} />
     </div>
   );
-}
-
-function buildBrief(result) {
-  if (!result || result.type === "error") return null;
-
-  if (result.type === "ask") {
-    return {
-      headline: "Workspace answer ready",
-      summary: result.answer,
-      confidence: result.confidence,
-      mode: "grounded-answer",
-      sources: [{ label: "Sources", count: result.sources.length }],
-    };
-  }
-
-  if (result.type === "plan") {
-    return {
-      headline: result.summary,
-      summary: result.plan,
-      confidence: result.confidence,
-      mode: "review-before-run",
-      sources: [
-        { label: "Priorities", count: result.priorities.length },
-        { label: "Risks", count: result.risks.length },
-      ],
-    };
-  }
-
-  if (result.type === "summarize") {
-    return {
-      headline: result.headline,
-      summary: result.summary,
-      confidence: result.confidence,
-      mode: "workspace-summary",
-      sources: result.sources,
-    };
-  }
-
-  if (result.type === "search") {
-    return {
-      headline: `Search returned ${result.total} result(s)`,
-      summary: `Grouped across ${Object.keys(result.groupedResults).length} result type(s) for "${result.query}".`,
-      confidence: Math.min(90, 40 + result.total * 5),
-      mode: "search",
-      sources: Object.entries(result.groupedResults).map(([label, entries]) => ({ label, count: entries.length })),
-    };
-  }
-
-  return {
-    headline: result.intentLabel,
-    summary: result.directAnswer,
-    confidence: result.confidence,
-    mode: result.executionPreview?.status || "preview",
-    sources: [
-      { label: "Actions", count: result.proposedActions.length },
-      { label: "Recommendations", count: result.recommendations.length },
-    ],
-  };
 }
 
 function getComposerTitle(mode) {
