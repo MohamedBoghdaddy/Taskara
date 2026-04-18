@@ -8,7 +8,7 @@ const styles = {
     minHeight: "100vh",
     background:
       "radial-gradient(circle at top left, rgba(14,165,233,0.14), transparent 34%), linear-gradient(180deg, #ffffff 0%, #f8fafc 62%, #ecfeff 100%)",
-    color: "#0f172a",
+    color: "var(--text-primary)",
   },
   shell: {
     maxWidth: "1180px",
@@ -22,7 +22,7 @@ const styles = {
     padding: "8px 14px",
     borderRadius: "999px",
     background: "rgba(14,165,233,0.10)",
-    color: "#0f766e",
+    color: "var(--text-primary)",
     border: "1px solid rgba(13,148,136,0.18)",
     fontSize: "12px",
     fontWeight: 700,
@@ -46,13 +46,13 @@ function QuestionCard({ label, value }) {
           fontWeight: 700,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
-          color: "#64748b",
+          color: "var(--text-secondary)",
           marginBottom: "10px",
         }}
       >
         {label}
       </div>
-      <div style={{ fontSize: "15px", lineHeight: 1.7, color: "#1e293b" }}>{value}</div>
+      <div style={{ fontSize: "15px", lineHeight: 1.7, color: "#000000" }}>{value}</div>
     </div>
   );
 }
@@ -75,11 +75,11 @@ export default function AudienceSolutionPage({ audienceKey }) {
     <div style={styles.page}>
       <div style={styles.shell}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap", marginBottom: "34px" }}>
-          <Link to="/" style={{ textDecoration: "none", color: "#0f172a", fontWeight: 800, fontSize: "22px", letterSpacing: "-0.03em" }}>
+          <Link to="/" style={{ textDecoration: "none", color: "var(--text-primary)", fontWeight: 800, fontSize: "22px", letterSpacing: "-0.03em" }}>
             Taskara
           </Link>
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <Link to="/login" style={{ textDecoration: "none", color: "#334155", fontWeight: 600 }}>Log in</Link>
+            <Link to="/login" style={{ textDecoration: "none", color: "#000000", fontWeight: 600 }}>Log in</Link>
             <Link
               to="/register"
               style={{
@@ -105,7 +105,7 @@ export default function AudienceSolutionPage({ audienceKey }) {
             <h1 style={{ fontSize: "clamp(34px, 6vw, 64px)", lineHeight: 1.02, letterSpacing: "-0.05em", margin: "18px 0 16px" }}>
               {audience.headline}
             </h1>
-            <p style={{ fontSize: "18px", lineHeight: 1.7, color: "#475569", maxWidth: "700px", marginBottom: "26px" }}>
+            <p style={{ fontSize: "18px", lineHeight: 1.7, color: "#000000", maxWidth: "700px", marginBottom: "26px" }}>
               {audience.subheadline}
             </p>
             <div
@@ -115,7 +115,7 @@ export default function AudienceSolutionPage({ audienceKey }) {
                 background: "linear-gradient(135deg, rgba(15,118,110,0.08), rgba(14,165,233,0.1))",
                 border: "1px solid rgba(15,118,110,0.14)",
                 fontWeight: 700,
-                color: "#115e59",
+                color: "#000000",
                 marginBottom: "24px",
               }}
             >
@@ -146,7 +146,7 @@ export default function AudienceSolutionPage({ audienceKey }) {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "8px",
-                  color: "#0f766e",
+                  color: "var(--text-primary)",
                   padding: "14px 20px",
                   borderRadius: "999px",
                   border: "1px solid rgba(15,118,110,0.18)",
@@ -159,19 +159,19 @@ export default function AudienceSolutionPage({ audienceKey }) {
           </div>
 
           <div style={{ ...styles.card, padding: "26px" }}>
-            <div style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b", marginBottom: "14px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "14px" }}>
               Workflow Snapshot
             </div>
             <div style={{ display: "grid", gap: "12px" }}>
               {audience.metricsPreview.map((metric) => (
                 <div key={metric.label} style={{ padding: "16px", borderRadius: "18px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.18)" }}>
-                  <div style={{ fontSize: "13px", color: "#64748b", marginBottom: "6px" }}>{metric.label}</div>
+                  <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "6px" }}>{metric.label}</div>
                   <div style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.04em", marginBottom: "4px" }}>{metric.value}</div>
-                  <div style={{ fontSize: "13px", color: "#475569" }}>{metric.note}</div>
+                  <div style={{ fontSize: "13px", color: "#000000" }}>{metric.note}</div>
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: "14px", padding: "14px 16px", borderRadius: "18px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.18)", color: "#334155", lineHeight: 1.7 }}>
+            <div style={{ marginTop: "14px", padding: "14px 16px", borderRadius: "18px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.18)", color: "#000000", lineHeight: 1.7 }}>
               Risk is visible before execution. Taskara explains why it acts, stops sensitive actions for approval, and preserves every external touch in the audit trail.
             </div>
           </div>
@@ -197,7 +197,7 @@ export default function AudienceSolutionPage({ audienceKey }) {
                   <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: "rgba(15,118,110,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "2px" }}>
                     <CheckCircleIcon size="xs" color="#0f766e" />
                   </div>
-                  <div style={{ lineHeight: 1.7, color: "#1e293b" }}>{item}</div>
+                  <div style={{ lineHeight: 1.7, color: "#000000" }}>{item}</div>
                 </div>
               ))}
             </div>
@@ -210,7 +210,7 @@ export default function AudienceSolutionPage({ audienceKey }) {
             </div>
             <div style={{ display: "grid", gap: "12px" }}>
               {audience.trustControls.map((item) => (
-                <div key={item} style={{ padding: "14px 16px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.18)", color: "#1e293b", lineHeight: 1.7 }}>
+                <div key={item} style={{ padding: "14px 16px", borderRadius: "16px", background: "#f8fafc", border: "1px solid rgba(148,163,184,0.18)", color: "#000000", lineHeight: 1.7 }}>
                   {item}
                 </div>
               ))}
@@ -230,7 +230,7 @@ export default function AudienceSolutionPage({ audienceKey }) {
           </div>
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "18px" }}>
             {audience.syncTargets.map((target) => (
-              <div key={target} style={{ padding: "10px 14px", borderRadius: "999px", border: "1px solid rgba(15,118,110,0.18)", background: "rgba(15,118,110,0.08)", color: "#0f766e", fontWeight: 700, fontSize: "13px" }}>
+              <div key={target} style={{ padding: "10px 14px", borderRadius: "999px", border: "1px solid rgba(15,118,110,0.18)", background: "rgba(15,118,110,0.08)", color: "var(--text-primary)", fontWeight: 700, fontSize: "13px" }}>
                 {target}
               </div>
             ))}
@@ -238,10 +238,10 @@ export default function AudienceSolutionPage({ audienceKey }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
             {audience.workflowChain.map((step, index) => (
               <div key={step} style={{ padding: "16px", borderRadius: "18px", background: index % 2 ? "#f8fafc" : "#ffffff", border: "1px solid rgba(148,163,184,0.18)" }}>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "8px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "8px" }}>
                   {step}
                 </div>
-                <div style={{ fontSize: "14px", lineHeight: 1.7, color: "#334155" }}>
+                <div style={{ fontSize: "14px", lineHeight: 1.7, color: "#000000" }}>
                   {index === 0
                     ? audience.readsFirst
                     : index === audience.workflowChain.length - 1

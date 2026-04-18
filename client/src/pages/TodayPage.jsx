@@ -203,7 +203,7 @@ export default function TodayPage() {
               textTransform: "uppercase",
               letterSpacing: "0.08em",
               fontWeight: 800,
-              color: "#64748b",
+              color: "var(--text-secondary)",
               marginBottom: "10px",
             }}
           >
@@ -278,7 +278,7 @@ export default function TodayPage() {
 
             {doneTasks.length ? (
               <div style={{ marginTop: "18px" }}>
-                <div style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: "8px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "8px" }}>
                   Completed
                 </div>
                 <div style={{ display: "grid", gap: "10px" }}>

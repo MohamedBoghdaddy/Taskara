@@ -38,11 +38,11 @@ const tonePalette = {
 
 const pillPalette = {
   neutral: { background: "var(--surface-alt)", color: "var(--text-secondary)", border: "var(--border)" },
-  success: { background: "#dcfce7", color: "#166534", border: "rgba(34,197,94,0.2)" },
-  warning: { background: "#fef3c7", color: "#92400e", border: "rgba(245,158,11,0.22)" },
-  danger: { background: "#fee2e2", color: "#b91c1c", border: "rgba(239,68,68,0.22)" },
-  info: { background: "#dbeafe", color: "#1d4ed8", border: "rgba(59,130,246,0.22)" },
-  trust: { background: "#fff7ed", color: "#c2410c", border: "rgba(251,146,60,0.24)" },
+  success: { background: "#dcfce7", color: "#000000", border: "rgba(34,197,94,0.2)" },
+  warning: { background: "#fef3c7", color: "#000000", border: "rgba(245,158,11,0.22)" },
+  danger: { background: "#fee2e2", color: "#000000", border: "rgba(239,68,68,0.22)" },
+  info: { background: "#dbeafe", color: "#000000", border: "rgba(59,130,246,0.22)" },
+  trust: { background: "#fff7ed", color: "#000000", border: "rgba(251,146,60,0.24)" },
 };
 
 const formatDateTime = (value) => {
@@ -78,7 +78,7 @@ export function VerticalPageLayout({ eyebrow, title, subtitle, actions, children
                 textTransform: "uppercase",
                 letterSpacing: "0.09em",
                 fontWeight: 800,
-                color: "#64748b",
+                color: "var(--text-secondary)",
                 marginBottom: "10px",
               }}
             >
@@ -198,7 +198,7 @@ export function MetricStrip({ items = [] }) {
               textTransform: "uppercase",
               letterSpacing: "0.08em",
               fontWeight: 800,
-              color: "#64748b",
+              color: "var(--text-secondary)",
               marginBottom: "8px",
             }}
           >

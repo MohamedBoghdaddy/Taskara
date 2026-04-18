@@ -19,7 +19,7 @@ const styles = {
     minHeight: "100vh",
     background:
       "radial-gradient(circle at top right, rgba(14,165,233,0.18), transparent 32%), radial-gradient(circle at left 18%, rgba(16,185,129,0.12), transparent 28%), linear-gradient(180deg, #ffffff 0%, #f8fafc 56%, #ecfeff 100%)",
-    color: "#0f172a",
+    color: "var(--text-primary)",
   },
   shell: {
     maxWidth: "1180px",
@@ -39,7 +39,7 @@ const styles = {
     padding: "8px 14px",
     borderRadius: "999px",
     background: "rgba(13,148,136,0.10)",
-    color: "#115e59",
+    color: "#000000",
     border: "1px solid rgba(13,148,136,0.16)",
     fontSize: "12px",
     fontWeight: 800,
@@ -58,18 +58,18 @@ function AudienceCard({ audience }) {
         display: "flex",
         flexDirection: "column",
         textDecoration: "none",
-        color: "#0f172a",
+        color: "var(--text-primary)",
         gap: "14px",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: "13px", fontWeight: 800, color: "#0f766e", marginBottom: "6px" }}>{audience.label}</div>
+          <div style={{ fontSize: "13px", fontWeight: 800, color: "var(--text-primary)", marginBottom: "6px" }}>{audience.label}</div>
           <div style={{ fontSize: "20px", fontWeight: 800, letterSpacing: "-0.03em" }}>{audience.headline}</div>
         </div>
         <ArrowRight size="sm" color="#0f766e" />
       </div>
-      <div style={{ fontSize: "14px", lineHeight: 1.7, color: "#475569" }}>{audience.painPoint}</div>
+      <div style={{ fontSize: "14px", lineHeight: 1.7, color: "#000000" }}>{audience.painPoint}</div>
       <div
         style={{
           padding: "14px 16px",
@@ -78,18 +78,18 @@ function AudienceCard({ audience }) {
           border: "1px solid rgba(15,118,110,0.14)",
           fontSize: "13px",
           lineHeight: 1.7,
-          color: "#0f172a",
+          color: "var(--text-primary)",
           fontWeight: 700,
         }}
       >
         {audience.hero}
       </div>
       <div style={{ display: "grid", gap: "8px" }}>
-        <div style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b" }}>
+        <div style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-secondary)" }}>
           Reads first
         </div>
-        <div style={{ fontSize: "14px", color: "#334155" }}>{audience.readsFirst}</div>
-        <div style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b", marginTop: "8px" }}>
+        <div style={{ fontSize: "14px", color: "#000000" }}>{audience.readsFirst}</div>
+        <div style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-secondary)", marginTop: "8px" }}>
           Syncs back to
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -103,7 +103,7 @@ function AudienceCard({ audience }) {
                 border: "1px solid rgba(148,163,184,0.18)",
                 fontSize: "12px",
                 fontWeight: 700,
-                color: "#0f172a",
+                color: "var(--text-primary)",
               }}
             >
               {target}
@@ -123,11 +123,11 @@ export default function LandingPage() {
           <div style={{ fontSize: "24px", fontWeight: 900, letterSpacing: "-0.04em" }}>Taskara</div>
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             {AUDIENCE_LIST.map((audience) => (
-              <Link key={audience.key} to={audience.slug} style={{ textDecoration: "none", color: "#475569", fontWeight: 600 }}>
+              <Link key={audience.key} to={audience.slug} style={{ textDecoration: "none", color: "#000000", fontWeight: 600 }}>
                 {audience.label}
               </Link>
             ))}
-            <Link to="/login" style={{ textDecoration: "none", color: "#475569", fontWeight: 700 }}>
+            <Link to="/login" style={{ textDecoration: "none", color: "#000000", fontWeight: 700 }}>
               Log in
             </Link>
             <Link
@@ -156,7 +156,7 @@ export default function LandingPage() {
             <br />
             Safe execution instead of blind automation.
           </h1>
-          <p style={{ fontSize: "19px", lineHeight: 1.8, color: "#475569", maxWidth: "860px", marginBottom: "24px" }}>
+          <p style={{ fontSize: "19px", lineHeight: 1.8, color: "#000000", maxWidth: "860px", marginBottom: "24px" }}>
             Taskara reads operational inputs, decides what should happen next, executes the safe path automatically, stops risky actions for approval, records every decision in an audit trail, and syncs outcomes back to systems of record for recruiters, startups, agencies, and real estate teams.
           </p>
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "22px" }}>
@@ -185,7 +185,7 @@ export default function LandingPage() {
                 alignItems: "center",
                 gap: "8px",
                 border: "1px solid rgba(15,118,110,0.18)",
-                color: "#0f766e",
+                color: "var(--text-primary)",
                 padding: "15px 20px",
                 borderRadius: "999px",
                 fontWeight: 800,
@@ -202,7 +202,7 @@ export default function LandingPage() {
               border: "1px solid rgba(148,163,184,0.18)",
               fontSize: "15px",
               lineHeight: 1.8,
-              color: "#1e293b",
+              color: "#000000",
             }}
           >
             Source -> action -> result -> sync is still the product story, but trust sits in the middle.
@@ -219,7 +219,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "38px", letterSpacing: "-0.05em", margin: "18px 0 8px" }}>
               Four workflow-specific wedges on one shared engine
             </h2>
-            <p style={{ fontSize: "17px", color: "#475569", lineHeight: 1.8, maxWidth: "760px" }}>
+            <p style={{ fontSize: "17px", color: "#000000", lineHeight: 1.8, maxWidth: "760px" }}>
               Every audience gets its own source, action, result, and sync chain. The engine underneath stays shared: input, extract, decide, execute, track, sync.
             </p>
           </div>
@@ -241,10 +241,10 @@ export default function LandingPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
             {CORE_ENGINE_STEPS.map((step, index) => (
               <div key={step.label} style={{ padding: "18px", borderRadius: "20px", background: index % 2 ? "#ffffff" : "#f8fafc", border: "1px solid rgba(148,163,184,0.18)" }}>
-                <div style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b", marginBottom: "8px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: "8px" }}>
                   {step.label}
                 </div>
-                <div style={{ fontSize: "14px", color: "#334155", lineHeight: 1.8 }}>{step.text}</div>
+                <div style={{ fontSize: "14px", color: "#000000", lineHeight: 1.8 }}>{step.text}</div>
               </div>
             ))}
           </div>
@@ -265,7 +265,7 @@ export default function LandingPage() {
                 )}
               </div>
               <div style={{ fontSize: "22px", fontWeight: 800, letterSpacing: "-0.03em", marginBottom: "10px" }}>{pillar.title}</div>
-              <div style={{ fontSize: "15px", lineHeight: 1.8, color: "#475569" }}>{pillar.body}</div>
+              <div style={{ fontSize: "15px", lineHeight: 1.8, color: "#000000" }}>{pillar.body}</div>
             </div>
           ))}
         </section>
@@ -280,12 +280,12 @@ export default function LandingPage() {
               <h2 style={{ fontSize: "38px", letterSpacing: "-0.05em", margin: "18px 0 12px" }}>
                 Execution only earns trust when operators can see confidence, control, and outcome
               </h2>
-              <p style={{ fontSize: "17px", lineHeight: 1.8, color: "#475569", maxWidth: "720px" }}>
+              <p style={{ fontSize: "17px", lineHeight: 1.8, color: "#000000", maxWidth: "720px" }}>
                 The product should feel like an execution system, not a generic AI checklist. Taskara surfaces workflow chains, risk level, approval state, action logs, assignment reasons, system sync, and audience-specific ROI in one place.
               </p>
             </div>
             <div style={{ padding: "22px", borderRadius: "24px", background: "linear-gradient(135deg, rgba(15,118,110,0.10), rgba(14,165,233,0.12))", border: "1px solid rgba(15,118,110,0.14)" }}>
-              <div style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0f766e", marginBottom: "10px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-primary)", marginBottom: "10px" }}>
                 What ships now
               </div>
               <div style={{ display: "grid", gap: "12px" }}>
@@ -295,7 +295,7 @@ export default function LandingPage() {
                   "Audience workflow templates for recruiters, startups, agencies, and real estate",
                   "Workflow analytics, launch readiness checks, and migration safety previews",
                 ].map((line) => (
-                  <div key={line} style={{ display: "flex", alignItems: "flex-start", gap: "10px", color: "#0f172a", lineHeight: 1.7 }}>
+                  <div key={line} style={{ display: "flex", alignItems: "flex-start", gap: "10px", color: "var(--text-primary)", lineHeight: 1.7 }}>
                     <CheckCircleIcon size="xs" color="#0f766e" style={{ marginTop: "4px", flexShrink: 0 }} />
                     <span>{line}</span>
                   </div>
