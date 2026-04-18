@@ -52,24 +52,44 @@ const validateLoginInput = ({ email, password } = {}) => {
   };
 };
 
-const register = async ({ name, email, password, workspaceVertical = 'core' }) => {
+const register = async ({
+  name,
+  email,
+  password,
+  workspaceVertical = "core",
+}) => {
   const input = validateRegisterInput({ name, email, password });
-  
+
   // Validate vertical
-  const verticalOptions = ['core', 'recruiters', 'agencies', 'realestate', 'startups', 'student'];
-  const vertical = verticalOptions.includes(workspaceVertical) ? workspaceVertical : 'core';
+  const verticalOptions = [
+    "core",
+    "recruiters",
+    "agencies",
+    "realestate",
+    "startups",
+    "student",
+  ];
+  const vertical = verticalOptions.includes(workspaceVertical)
+    ? workspaceVertical
+    : "core";
 
   // Atomic check-and-create with database unique constraint
   let user;
   try {
     const existing = await User.findOne({ email: input.email });
-    if (existing) throw { status: 409, message: 'Email already registered' };
+    if (existing) {
+      throw { status: 409, message: "Email already registered" };
+    }
 
     const passwordHash = await bcrypt.hash(input.password, 12);
-    user = await User.create({ name: input.name, email: input.email, passwordHash });
+    user = await User.create({
+      name: input.name,
+      email: input.email,
+      passwordHash,
+    });
   } catch (err) {
-    if (err.code === 11000) { // MongoDB duplicate key
-      throw { status: 409, message: 'Email already registered' };
+    if (err.code === 11000) {
+      throw { status: 409, message: "Email already registered" };
     }
     throw err;
   }
@@ -81,16 +101,16 @@ const register = async ({ name, email, password, workspaceVertical = 'core' }) =
       name: `${input.name}'s Workspace`,
       ownerId: user._id,
       memberIds: [user._id],
-      vertical, // Use selected vertical
-      surfaceMode: 'operator',
-      featureProfile: 'core',
-      trustProfile: 'operator',
+      vertical,
+      surfaceMode: "operator",
+      featureProfile: "core",
+      trustProfile: "operator",
     });
 
     await WorkspaceMember.create({
       workspaceId: workspace._id,
       userId: user._id,
-      role: 'owner',
+      role: "owner",
     });
 
     user.defaultWorkspaceId = workspace._id;
@@ -98,7 +118,10 @@ const register = async ({ name, email, password, workspaceVertical = 'core' }) =
   } catch (err) {
     // Clean up orphaned user
     await User.deleteOne({ _id: user._id });
-    throw { status: 500, message: 'Failed to create workspace. Please try again.' };
+    throw {
+      status: 500,
+      message: "Failed to create workspace. Please try again.",
+    };
   }
 
   const accessToken = generateAccessToken(user._id);
@@ -111,9 +134,6 @@ const register = async ({ name, email, password, workspaceVertical = 'core' }) =
     user: await serializeUserWithWorkspace(user),
     accessToken,
     refreshToken,
-    workspace,
-  };
-};
     workspace,
   };
 };
